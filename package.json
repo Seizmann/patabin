@@ -1,0 +1,8 @@
+{
+  "name": "patabin",
+  "private": true,
+  "packageManager": "pnpm@11.2.2",
+  "engines": {
+    "node": ">=20"
+  }
+}
