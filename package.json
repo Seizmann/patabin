@@ -16,7 +16,8 @@
     "typescript-eslint": "^8.12.0"
   },
   "scripts": {
-    "dev": "pnpm --filter @patabin/web dev",
+    "dev": "pnpm gen:env && pnpm --filter @patabin/web dev",
+    "dev:web": "pnpm gen:env && pnpm --filter @patabin/web dev",
     "build": "pnpm --filter @patabin/web build",
     "lint": "eslint .",
     "format": "prettier --log-level warn --write .",
@@ -31,6 +32,7 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:backup": "tsx scripts/db-backup.ts",
     "admin:reset": "tsx scripts/admin-reset.ts",
+    "gen:env": "tsx scripts/dev-env.ts",
     "gen:icons": "tsx scripts/gen-icons.ts"
   }
 }
