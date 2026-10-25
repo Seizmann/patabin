@@ -234,7 +234,6 @@ declare
   v_remaining numeric;
   v_summary record;
   v_partners jsonb;
-  v_payout record;
 begin
   perform public.assert_writeable();
   select remaining into v_remaining from public.v_batch_stock where batch_id = p_batch_id;
@@ -250,15 +249,15 @@ begin
   end if;
   select * into v_summary from public.v_batch_summary where batch_id = p_batch_id;
   select coalesce(jsonb_agg(jsonb_build_object(
-    'partner_id', v_payout.partner_id,
-    'partner_name', v_payout.partner_name,
-    'contribution', v_payout.contribution,
-    'contribution_share', v_payout.contribution_share,
-    'personal_value', v_payout.personal_value,
-    'payout', v_payout.payout
+    'partner_id', pv.partner_id,
+    'partner_name', pv.partner_name,
+    'contribution', pv.contribution,
+    'contribution_share', pv.contribution_share,
+    'personal_value', pv.personal_value,
+    'payout', pv.payout
   )), '[]'::jsonb) into v_partners
-  from public.v_partner_batch_payout v_payout
-  where v_payout.batch_id = p_batch_id;
+  from public.v_partner_batch_payout pv
+  where pv.batch_id = p_batch_id;
   insert into public.batch_close_snapshots (batch_id, closed_at, closed_by, data)
   values (p_batch_id, now(), auth.uid(), jsonb_build_object(
     'summary', to_jsonb(v_summary),

@@ -7,8 +7,8 @@ export function loadSecrets(): Secrets {
   const text = readFileSync('SECRETS.md', 'utf8');
   const secrets: Secrets = {};
   for (const line of text.split('\n')) {
-    const m = line.match(/^[A-Z0-9_]+=(.*)$/);
-    if (m) secrets[m[0].slice(0, -1)] = m[1].trim();
+    const i = line.indexOf('=');
+    if (i > 0 && /^[A-Z0-9_]+$/.test(line.slice(0, i))) secrets[line.slice(0, i)] = line.slice(i + 1).trim();
   }
   return secrets;
 }

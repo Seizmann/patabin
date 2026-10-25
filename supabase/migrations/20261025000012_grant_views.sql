@@ -1,0 +1,1 @@
+grant select on public.v_batch_stock, public.v_batch_summary, public.v_batch_profit, public.v_partner_batch_payout, public.v_partner_balance, public.v_sales_enriched, public.v_dashboard_day to authenticated;
