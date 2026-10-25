@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { loadSecrets } from './secrets';
 
 const s = loadSecrets();
