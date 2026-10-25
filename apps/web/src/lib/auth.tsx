@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
-      if (!s) window.location.replace('/login');
+      if (!s && window.location.pathname !== '/login') window.location.replace('/login');
     });
     return () => sub.subscription.unsubscribe();
   }, []);
