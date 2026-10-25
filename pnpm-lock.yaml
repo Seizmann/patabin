@@ -96,6 +96,9 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@26.6.5)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.51.2)(tsx@4.23.15)
+      workbox-window:
+        specifier: ^7.4.1
+        version: 7.4.1
 
   packages/shared:
     dependencies:

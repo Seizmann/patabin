@@ -33,6 +33,7 @@
     "db:backup": "tsx scripts/db-backup.ts",
     "admin:reset": "tsx scripts/admin-reset.ts",
     "gen:env": "tsx scripts/dev-env.ts",
+    "gen:vercel": "tsx scripts/gen-vercel-config.ts",
     "gen:icons": "tsx scripts/gen-icons.ts"
   }
 }
