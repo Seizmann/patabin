@@ -2,7 +2,11 @@ import { readFileSync } from 'node:fs';
 import { loadSecrets, trackedFiles, stagedFiles } from './secrets';
 
 const secrets = loadSecrets();
-const values = Object.values(secrets).filter((v) => v.length >= 12);
+const PUBLIC_KEYS = new Set(['SUPABASE_PROJECT_REF', 'SUPABASE_URL', 'SUPABASE_ANON_KEY']);
+const values = Object.entries(secrets)
+  .filter(([k]) => !PUBLIC_KEYS.has(k))
+  .map(([, v]) => v)
+  .filter((v) => v.length >= 12);
 const tracked = trackedFiles();
 const staged = stagedFiles();
 
