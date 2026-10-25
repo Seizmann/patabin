@@ -401,3 +401,51 @@ Reference: the "BSZ Ledger" dashboard screenshot. Light mode only — no dark mo
 - Images live in `docs/img/`; the frontend phase copies them to final paths as described in `docs/image-prompt.md`.
 - Derive PWA icons (192, 512, maskable 512 on the `#F5F1EA`-compatible brand background, apple-touch 180, favicon) from `logo-mark.png` with a `sharp` script in `scripts/`.
 - `apps/web/index.html` must include: `<title>`, `theme-color` `#F5F1EA`, `og:type`, `og:site_name` (PataBin), `og:title`, `og:description` (short Bangla text), `og:image` as an absolute URL to the production domain, `og:image:width` 1200, `og:image:height` 630, `twitter:card` `summary_large_image`.
+
+---
+
+## 16. Final overrides
+
+Session overrides; where they conflict with earlier sections, they win.
+
+### Roles and permissions
+- `su_admin` can do everything. `patabin_admin` can do everything EXCEPT the two default rates in Settings. The restriction is enforced in the database (RLS/policies), not only in the UI.
+- `settings` holds both defaults: `default_buy_rate` (unit cost, default 190) and `default_sell_price` (default 300). Both are editable only by `su_admin` (DB policy); `patabin_admin` sees both read-only. Per-entry values stay editable by both roles: a purchase's amounts, a sale's `amount_received` and discount, a personal-use amount.
+- Safeguards enforced in the DB and re-checked inside the edge function: nobody can change their own role; only `su_admin` can modify, deactivate, reset the password of, or change the role of a `su_admin` account; the last active `su_admin` can never be deactivated. All other user management is available to both roles.
+- Reopening a closed batch is allowed for both roles (everything except the rates).
+
+### Time (Bangladesh time)
+- Every entry (sale, personal use, expense, damage/adjustment, transfer, batch purchase date) is stored as `timestamptz` defaulting to `now()` from the database server clock, displayed in `Asia/Dhaka`. The device clock is never trusted for defaults; the `date` columns of §6 are converted to `timestamptz`.
+- Every entry form has a compact time control showing the current server time with an option to pick a custom date and time manually (Bangla, mobile friendly). Unchanged control = server default.
+- Dashboard/reports periods: today, yesterday, this week, this month, last month, custom range; boundaries computed in `Asia/Dhaka`. Custom datetimes convert with an explicit `+06:00` offset, never device timezone parsing.
+- Day boundaries for periods: Dhaka-local.
+
+### Deployment (Vercel, manual)
+- `vercel.json` lives ONLY at `apps/web/` (no root config). The human sets the Vercel project Root Directory to `apps/web` and deploys manually; no Vercel CLI commands are run.
+- `apps/web/vercel.json` defines: `framework: vite`; install/build commands working with Root Directory `apps/web` in this pnpm workspace (`@patabin/shared` resolves via the workspace lockfile); output `dist`; an explicit rewrite to `/index.html` for EVERY app route, then one catch-all so the in-app 404 renders; cache headers (immutable hashed assets; no-cache for service worker, `registerSW.js`, manifest); security headers: strict CSP (`script-src 'self'`, no unsafe-eval; `connect-src` only the app's Supabase https origin + wss twin; `img-src self data blob`; self-hosted fonts; `frame-ancestors 'none'`; `object-src 'none'`; `base-uri 'self'`; `form-action 'self'`), HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` (deny camera/microphone/geolocation/payment), `Cross-Origin-Opener-Policy`, `X-Robots-Tag: noindex, nofollow`.
+- A test/script fails if the rewrite list and the router config drift apart.
+- `docs/DEPLOY.md` replaces the Vercel steps of §11: exact project settings, env vars (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SITE_URL`), Supabase Auth Site URL step, first-login steps, backup command.
+
+### UI, UX, design
+- §15 as written, with: Phosphor Icons (`@phosphor-icons/react`, light/regular inactive, fill active, named imports) replacing `lucide-react`. The only allowed symbol besides icons is the taka sign. Absolutely no emoji or unicode pictographs anywhere (UI, code, docs, commits, seed data).
+- Loading: every data region shows a content-shaped skeleton with subtle shimmer matching the final layout (no layout shift), respecting `prefers-reduced-motion`. Route-level code splitting; TanStack Query shows cached data instantly and refreshes in the background.
+- Charts lazy-load so non-dashboard routes do not pay for the chart chunk.
+- UX bar: a sale in about 3 taps, inline Bangla validation, confirmation for destructive actions with undo where possible, empty states with the generated illustrations, AA contrast, keyboard/screen-reader accessibility (`lang="bn"`, aria-labels on icon-only tabs, route announcements), Bangla digits for display and both digit systems in inputs.
+
+### SEO
+- Dynamic titles on every route: `<Page> · PataBin` (detail pages include the identifier), one hook; per-main-route meta description; full head metadata (lang, canonical from `VITE_SITE_URL`, theme-color, manifest, icons, OG with `og-image.webp` 1200x630 absolute, Twitter `summary_large_image`, WebApplication JSON-LD); meta robots `noindex, nofollow` + restrictive `robots.txt`, flag in one place.
+
+### Security hardening
+- RLS enabled and forced on every table; no grants to `anon`; default privileges revoked; `execute` granted only to `authenticated`; every `SECURITY DEFINER` function has fixed `search_path`, validates inputs, no dynamic SQL, and re-checks caller role and `is_active`.
+- While `must_change_password` is true the DB blocks all writes except the password change itself. The flag clears only via a real password change (verified against a hash snapshot on `profiles`), so the fallback RPC cannot be called without changing the password.
+- Signup disabled; minimum password length 10; auth rate limits reviewed and documented; idle sign-out after 60 minutes of inactivity; audit log append-only (no update/delete grants for anyone); edge function verifies JWT, re-checks role + safeguards, validates input, CORS from an `ALLOWED_ORIGINS` function secret (comma separated, localhost dev only, never wildcard), generic errors, no secret or password logging; frontend has no `dangerouslySetInnerHTML`, no secrets in the bundle (build-time grep), no user data in `localStorage` beyond the Supabase session, never caches API responses in the service worker; `pnpm audit` has no high/critical findings; lockfile committed; `SECRETS.md`/`.env*` never tracked.
+
+### Dashboard formulas
+- Income = Σ `amount_received` of all sales in the period (external + internal; legend notes ব্যক্তিগত ব্যবহার is included).
+- Expenses = Σ `amount` of operating expenses in the period, with a secondary line showing landed (purchase-related) expenses for the period.
+- Net profit = Income − Σ (allocated qty × batch `landed_cost_per_pc`) − Σ (stock_adjustments qty of allocated batches in period × `landed_cost_per_pc`) − operating expenses; dashboard totals over a fully closed batch must equal the batch profit of §2.5 (tested).
+- Hero card "নগদ গৃহীত" = external sales cash only; the payment-method donut shows ব্যক্তিগত ব্যবহার as its own slice so the donut total equals Income.
+- Stock = current Σ remaining over open batches. Balances = `v_partner_balance` current values, `Σ = 0`.
+
+### Code style
+- Shortest readable code; no comments in code (TS/SQL/CSS/config), no docstrings, no TODOs, no `console.log` in committed code.
