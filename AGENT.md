@@ -22,7 +22,7 @@
 - Mobile-first and fully responsive: must work at 360px, 768px and ≥1280px, no horizontal scroll, touch targets ≥44px, no hover-only interactions.
 - Mobile: fixed bottom nav with exactly 6 icon-only tabs (outline icons, muted grey inactive, espresso/cocoa active with a small indicator).
 - Desktop (≥1024px): bottom bar becomes a left sidebar with icon + Bangla label items; content in a centered container (~1200px max), stat cards 4-up, lists become tables, forms open in a side panel or dialog.
-- Use assets `login-bg`, `404-bg`, `dashboard-hero`, `empty-*`, `offline`, `app-texture`, `logo-mark`, `wordmark` (see `docs/image-prompt.md` for paths and specs).
+- Use assets `login-bg`, `404-bg`, `dashboard-hero`, `empty-*`, `offline`, `app-texture`, `logo-mark`, `wordmark` (see `docs/image-prompt.md` for paths and specs). Generated images are staged in `docs/img/`; copy them to the final paths in `docs/image-prompt.md`, never edit the originals.
 
 ## Workflow
 

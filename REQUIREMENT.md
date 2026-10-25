@@ -396,3 +396,8 @@ Reference: the "BSZ Ledger" dashboard screenshot. Light mode only — no dark mo
 - Desktop (≥1024px): the bottom bar becomes a left sidebar (logo-mark/wordmark on top, icon + Bangla label items, "আরও" items listed inline). Content sits in a centered container (max ~1200px); stat cards 4-up, lists become tables with sticky headers, forms open in a side panel or dialog instead of full pages.
 - Responsive is a hard rule: every page must work at 360px, 768px and ≥1280px with no horizontal scroll, touch targets ≥44px, no hover-only interactions.
 - Image assets and full generation prompts: see `docs/image-prompt.md` (login-bg, 404-bg, dashboard-hero, empty-*, offline, app-texture, logo-mark, wordmark).
+
+### 15.1 Image staging and OG meta
+- Images live in `docs/img/`; the frontend phase copies them to final paths as described in `docs/image-prompt.md`.
+- Derive PWA icons (192, 512, maskable 512 on the `#F5F1EA`-compatible brand background, apple-touch 180, favicon) from `logo-mark.png` with a `sharp` script in `scripts/`.
+- `apps/web/index.html` must include: `<title>`, `theme-color` `#F5F1EA`, `og:type`, `og:site_name` (PataBin), `og:title`, `og:description` (short Bangla text), `og:image` as an absolute URL to the production domain, `og:image:width` 1200, `og:image:height` 630, `twitter:card` `summary_large_image`.

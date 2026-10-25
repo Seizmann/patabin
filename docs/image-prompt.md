@@ -2,6 +2,10 @@
 
 Generate every image manually in ChatGPT and drop each file into its exact path below. Then follow the "After generating" section at the bottom.
 
+## Image staging
+
+All generated files are staged in `docs/img/` with the same file names. During frontend implementation the agent COPIES (does not move) each file to its final path listed in the checklist. If a copied file exceeds its size budget, optimize the copy with the same format and dimensions; never touch the originals in `docs/img/`.
+
 ## Checklist
 
 | # | File name | Final path | Final size (px) | Format | Transparent | Priority |
@@ -18,6 +22,7 @@ Generate every image manually in ChatGPT and drop each file into its exact path 
 | 10 | 404-bg.webp | apps/web/src/assets/images/backgrounds/404-bg.webp | 2400×1600 | WebP | no | high |
 | 11 | dashboard-hero.webp | apps/web/src/assets/images/backgrounds/dashboard-hero.webp | 1600×800 | WebP | no | high |
 | 12 | app-texture.webp | apps/web/src/assets/images/backgrounds/app-texture.webp | 1024×1024 | WebP | no | optional |
+| 13 | og-image.webp | apps/web/public/og-image.webp | 1200×630 | WebP | no | medium |
 
 Image rule: transparent-background images are **PNG**, everything else is **WebP**. No JPG, no SVG.
 
@@ -211,6 +216,22 @@ An extremely subtle seamless tileable texture: near-white warm paper with a whis
 
 If the tiled edges do not connect seamlessly when the human tests it, skip this asset — the app works without it.
 
+### 13. og-image
+
+- File name: `og-image.webp`
+- Path: `apps/web/public/og-image.webp`
+- Generate at: 1536×1024 (3:2)
+- Final size: 1200×630 (crop to 1.91:1 — crop to 1536×804, trimming ~110px evenly from top and bottom, then resize to 1200×630)
+- Format: WebP, opaque background, quality 80–85, under 200 KB
+
+```
+Premium, warm, minimal, editorial style. Chocolate-business theme. Palette: warm paper off-white #F5F1EA, white #FFFFFF, cocoa brown #4A2C1D, deep espresso #1F1611, caramel/gold accent #B9854A. Soft natural lighting, subtle depth, clean shapes, no clutter. No people's faces. No real brand packaging. No numbers, no tagline, no watermark, no UI mockups.
+
+A premium, minimal social share card layout for "PataBin", a chocolate-business money ledger. Warm paper background #F5F1EA fills the frame. Left half: calm negative space with the refined abstract logo mark (three stacked chocolate squares with a subtle hidden "P" monogram) above the text "PataBin" spelled exactly — capital P, capital B — large, cocoa brown #4A2C1D, premium geometric sans-serif. Right half: a refined still life of chocolate bars, chocolate squares and cocoa nibs with one round gold coin, soft natural light from one side, subtle depth, caramel accent #B9854A. Keep all important content inside a 60px safe margin from every edge because social platforms crop the borders. Balanced horizontal composition, wide landscape aspect ratio.
+```
+
+After generating, **verify the spelling is exactly "PataBin"**. If the model keeps mangling the text, generate an art-only version with the left half left empty (cocoa squares and still life on the right, negative space on the left) — the build step will then composite `wordmark.png` onto it.
+
 ## After generating
 
 1. Save each generated image into the exact path from the checklist (already created in this repo; each empty folder holds a `.gitkeep`).
@@ -219,11 +240,13 @@ If the tiled edges do not connect seamlessly when the human tests it, skip this 
    - All five `empty-*.png` and `offline.png`: crop 1536×1024 (3:2) to 4:3 — trim ~85px from the left and ~86px from the right (1536 → 1365), keeping the centered subject, then resize to 1024×768.
    - `login-bg.webp` and `404-bg.webp`: no crop, upscale 1536×1024 → 2400×1600.
    - `dashboard-hero.webp`: crop 1536×1024 (3:2) to 2:1 — trim the image vertically: crop to 1536×768 (cut ~128px evenly from top and bottom, keeping the darker lower third in frame), then resize to 1600×800.
+   - `og-image.webp`: crop 1536×1024 (3:2) to 1.91:1 — crop to 1536×804 (trim ~110px evenly from top and bottom, keeping the 60px safe margin content), then resize to 1200×630.
    - `logo-mark.png` and `app-texture.webp`: already at final size, no change.
 3. Convert every non-transparent image to **WebP, quality 80–85**. Keep transparent originals as **PNG** (32-bit, alpha preserved).
-4. File-size budgets: backgrounds (`login-bg`, `404-bg`) under 300 KB; `dashboard-hero` under 250 KB; transparent PNGs under 600 KB each; `app-texture` under 50 KB.
+4. File-size budgets: backgrounds (`login-bg`, `404-bg`) under 300 KB; `dashboard-hero` under 250 KB; transparent PNGs under 600 KB each; `app-texture` under 50 KB; `og-image` under 200 KB.
 5. Verify the exact placement paths again before committing:
    - `apps/web/public/brand/logo-mark.png`
    - `apps/web/public/brand/wordmark.png`
+   - `apps/web/public/og-image.webp`
    - `apps/web/src/assets/images/empty/empty-sales.png` / `empty-batches.png` / `empty-expenses.png` / `empty-settlements.png` / `empty-search.png` / `offline.png`
    - `apps/web/src/assets/images/backgrounds/login-bg.webp` / `404-bg.webp` / `dashboard-hero.webp` / `app-texture.webp`
