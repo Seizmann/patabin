@@ -1,8 +1,36 @@
 {
   "name": "patabin",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@11.2.2",
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "globals": "^15.12.0",
+    "prettier": "^3.4.2",
+    "sharp": "^0.33.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.12.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @patabin/web dev",
+    "build": "pnpm --filter @patabin/web build",
+    "lint": "eslint .",
+    "format": "prettier --log-level warn --write .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "test:sql": "tsx scripts/test-sql.ts",
+    "check:secrets": "tsx scripts/check-secrets.ts",
+    "check:routes": "tsx scripts/check-routes.ts",
+    "db:link": "tsx scripts/supabase.ts link",
+    "db:push": "supabase db push",
+    "db:types": "supabase gen types typescript --linked > packages/shared/src/database.types.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:backup": "tsx scripts/db-backup.ts",
+    "admin:reset": "tsx scripts/admin-reset.ts",
+    "gen:icons": "tsx scripts/gen-icons.ts"
   }
 }
