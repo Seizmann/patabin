@@ -128,6 +128,7 @@ function SalesTable({ rows, onEdit, onDelete }: { rows: SaleRowV[]; onEdit: (r: 
 
 function EditSheet({ sale, onClose, onSaved }: { sale: SaleRowV; onClose: () => void; onSaved: () => void }) {
   const qc = useQueryClient();
+  const [error, setError] = useState('');
   const { data: raw, error: rawError } = useQuery({
     queryKey: ['sale-raw', sale.id],
     queryFn: async () => {
@@ -142,6 +143,7 @@ function EditSheet({ sale, onClose, onSaved }: { sale: SaleRowV; onClose: () => 
   return (
     <div className="fixed inset-0 z-40 flex items-end overflow-y-auto bg-black/40 sm:items-center sm:p-6">
       <div role="dialog" aria-modal="true" className="card w-full rounded-b-3xl p-5 sm:mx-auto sm:max-w-lg sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+        {error && <div className="mb-3"><Notice tone="error">{error}</Notice></div>}
         {raw && (
           <SaleForm
             title="বিক্রি সম্পাদনা"

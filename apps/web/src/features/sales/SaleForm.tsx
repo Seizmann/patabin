@@ -1,38 +1,32 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { fetchPartners, mapError, type SaleInput } from './api';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from 'lib/supabase';
 import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
-import {
-  Btn,
-  Card,
-  Field,
-  Notice,
-  PageTitle,
-} from 'components/ui/base';
+import { Btn, Card, Field, Notice, PageTitle } from 'components/ui/base';
 import { formatMoney } from '@patabin/shared';
 
 type Props = {
   title: string;
   submitLabel: string;
   initial: Partial<SaleInput> & { kind: 'external' | 'internal' };
+  defaultPrice?: number;
   onSubmit: (payload: SaleInput) => Promise<void>;
-  extra?: ReactNode;
 };
 
 const payMethods = [
   { id: 'cash', label: 'নগদ' },
   { id: 'bkash', label: 'বিকাশ' },
-  { id: 'nagad', label: 'নগদ এপ' },
+  { id: 'nagad', label: 'নগদ (এপ)' },
   { id: 'rocket', label: 'রকেট' },
   { id: 'bank', label: 'ব্যাংক' },
-  { id: 'other', label: 'অন্য' },
+  { id: 'other', label: 'অন্যান্য' },
 ];
 
-export default function SaleForm({ title, submitLabel, initial, onSubmit, extra }: Props) {
+export default function SaleForm({ title, submitLabel, initial, defaultPrice = 300, onSubmit }: Props) {
   const [qty, setQty] = useState(initial.qty ? String(initial.qty) : '1');
-  const [price, setPrice] = useState('300');
+  const [price, setPrice] = useState(String(initial.list_unit_price ?? defaultPrice));
   const [amount, setAmount] = useState('');
   const [customerName, setCustomerName] = useState(initial.customer_name ?? '');
   const [method, setMethod] = useState(initial.payment_method ?? 'cash');
@@ -92,7 +86,7 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, extra 
 
   return (
     <Card className="flex flex-col gap-5 p-6">
-      <PageTitle tag={'PataBin'} title={title} />
+      <PageTitle tag="PataBin" title={title} />
       <form onSubmit={submit} className="flex flex-col gap-5" noValidate>
         <Field label={'তালিকা মূল্য (৳)'}>
           <NumberInput value={price} onChange={setPrice} />
@@ -159,7 +153,6 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, extra 
         <Field label={'নোট (ঐচ্ছিক)'}>
           <input className="field" value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
-        {extra}
         {error && <Notice tone="error">{error}</Notice>}
         <Btn type="submit" busy={busy} disabled={!qty}>
           {submitLabel}
