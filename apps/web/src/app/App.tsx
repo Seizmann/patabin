@@ -13,11 +13,14 @@ const DashboardPage = lazy(() => import('features/dashboard/DashboardPage'));
 const SalesPage = lazy(() => import('features/sales/SalesPage'));
 const NewSalePage = lazy(() => import('features/sales/NewSalePage'));
 const PersonalUsePage = lazy(() => import('features/personal-use/PersonalUsePage'));
-const BatchesPage = lazy(() => import('features/batches/BatchesPage'));
-const NewBatchPage = lazy(() => import('features/batches/NewBatchPage'));
-const BatchDetailPage = lazy(() => import('features/batches/BatchDetailPage'));
+const ChalansPage = lazy(() => import('features/chalans/ChalansPage'));
+const NewChalanPage = lazy(() => import('features/chalans/NewChalanPage'));
+const ChalanDetailPage = lazy(() => import('features/chalans/ChalanDetailPage'));
+const PacketsPage = lazy(() => import('features/packets/PacketsPage'));
+const CustomersPage = lazy(() => import('features/customers/CustomersPage'));
 const ExpensesPage = lazy(() => import('features/expenses/ExpensesPage'));
 const AdjustmentsPage = lazy(() => import('features/adjustments/AdjustmentsPage'));
+const WalletsPage = lazy(() => import('features/wallets/WalletsPage'));
 const SettlementPage = lazy(() => import('features/settlement/SettlementPage'));
 const ReportsPage = lazy(() => import('features/reports/ReportsPage'));
 const AuditTrailPage = lazy(() => import('features/audit/AuditTrailPage'));
@@ -67,11 +70,14 @@ export default function App() {
                 <Route path="/sales" element={<Page><SalesPage /></Page>} />
                 <Route path="/sales/new" element={<Page><NewSalePage /></Page>} />
                 <Route path="/personal-use" element={<Page><PersonalUsePage /></Page>} />
-                <Route path="/batches" element={<Page><BatchesPage /></Page>} />
-                <Route path="/batches/new" element={<Page><NewBatchPage /></Page>} />
-                <Route path="/batches/:code" element={<Page><BatchDetailPage /></Page>} />
+                <Route path="/chalans" element={<Page><ChalansPage /></Page>} />
+                <Route path="/chalans/new" element={<Page><NewChalanPage /></Page>} />
+                <Route path="/chalans/:code" element={<Page><ChalanDetailPage /></Page>} />
+                <Route path="/packets" element={<Page><PacketsPage /></Page>} />
+                <Route path="/customers" element={<Page><CustomersPage /></Page>} />
                 <Route path="/expenses" element={<Page><ExpensesPage /></Page>} />
                 <Route path="/adjustments" element={<Page><AdjustmentsPage /></Page>} />
+                <Route path="/wallets" element={<Page><WalletsPage /></Page>} />
                 <Route path="/settlement" element={<Page><SettlementPage /></Page>} />
                 <Route path="/reports" element={<Page><ReportsPage /></Page>} />
                 <Route path="/audit-trail" element={<Page><AuditTrailPage /></Page>} />

@@ -5,13 +5,16 @@ import { useAuth } from 'lib/auth';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Card, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import NumberInput from 'components/forms/NumberInput';
+import { mapError } from 'lib/errors';
 
 export default function SettingsPage() {
   usePageTitle('সেটিংস');
   const { suAdmin } = useAuth();
-  const qc = useAsyncQueue();
-  const [buy, setBuy] = useState<string | undefined>(undefined);
-  const [sell, setSell] = useState<string | undefined>(undefined);
+  const qc = useQueryClient();
+  const [buy, setBuy] = useState('');
+  const [sell, setSell] = useState('');
+  const [size, setSize] = useState('');
+  const [catName, setCatName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
@@ -19,37 +22,54 @@ export default function SettingsPage() {
   const { data: settings, isPending } = useQuery({
     queryKey: ['settings'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('settings').select('default_buy_rate, default_sell_price, updated_at').eq('id', 1).single();
+      const { data, error } = await supabase.from('settings').select('default_buy_rate, default_sell_price, default_packet_size').eq('id', 1).single();
       if (error) throw error;
-      return data as { default_buy_rate: string | number; default_sell_price: string | number; updated_at: string };
+      return data as { default_buy_rate: number; default_sell_price: number; default_packet_size: number };
+    },
+  });
+  const { data: categories = [] } = useQuery({
+    queryKey: ['expense-categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('expense_categories').select('id, name').order('created_at');
+      if (error) throw error;
+      return (data ?? []) as { id: string; name: string }[];
     },
   });
 
-  const savePrices = async () => {
+  const save = async () => {
     if (!settings) return;
     setBusy(true);
     setError('');
     setOk('');
-    const { error: getUserErr, data: u } = await supabase.auth.getUser();
-    if (getUserErr) {
-      setBusy(false);
-      setError(getUserErr.message);
-      return;
-    }
-    const { error: saveErr } = await supabase
+    const { error: err } = await supabase
       .from('settings')
       .update({
-        default_buy_rate: Number(buy ?? settings.default_buy_rate),
-        default_sell_price: Number(sell ?? settings.default_sell_price),
-        updated_by: u?.user?.id,
+        default_buy_rate: Number(buy || settings.default_buy_rate),
+        default_sell_price: Number(sell || settings.default_sell_price),
+        default_packet_size: Number(size || settings.default_packet_size),
       })
       .eq('id', 1);
     setBusy(false);
-    if (saveErr || !u.user) setError('সংরক্ষণ হয়নি; শুধু সুপার অ্যাডমিন পরিবর্তন করতে পারেন।');
+    if (err) setError('সংরক্ষণ হয়নি; শুধু সুপার অ্যাডমিন পরিবর্তন করতে পারেন।');
     else {
       setOk('সংরক্ষিত।');
       await qc.invalidateQueries({ queryKey: ['settings'] });
     }
+  };
+
+  const addCategory = async () => {
+    if (!catName) return;
+    setError('');
+    setBusy(true);
+    try {
+      const { error: err } = await supabase.from('expense_categories').insert({ name: catName });
+      if (err) throw err;
+      await qc.invalidateQueries({ queryKey: ['expense-categories'] });
+      setCatName('');
+    } catch (err) {
+      setError(mapError(err));
+    }
+    setBusy(false);
   };
 
   return (
@@ -62,41 +82,40 @@ export default function SettingsPage() {
         </div>
       ) : (
         <Card className="flex flex-col gap-5 p-6">
-          <SettingField
-            label="ডিফল্ট কেনা দর (ইউনিট কস্ট)"
-            current={String(settings?.default_buy_rate ?? '-')}
-            editable={suAdmin}
-            value={buy ?? String(settings?.default_buy_rate ?? '')}
-            onChange={setBuy}
-          />
-          <SettingField
-            label="ডিফল্ট বিক্রির দর"
-            current={String(settings?.default_sell_price ?? '-')}
-            editable={suAdmin}
-            value={sell ?? String(settings?.default_sell_price ?? '')}
-            onChange={setSell}
-          />
+          <SettingField label="ডিফল্ট কেনা দর (কেনা বেচার কস্ট)" current={String(settings?.default_buy_rate ?? '-')} editable={suAdmin} value={buy || String(settings?.default_buy_rate ?? '')} onChange={setBuy} />
+          <SettingField label="ডিফল্ট বিক্রির দর" current={String(settings?.default_sell_price ?? '-')} editable={suAdmin} value={sell || String(settings?.default_sell_price ?? '')} onChange={setSell} />
+          <SettingField label="ডিফল্ট প্যাকেটে পিস" current={String(settings?.default_packet_size ?? '-')} editable={suAdmin} value={size || String(settings?.default_packet_size ?? '')} onChange={setSize} />
           {error && <Notice tone="error">{error}</Notice>}
           {ok && <Notice tone="ok">{ok}</Notice>}
-          {!suAdmin && <Notice>দুটি ডিফল্ট দর শুধু সুপার অ্যাডমিন পরিবর্তন করতে পারেন; আপনি দেখতে পারছেন।</Notice>}
-          <Btn disabled={!suAdmin} busy={busy} onClick={() => void savePrices()}>
-            সংরক্ষণ করুন
-          </Btn>
+          {!suAdmin && <Notice tone="info">ডিফল্ট দরগুলো শুধু সুপার অ্যাডমিন বদলাতে পারেন; আপনি দেখতে পারছেন।</Notice>}
+          <div className="max-w-40">
+            <Btn disabled={!suAdmin} busy={busy} onClick={() => void save()}>
+              সংরক্ষণ করুন
+            </Btn>
+          </div>
         </Card>
       )}
+
+      <Card className="flex flex-col gap-4 p-6">
+        <p className="p-label">খরচের ক্যাটাগরি</p>
+        <div className="flex flex-wrap gap-2">
+          {categories.map((c) => (
+            <span key={c.id} className="rounded-full bg-canvas px-3 py-1 text-sm">
+              {c.name}
+            </span>
+          ))}
+        </div>
+        {suAdmin && (
+          <div className="flex items-end gap-2">
+            <input className="field max-w-xs" placeholder="নতুন ক্যাটাগরি" value={catName} onChange={(e) => setCatName(e.target.value)} />
+            <Btn busy={busy} onClick={() => void addCategory()}>
+              যোগ করুন
+            </Btn>
+          </div>
+        )}
+      </Card>
     </div>
   );
-}
-
-type Qc = { invalidateQueries: (p: { queryKey: string[] }) => Promise<void> };
-
-function useAsyncQueue(): Qc {
-  const qc = useQueryClient();
-  return {
-    invalidateQueries: async ({ queryKey }) => {
-      await qc.invalidateQueries({ queryKey });
-    },
-  };
 }
 
 function SettingField({ label, current, editable, value, onChange }: { label: string; current: string; editable: boolean; value: string; onChange: (v: string) => void }) {

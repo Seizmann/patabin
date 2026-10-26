@@ -47,60 +47,46 @@ export type Database = {
         }
         Relationships: []
       }
-      batch_close_snapshots: {
+      chalan_close_snapshots: {
         Row: {
-          batch_id: string
+          chalan_id: string
           closed_at: string
           closed_by: string | null
           data: Json
         }
         Insert: {
-          batch_id: string
+          chalan_id: string
           closed_at?: string
           closed_by?: string | null
           data: Json
         }
         Update: {
-          batch_id?: string
+          chalan_id?: string
           closed_at?: string
           closed_by?: string | null
           data?: Json
         }
         Relationships: [
           {
-            foreignKeyName: "batch_close_snapshots_batch_id_fkey"
-            columns: ["batch_id"]
+            foreignKeyName: "chalan_close_snapshots_chalan_id_fkey"
+            columns: ["chalan_id"]
             isOneToOne: true
-            referencedRelation: "batches"
+            referencedRelation: "chalans"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "batch_close_snapshots_batch_id_fkey"
-            columns: ["batch_id"]
+            foreignKeyName: "chalan_close_snapshots_chalan_id_fkey"
+            columns: ["chalan_id"]
             isOneToOne: true
-            referencedRelation: "v_batch_profit"
-            referencedColumns: ["batch_id"]
-          },
-          {
-            foreignKeyName: "batch_close_snapshots_batch_id_fkey"
-            columns: ["batch_id"]
-            isOneToOne: true
-            referencedRelation: "v_batch_stock"
-            referencedColumns: ["batch_id"]
-          },
-          {
-            foreignKeyName: "batch_close_snapshots_batch_id_fkey"
-            columns: ["batch_id"]
-            isOneToOne: true
-            referencedRelation: "v_batch_summary"
-            referencedColumns: ["batch_id"]
+            referencedRelation: "v_chalan_summary"
+            referencedColumns: ["chalan_id"]
           },
         ]
       }
-      batch_contributions: {
+      chalan_purchases: {
         Row: {
           amount_paid: number
-          batch_id: string
+          chalan_id: string
           created_at: string
           created_by: string | null
           deleted_at: string | null
@@ -110,19 +96,19 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          amount_paid?: number
-          batch_id: string
+          amount_paid: number
+          chalan_id: string
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
           id?: string
           partner_id: string
-          qty?: number
+          qty: number
           updated_at?: string
         }
         Update: {
           amount_paid?: number
-          batch_id?: string
+          chalan_id?: string
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -133,42 +119,28 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "batch_contributions_batch_id_fkey"
-            columns: ["batch_id"]
+            foreignKeyName: "chalan_purchases_chalan_id_fkey"
+            columns: ["chalan_id"]
             isOneToOne: false
-            referencedRelation: "batches"
+            referencedRelation: "chalans"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "batch_contributions_batch_id_fkey"
-            columns: ["batch_id"]
+            foreignKeyName: "chalan_purchases_chalan_id_fkey"
+            columns: ["chalan_id"]
             isOneToOne: false
-            referencedRelation: "v_batch_profit"
-            referencedColumns: ["batch_id"]
+            referencedRelation: "v_chalan_summary"
+            referencedColumns: ["chalan_id"]
           },
           {
-            foreignKeyName: "batch_contributions_batch_id_fkey"
-            columns: ["batch_id"]
-            isOneToOne: false
-            referencedRelation: "v_batch_stock"
-            referencedColumns: ["batch_id"]
-          },
-          {
-            foreignKeyName: "batch_contributions_batch_id_fkey"
-            columns: ["batch_id"]
-            isOneToOne: false
-            referencedRelation: "v_batch_summary"
-            referencedColumns: ["batch_id"]
-          },
-          {
-            foreignKeyName: "batch_contributions_partner_id_fkey"
+            foreignKeyName: "chalan_purchases_partner_id_fkey"
             columns: ["partner_id"]
             isOneToOne: false
             referencedRelation: "partners"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "batch_contributions_partner_id_fkey"
+            foreignKeyName: "chalan_purchases_partner_id_fkey"
             columns: ["partner_id"]
             isOneToOne: false
             referencedRelation: "v_partner_balance"
@@ -176,8 +148,9 @@ export type Database = {
           },
         ]
       }
-      batches: {
+      chalans: {
         Row: {
+          buy_rate: number
           closed_at: string | null
           closed_by: string | null
           code: string
@@ -186,13 +159,13 @@ export type Database = {
           deleted_at: string | null
           id: string
           note: string | null
-          pcs_per_packet: number | null
+          pcs_per_packet: number
           purchase_date: string
           status: string
-          unit_cost: number
           updated_at: string
         }
         Insert: {
+          buy_rate?: number
           closed_at?: string | null
           closed_by?: string | null
           code: string
@@ -201,13 +174,13 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           note?: string | null
-          pcs_per_packet?: number | null
+          pcs_per_packet?: number
           purchase_date?: string
           status?: string
-          unit_cost?: number
           updated_at?: string
         }
         Update: {
+          buy_rate?: number
           closed_at?: string | null
           closed_by?: string | null
           code?: string
@@ -216,96 +189,145 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           note?: string | null
-          pcs_per_packet?: number | null
+          pcs_per_packet?: number
           purchase_date?: string
           status?: string
-          unit_cost?: number
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "batches_closed_by_fkey"
-            columns: ["closed_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      customers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      expense_categories: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       expenses: {
         Row: {
           amount: number
-          batch_id: string
-          category: string
-          cost_type: string
+          attributed_to_partner_id: string
+          category_id: string
+          chalan_id: string | null
           created_at: string
           created_by: string | null
           deleted_at: string | null
-          funding: string
           id: string
           note: string | null
-          paid_by_partner_id: string | null
-          spent_on: string
+          paid_by_partner_id: string
+          spent_at: string
           updated_at: string
+          wallet_account_id: string | null
         }
         Insert: {
           amount: number
-          batch_id: string
-          category: string
-          cost_type: string
+          attributed_to_partner_id: string
+          category_id: string
+          chalan_id?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
-          funding: string
           id?: string
           note?: string | null
-          paid_by_partner_id?: string | null
-          spent_on?: string
+          paid_by_partner_id: string
+          spent_at?: string
           updated_at?: string
+          wallet_account_id?: string | null
         }
         Update: {
           amount?: number
-          batch_id?: string
-          category?: string
-          cost_type?: string
+          attributed_to_partner_id?: string
+          category_id?: string
+          chalan_id?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
-          funding?: string
           id?: string
           note?: string | null
-          paid_by_partner_id?: string | null
-          spent_on?: string
+          paid_by_partner_id?: string
+          spent_at?: string
           updated_at?: string
+          wallet_account_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "expenses_batch_id_fkey"
-            columns: ["batch_id"]
+            foreignKeyName: "expenses_attributed_to_partner_id_fkey"
+            columns: ["attributed_to_partner_id"]
             isOneToOne: false
-            referencedRelation: "batches"
+            referencedRelation: "partners"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "expenses_batch_id_fkey"
-            columns: ["batch_id"]
+            foreignKeyName: "expenses_attributed_to_partner_id_fkey"
+            columns: ["attributed_to_partner_id"]
             isOneToOne: false
-            referencedRelation: "v_batch_profit"
-            referencedColumns: ["batch_id"]
+            referencedRelation: "v_partner_balance"
+            referencedColumns: ["partner_id"]
           },
           {
-            foreignKeyName: "expenses_batch_id_fkey"
-            columns: ["batch_id"]
+            foreignKeyName: "expenses_category_id_fkey"
+            columns: ["category_id"]
             isOneToOne: false
-            referencedRelation: "v_batch_stock"
-            referencedColumns: ["batch_id"]
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "expenses_batch_id_fkey"
-            columns: ["batch_id"]
+            foreignKeyName: "expenses_chalan_id_fkey"
+            columns: ["chalan_id"]
             isOneToOne: false
-            referencedRelation: "v_batch_summary"
-            referencedColumns: ["batch_id"]
+            referencedRelation: "chalans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_chalan_id_fkey"
+            columns: ["chalan_id"]
+            isOneToOne: false
+            referencedRelation: "v_chalan_summary"
+            referencedColumns: ["chalan_id"]
           },
           {
             foreignKeyName: "expenses_paid_by_partner_id_fkey"
@@ -317,6 +339,88 @@ export type Database = {
           {
             foreignKeyName: "expenses_paid_by_partner_id_fkey"
             columns: ["paid_by_partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_balance"
+            referencedColumns: ["partner_id"]
+          },
+          {
+            foreignKeyName: "expenses_wallet_account_id_fkey"
+            columns: ["wallet_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_wallet_balance"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "expenses_wallet_account_id_fkey"
+            columns: ["wallet_account_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      packets: {
+        Row: {
+          chalan_id: string
+          code: string
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          id: string
+          owner_partner_id: string
+          packed_at: string
+          total_pcs: number
+          updated_at: string
+        }
+        Insert: {
+          chalan_id: string
+          code: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          owner_partner_id: string
+          packed_at?: string
+          total_pcs: number
+          updated_at?: string
+        }
+        Update: {
+          chalan_id?: string
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          owner_partner_id?: string
+          packed_at?: string
+          total_pcs?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "packets_chalan_id_fkey"
+            columns: ["chalan_id"]
+            isOneToOne: false
+            referencedRelation: "chalans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "packets_chalan_id_fkey"
+            columns: ["chalan_id"]
+            isOneToOne: false
+            referencedRelation: "v_chalan_summary"
+            referencedColumns: ["chalan_id"]
+          },
+          {
+            foreignKeyName: "packets_owner_partner_id_fkey"
+            columns: ["owner_partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "packets_owner_partner_id_fkey"
+            columns: ["owner_partner_id"]
             isOneToOne: false
             referencedRelation: "v_partner_balance"
             referencedColumns: ["partner_id"]
@@ -358,6 +462,94 @@ export type Database = {
           },
         ]
       }
+      personal_uses: {
+        Row: {
+          at: string
+          chalan_id: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          eater_partner_id: string
+          id: string
+          note: string | null
+          packet_id: string | null
+          qty: number
+          unit_value: number
+          updated_at: string
+        }
+        Insert: {
+          at?: string
+          chalan_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          eater_partner_id: string
+          id?: string
+          note?: string | null
+          packet_id?: string | null
+          qty: number
+          unit_value: number
+          updated_at?: string
+        }
+        Update: {
+          at?: string
+          chalan_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          eater_partner_id?: string
+          id?: string
+          note?: string | null
+          packet_id?: string | null
+          qty?: number
+          unit_value?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personal_uses_chalan_id_fkey"
+            columns: ["chalan_id"]
+            isOneToOne: false
+            referencedRelation: "chalans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personal_uses_chalan_id_fkey"
+            columns: ["chalan_id"]
+            isOneToOne: false
+            referencedRelation: "v_chalan_summary"
+            referencedColumns: ["chalan_id"]
+          },
+          {
+            foreignKeyName: "personal_uses_eater_partner_id_fkey"
+            columns: ["eater_partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personal_uses_eater_partner_id_fkey"
+            columns: ["eater_partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_balance"
+            referencedColumns: ["partner_id"]
+          },
+          {
+            foreignKeyName: "personal_uses_packet_id_fkey"
+            columns: ["packet_id"]
+            isOneToOne: false
+            referencedRelation: "packets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personal_uses_packet_id_fkey"
+            columns: ["packet_id"]
+            isOneToOne: false
+            referencedRelation: "v_packet_stock"
+            referencedColumns: ["packet_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -393,51 +585,37 @@ export type Database = {
       }
       sale_allocations: {
         Row: {
-          batch_id: string
           created_at: string
+          packet_id: string
           qty: number
           sale_id: string
         }
         Insert: {
-          batch_id: string
           created_at?: string
+          packet_id: string
           qty: number
           sale_id: string
         }
         Update: {
-          batch_id?: string
           created_at?: string
+          packet_id?: string
           qty?: number
           sale_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "sale_allocations_batch_id_fkey"
-            columns: ["batch_id"]
+            foreignKeyName: "sale_allocations_packet_id_fkey"
+            columns: ["packet_id"]
             isOneToOne: false
-            referencedRelation: "batches"
+            referencedRelation: "packets"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "sale_allocations_batch_id_fkey"
-            columns: ["batch_id"]
+            foreignKeyName: "sale_allocations_packet_id_fkey"
+            columns: ["packet_id"]
             isOneToOne: false
-            referencedRelation: "v_batch_profit"
-            referencedColumns: ["batch_id"]
-          },
-          {
-            foreignKeyName: "sale_allocations_batch_id_fkey"
-            columns: ["batch_id"]
-            isOneToOne: false
-            referencedRelation: "v_batch_stock"
-            referencedColumns: ["batch_id"]
-          },
-          {
-            foreignKeyName: "sale_allocations_batch_id_fkey"
-            columns: ["batch_id"]
-            isOneToOne: false
-            referencedRelation: "v_batch_summary"
-            referencedColumns: ["batch_id"]
+            referencedRelation: "v_packet_stock"
+            referencedColumns: ["packet_id"]
           },
           {
             foreignKeyName: "sale_allocations_sale_id_fkey"
@@ -460,90 +638,111 @@ export type Database = {
           amount_received: number
           created_at: string
           created_by: string | null
+          customer_id: string | null
           customer_name: string | null
+          customer_phone: string | null
           deleted_at: string | null
           discount: number | null
           id: string
-          kind: string
           list_unit_price: number
           note: string | null
-          partner_id: string | null
-          payment_method: string | null
           qty: number
-          received_by_partner_id: string | null
           sold_at: string
           updated_at: string
+          wallet_account_id: string
         }
         Insert: {
           amount_received: number
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
           customer_name?: string | null
+          customer_phone?: string | null
           deleted_at?: string | null
           discount?: number | null
           id?: string
-          kind: string
           list_unit_price: number
           note?: string | null
-          partner_id?: string | null
-          payment_method?: string | null
           qty: number
-          received_by_partner_id?: string | null
           sold_at?: string
           updated_at?: string
+          wallet_account_id: string
         }
         Update: {
           amount_received?: number
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
           customer_name?: string | null
+          customer_phone?: string | null
           deleted_at?: string | null
           discount?: number | null
           id?: string
-          kind?: string
           list_unit_price?: number
           note?: string | null
-          partner_id?: string | null
-          payment_method?: string | null
           qty?: number
-          received_by_partner_id?: string | null
           sold_at?: string
           updated_at?: string
+          wallet_account_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "sales_partner_id_fkey"
-            columns: ["partner_id"]
+            foreignKeyName: "sales_customer_id_fkey"
+            columns: ["customer_id"]
             isOneToOne: false
-            referencedRelation: "partners"
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "sales_partner_id_fkey"
-            columns: ["partner_id"]
+            foreignKeyName: "sales_wallet_account_id_fkey"
+            columns: ["wallet_account_id"]
             isOneToOne: false
-            referencedRelation: "v_partner_balance"
-            referencedColumns: ["partner_id"]
+            referencedRelation: "v_wallet_balance"
+            referencedColumns: ["wallet_id"]
           },
           {
-            foreignKeyName: "sales_received_by_partner_id_fkey"
-            columns: ["received_by_partner_id"]
+            foreignKeyName: "sales_wallet_account_id_fkey"
+            columns: ["wallet_account_id"]
             isOneToOne: false
-            referencedRelation: "partners"
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sell_priority: {
+        Row: {
+          packet_id: string
+          position: number
+        }
+        Insert: {
+          packet_id: string
+          position: number
+        }
+        Update: {
+          packet_id?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sell_priority_packet_id_fkey"
+            columns: ["packet_id"]
+            isOneToOne: true
+            referencedRelation: "packets"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "sales_received_by_partner_id_fkey"
-            columns: ["received_by_partner_id"]
-            isOneToOne: false
-            referencedRelation: "v_partner_balance"
-            referencedColumns: ["partner_id"]
+            foreignKeyName: "sell_priority_packet_id_fkey"
+            columns: ["packet_id"]
+            isOneToOne: true
+            referencedRelation: "v_packet_stock"
+            referencedColumns: ["packet_id"]
           },
         ]
       }
       settings: {
         Row: {
           default_buy_rate: number
+          default_packet_size: number
           default_sell_price: number
           id: number
           updated_at: string
@@ -551,6 +750,7 @@ export type Database = {
         }
         Insert: {
           default_buy_rate?: number
+          default_packet_size?: number
           default_sell_price?: number
           id?: number
           updated_at?: string
@@ -558,6 +758,7 @@ export type Database = {
         }
         Update: {
           default_buy_rate?: number
+          default_packet_size?: number
           default_sell_price?: number
           id?: number
           updated_at?: string
@@ -567,271 +768,445 @@ export type Database = {
       }
       stock_adjustments: {
         Row: {
-          adjusted_on: string
-          batch_id: string
+          at: string
           created_at: string
           created_by: string | null
           deleted_at: string | null
           id: string
           note: string | null
+          packet_id: string
+          person: string | null
           qty: number
           reason: string
           updated_at: string
         }
         Insert: {
-          adjusted_on?: string
-          batch_id: string
+          at?: string
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
           id?: string
           note?: string | null
+          packet_id: string
+          person?: string | null
           qty: number
           reason: string
           updated_at?: string
         }
         Update: {
-          adjusted_on?: string
-          batch_id?: string
+          at?: string
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
           id?: string
           note?: string | null
+          packet_id?: string
+          person?: string | null
           qty?: number
           reason?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "stock_adjustments_batch_id_fkey"
-            columns: ["batch_id"]
+            foreignKeyName: "stock_adjustments_packet_id_fkey"
+            columns: ["packet_id"]
             isOneToOne: false
-            referencedRelation: "batches"
+            referencedRelation: "packets"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "stock_adjustments_batch_id_fkey"
-            columns: ["batch_id"]
+            foreignKeyName: "stock_adjustments_packet_id_fkey"
+            columns: ["packet_id"]
             isOneToOne: false
-            referencedRelation: "v_batch_profit"
-            referencedColumns: ["batch_id"]
-          },
-          {
-            foreignKeyName: "stock_adjustments_batch_id_fkey"
-            columns: ["batch_id"]
-            isOneToOne: false
-            referencedRelation: "v_batch_stock"
-            referencedColumns: ["batch_id"]
-          },
-          {
-            foreignKeyName: "stock_adjustments_batch_id_fkey"
-            columns: ["batch_id"]
-            isOneToOne: false
-            referencedRelation: "v_batch_summary"
-            referencedColumns: ["batch_id"]
+            referencedRelation: "v_packet_stock"
+            referencedColumns: ["packet_id"]
           },
         ]
       }
-      transfers: {
+      wallet_transfers: {
         Row: {
           amount: number
+          at: string
+          attributed_to_partner_id: string
+          charge: number
           created_at: string
           created_by: string | null
           deleted_at: string | null
-          from_partner_id: string
+          from_wallet_id: string
           id: string
-          method: string
           note: string | null
-          to_partner_id: string
-          transferred_on: string
+          to_wallet_id: string
           updated_at: string
         }
         Insert: {
           amount: number
+          at?: string
+          attributed_to_partner_id: string
+          charge?: number
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
-          from_partner_id: string
+          from_wallet_id: string
           id?: string
-          method?: string
           note?: string | null
-          to_partner_id: string
-          transferred_on?: string
+          to_wallet_id: string
           updated_at?: string
         }
         Update: {
           amount?: number
+          at?: string
+          attributed_to_partner_id?: string
+          charge?: number
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
-          from_partner_id?: string
+          from_wallet_id?: string
           id?: string
-          method?: string
           note?: string | null
-          to_partner_id?: string
-          transferred_on?: string
+          to_wallet_id?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "transfers_from_partner_id_fkey"
-            columns: ["from_partner_id"]
+            foreignKeyName: "wallet_transfers_attributed_to_partner_id_fkey"
+            columns: ["attributed_to_partner_id"]
             isOneToOne: false
             referencedRelation: "partners"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "transfers_from_partner_id_fkey"
-            columns: ["from_partner_id"]
+            foreignKeyName: "wallet_transfers_attributed_to_partner_id_fkey"
+            columns: ["attributed_to_partner_id"]
             isOneToOne: false
             referencedRelation: "v_partner_balance"
             referencedColumns: ["partner_id"]
           },
           {
-            foreignKeyName: "transfers_to_partner_id_fkey"
-            columns: ["to_partner_id"]
+            foreignKeyName: "wallet_transfers_from_wallet_id_fkey"
+            columns: ["from_wallet_id"]
+            isOneToOne: false
+            referencedRelation: "v_wallet_balance"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "wallet_transfers_from_wallet_id_fkey"
+            columns: ["from_wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_transfers_to_wallet_id_fkey"
+            columns: ["to_wallet_id"]
+            isOneToOne: false
+            referencedRelation: "v_wallet_balance"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "wallet_transfers_to_wallet_id_fkey"
+            columns: ["to_wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallets: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          label: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      withdrawals: {
+        Row: {
+          amount: number
+          at: string
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          id: string
+          note: string | null
+          partner_id: string
+          updated_at: string
+          wallet_account_id: string
+        }
+        Insert: {
+          amount: number
+          at?: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          note?: string | null
+          partner_id: string
+          updated_at?: string
+          wallet_account_id: string
+        }
+        Update: {
+          amount?: number
+          at?: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          note?: string | null
+          partner_id?: string
+          updated_at?: string
+          wallet_account_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "withdrawals_partner_id_fkey"
+            columns: ["partner_id"]
             isOneToOne: false
             referencedRelation: "partners"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "transfers_to_partner_id_fkey"
-            columns: ["to_partner_id"]
+            foreignKeyName: "withdrawals_partner_id_fkey"
+            columns: ["partner_id"]
             isOneToOne: false
             referencedRelation: "v_partner_balance"
             referencedColumns: ["partner_id"]
+          },
+          {
+            foreignKeyName: "withdrawals_wallet_account_id_fkey"
+            columns: ["wallet_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_wallet_balance"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "withdrawals_wallet_account_id_fkey"
+            columns: ["wallet_account_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
           },
         ]
       }
     }
     Views: {
-      v_batch_profit: {
+      v_chalan_summary: {
         Row: {
-          batch_id: string | null
-          operating_expenses: number | null
-          profit: number | null
-          realized_cost: number | null
-          revenue: number | null
-          unsold_cost: number | null
-        }
-        Relationships: []
-      }
-      v_batch_stock: {
-        Row: {
-          batch_id: string | null
-          damaged: number | null
-          personal: number | null
+          adjusted_pcs: number | null
+          bought_pcs: number | null
+          capital: number | null
+          chalan_id: string | null
+          code: string | null
+          expenses: number | null
+          personal_pcs: number | null
           remaining: number | null
-          sold_ext: number | null
-          total_pcs: number | null
+          sold_pcs: number | null
+          status: string | null
         }
         Insert: {
-          batch_id?: string | null
-          damaged?: never
-          personal?: never
+          adjusted_pcs?: never
+          bought_pcs?: never
+          capital?: never
+          chalan_id?: string | null
+          code?: string | null
+          expenses?: never
+          personal_pcs?: never
           remaining?: never
-          sold_ext?: never
-          total_pcs?: never
+          sold_pcs?: never
+          status?: string | null
         }
         Update: {
-          batch_id?: string | null
-          damaged?: never
-          personal?: never
+          adjusted_pcs?: never
+          bought_pcs?: never
+          capital?: never
+          chalan_id?: string | null
+          code?: string | null
+          expenses?: never
+          personal_pcs?: never
           remaining?: never
-          sold_ext?: never
-          total_pcs?: never
+          sold_pcs?: never
+          status?: string | null
         }
         Relationships: []
       }
-      v_batch_summary: {
+      v_packet_stock: {
         Row: {
-          batch_id: string | null
-          damaged: number | null
-          landed_cost_per_pc: number | null
-          landed_pool: number | null
-          operating_expenses: number | null
-          personal: number | null
+          chalan_code: string | null
+          chalan_id: string | null
+          chalan_status: string | null
+          owner_name: string | null
+          owner_partner_id: string | null
+          packet_code: string | null
+          packet_id: string | null
+          position: number | null
           remaining: number | null
-          revenue_external: number | null
-          revenue_internal: number | null
-          sold_ext: number | null
           total_pcs: number | null
         }
-        Relationships: []
-      }
-      v_dashboard_day: {
-        Row: {
-          day: string | null
-          income: number | null
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "packets_chalan_id_fkey"
+            columns: ["chalan_id"]
+            isOneToOne: false
+            referencedRelation: "chalans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "packets_chalan_id_fkey"
+            columns: ["chalan_id"]
+            isOneToOne: false
+            referencedRelation: "v_chalan_summary"
+            referencedColumns: ["chalan_id"]
+          },
+          {
+            foreignKeyName: "packets_owner_partner_id_fkey"
+            columns: ["owner_partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "packets_owner_partner_id_fkey"
+            columns: ["owner_partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_balance"
+            referencedColumns: ["partner_id"]
+          },
+        ]
       }
       v_partner_balance: {
         Row: {
           balance: number | null
-          cash_held: number | null
-          entitlement: number | null
+          balance_closed: number | null
+          balance_open: number | null
           partner_id: string | null
           partner_name: string | null
-        }
-        Insert: {
-          balance?: never
-          cash_held?: never
-          entitlement?: never
-          partner_id?: string | null
-          partner_name?: string | null
-        }
-        Update: {
-          balance?: never
-          cash_held?: never
-          entitlement?: never
-          partner_id?: string | null
-          partner_name?: string | null
         }
         Relationships: []
       }
-      v_partner_batch_payout: {
+      v_partner_chalan_settlement: {
         Row: {
-          batch_id: string | null
-          contribution: number | null
-          contribution_share: number | null
+          capital: number | null
+          chalan_id: string | null
+          consumption_due: number | null
+          cost: number | null
+          entitlement: number | null
+          expenses_attributed: number | null
+          ext_rev: number | null
+          internal_rev: number | null
           partner_id: string | null
           partner_name: string | null
-          payout: number | null
-          personal_value: number | null
+          pcs_out: number | null
+          pocket_paid: number | null
+          profit: number | null
         }
         Relationships: []
       }
       v_sales_enriched: {
         Row: {
-          allocation_complete: boolean | null
           amount_received: number | null
-          batch_codes: string | null
           created_at: string | null
+          customer_id: string | null
           customer_name: string | null
-          customer_partner_name: string | null
+          customer_phone: string | null
           discount: number | null
           discount_pct: number | null
           id: string | null
-          kind: string | null
           list_unit_price: number | null
           note: string | null
-          payment_method: string | null
+          owner_names: string | null
+          packet_codes: string | null
           qty: number | null
-          received_by_name: string | null
           sold_at: string | null
+          wallet_account_id: string | null
+          wallet_label: string | null
+          wallet_type: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_wallet_account_id_fkey"
+            columns: ["wallet_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_wallet_balance"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "sales_wallet_account_id_fkey"
+            columns: ["wallet_account_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_wallet_balance: {
+        Row: {
+          balance: number | null
+          is_active: boolean | null
+          label: string | null
+          type: string | null
+          wallet_id: string | null
+        }
+        Insert: {
+          balance?: never
+          is_active?: boolean | null
+          label?: string | null
+          type?: string | null
+          wallet_id?: string | null
+        }
+        Update: {
+          balance?: never
+          is_active?: boolean | null
+          label?: string | null
+          type?: string | null
+          wallet_id?: string | null
         }
         Relationships: []
       }
     }
     Functions: {
+      allocate_by_priority: {
+        Args: { p_qty: number; p_sale_id: string }
+        Returns: undefined
+      }
       assert_writeable: { Args: never; Returns: undefined }
-      available_pcs: { Args: never; Returns: number }
-      close_batch: { Args: { p_batch_id: string }; Returns: undefined }
+      close_chalan: { Args: { p_chalan_id: string }; Returns: undefined }
       complete_password_change: { Args: never; Returns: undefined }
-      create_batch: { Args: { p_batch: Json }; Returns: string }
+      create_adjustment: { Args: { p_adj: Json }; Returns: string }
+      create_chalan: { Args: { p_payload: Json }; Returns: string }
+      create_expense: { Args: { p_exp: Json }; Returns: string }
+      create_packets: { Args: { p_payload: Json }; Returns: undefined }
+      create_personal_use: { Args: { p_use: Json }; Returns: string }
       create_sale: { Args: { p_sale: Json }; Returns: string }
+      create_transfer: { Args: { p_t: Json }; Returns: string }
+      create_withdrawal: { Args: { p_w: Json }; Returns: string }
       dashboard_totals: {
         Args: { p_end?: string; p_start?: string }
         Returns: {
@@ -839,13 +1214,13 @@ export type Database = {
           discount_total: number
           expenses: number
           income: number
-          landed_expenses: number
           list_value: number
-          realized_profit: number
-          sold_cost: number
+          net_profit: number
+          realized_cost: number
           stock_current: number
         }[]
       }
+      delete_expense: { Args: { p_id: string }; Returns: undefined }
       delete_sale: { Args: { p_id: string }; Returns: undefined }
       income_by_period_breakdown: {
         Args: { p_end: string; p_start: string }
@@ -856,8 +1231,15 @@ export type Database = {
       }
       is_active_user: { Args: never; Returns: boolean }
       is_su_admin: { Args: never; Returns: boolean }
+      packet_remaining: { Args: { p_packet_id: string }; Returns: number }
       password_gate: { Args: never; Returns: boolean }
-      reopen_batch: { Args: { p_batch_id: string }; Returns: undefined }
+      reopen_chalan: { Args: { p_chalan_id: string }; Returns: undefined }
+      server_now: { Args: never; Returns: string }
+      set_sell_priority: { Args: { p_ordered: string[] }; Returns: undefined }
+      update_expense: {
+        Args: { p_exp: Json; p_id: string }
+        Returns: undefined
+      }
       update_sale: { Args: { p_id: string; p_sale: Json }; Returns: undefined }
     }
     Enums: {

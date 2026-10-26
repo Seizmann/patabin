@@ -64,6 +64,14 @@ on conflict (user_id) do update set name = excluded.name;
 insert into public.settings (id, updated_by)
 values (1, '${suId}')
 on conflict (id) do nothing;
+
+insert into public.expense_categories (name)
+values ('ট্রান্সপোর্ট'), ('সিগারেট'), ('মোবাইল রিচার্জ'), ('অন্যান্য')
+on conflict (name) do nothing;
+
+insert into public.wallets (type, label, created_by)
+values ('cash', 'Cash', '${suId}')
+on conflict do nothing;
 commit;
 `);
 

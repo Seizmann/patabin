@@ -1,73 +1,44 @@
-import { useState, type FormEvent } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
-import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
-import NumberInput from 'components/forms/NumberInput';
-import TimeInput from 'components/forms/TimeInput';
-import { formatDhakaDate, formatMoney } from '@patabin/shared';
+import { Empty, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { formatMoney } from '@patabin/shared';
 import emptySettlements from 'assets/images/empty/empty-settlements.png';
 
-type BalanceRow = { partner_id: string; partner_name: string; entitlement: string | number; cash_held: string | number; balance: string | number };
+type BalanceRow = { partner_id: string; partner_name: string; balance: string | number };
+type SettlementRow = {
+  chalan_id: string;
+  partner_id: string;
+  partner_name: string;
+  capital: number;
+  ext_rev: number;
+  internal_rev: number;
+  cost: number;
+  profit: number;
+  consumption_due: number;
+  expenses_attributed: number;
+  pocket_paid: number;
+  entitlement: number;
+};
+type ChalanRow = { id: string; code: string; status: string };
 
 export default function SettlementPage() {
   usePageTitle('হিসাব মেটানো');
-  const qc = useQueryClient();
-  const [fromId, setFromId] = useState('');
-  const [toId, setToId] = useState('');
-  const [amount, setAmount] = useState('');
-  const [note, setNote] = useState('');
-  const [takenOn, setTakenOn] = useState<string | undefined>(undefined);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [ok, setOk] = useState('');
-
-  const { data: partners = [] } = useQuery({ queryKey: ['partners'], queryFn: fetchPartners });
-  const { data: balances = [] } = useQuery({ queryKey: ['balances'], queryFn: fetchBalances });
-  const { data: transfers = [], isPending } = useQuery({
-    queryKey: ['transfers'],
+  const { data: balances, isPending: balancesPending } = useQuery({ queryKey: ['balances'], queryFn: fetchBalances });
+  const { data: chalans = [] } = useQuery({
+    queryKey: ['chalan-settlement-list'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('transfers').select('*').is('deleted_at', null).order('transferred_on', { ascending: false });
+      const { data, error } = await supabase.from('chalans').select('id, code, status').is('deleted_at', null).order('code', { ascending: false });
       if (error) throw error;
-      return data as { id: string; transferred_on: string; from_partner_id: string; to_partner_id: string; amount: string | number; note: string | null }[];
+      return (data ?? []) as ChalanRow[];
     },
   });
-
-  const nameOf = (id: string) => partners.find((p) => p.id === id)?.name ?? '';
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setOk('');
-    if (!fromId || !toId || fromId === toId || !Number(amount)) {
-      setError('প্রেরক, প্রাপক আলাদা করে টাকার পরিমাণ দিন।');
-      return;
-    }
-    setBusy(true);
-    try {
-      const { error: insErr } = await supabase.from('transfers').insert({
-        from_partner_id: fromId,
-        to_partner_id: toId,
-        amount: Number(amount),
-        transferred_on: takenOn ?? null,
-        note: note || null,
-      });
-      if (insErr) throw insErr;
-      await qc.invalidateQueries({ queryKey: ['transfers'] });
-      await qc.invalidateQueries({ queryKey: ['balances'] });
-      setOk('হাতবদল সংরক্ষিত');
-      setAmount('');
-      setNote('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'সমস্যা');
-    }
-    setBusy(false);
-  };
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5">
       <PageTitle tag="PataBin" title="হিসাব মেটানো" />
-
+      {balancesPending && <Skeleton className="h-24 w-full" />}
       {balances?.length === 0 && <Empty img={emptySettlements} title="কেউ কাউকে দেবে না" caption="সব হিসাব মিলে আছে।" />}
       {balances && balances.length > 0 && (
         <div className="card p-5">
@@ -77,86 +48,77 @@ export default function SettlementPage() {
               <div key={b.partner_id} className="flex items-center justify-between py-2">
                 <span className="p-caption font-medium">{b.partner_name}</span>
                 <span className={`p-num font-semibold ${Number(b.balance) >= 0 ? 'text-good' : 'text-bad'}`}>
-                  {Number(b.balance) === 0 ? 'শূন্য' : Number(b.balance) > 0 ? `পাবে ${formatMoney(b.balance)}` : `দেবে ${formatMoney(-Number(b.balance))}`}
+                  {Number(b.balance) === 0 ? 'হিসাব মেটানো' : Number(b.balance) > 0 ? `পাবে ${formatMoney(b.balance)}` : `দেবে ${formatMoney(-Number(b.balance))}`}
                 </span>
               </div>
             ))}
+            {balances.length === 2 && numberSentence(balances) && (
+              <div className="p-caption mt-3 rounded-xl bg-canvas px-4 py-3">{numberSentence(balances)}</div>
+            )}
           </div>
-          {balances.length === 2 && numberSentence(balances) && (
-            <div className="p-caption mt-3 rounded-xl bg-canvas px-4 py-3">{numberSentence(balances)}</div>
-          )}
+          <Link to="/wallets" className="btn mt-4 inline-block">
+            ওয়ালেট দেখুন
+          </Link>
         </div>
       )}
 
-      <form onSubmit={submit} noValidate className="card grid grid-cols-2 gap-4 p-6">
-        <Field label="যে দেবে">
-          <select className="field" value={fromId} onChange={(e) => setFromId(e.target.value)}>
-            <option value="">-- নির্বাচন করুন --</option>
-            {partners.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="যে পাবে">
-          <select className="field" value={toId} onChange={(e) => setToId(e.target.value)}>
-            <option value="">-- নির্বাচন করুন --</option>
-            {partners.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="টাকা (৳)">
-          <NumberInput value={amount} onChange={setAmount} />
-        </Field>
-        <Field label="সময়">
-          <TimeInput value={takenOn} onChange={setTakenOn} />
-        </Field>
-        <Field label="নোট (ঐচ্ছিক)" className="col-span-2">
-          <input className="field" value={note} onChange={(e) => setNote(e.target.value)} />
-        </Field>
-        <div className="col-span-2 flex items-center gap-3">
-          <Btn type="submit" busy={busy}>
-            হাতবদল লিখুন
-          </Btn>
-          {ok && <Notice tone="ok">{ok}</Notice>}
-          {error && <Notice tone="error">{error}</Notice>}
-        </div>
-      </form>
+      <Notice tone="info">নিচের হিসাব প্রতি চালানের ভাবে, চালান খোলা অবস্থায় জীবন্ত হিসাব — বন্ধ হলে তখনকার স্ন্যাপশট।</Notice>
+      {chalans.map((c) => (
+        <ChalanSettlement key={c.id} chalan={c} />
+      ))}
+    </div>
+  );
+}
 
-      {isPending && (
-        <div className="flex flex-col gap-2" aria-busy>
-          {[0, 1, 2].map((n) => (
-            <Skeleton key={n} className="h-10 w-full" />
-          ))}
+function ChalanSettlement({ chalan }: { chalan: ChalanRow }) {
+  const { data: rows, isPending } = useQuery({
+    queryKey: ['settlement', chalan.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('v_partner_chalan_settlement').select('*').eq('chalan_id', chalan.id);
+      if (error) throw error;
+      return (data ?? []) as SettlementRow[];
+    },
+    enabled: true,
+  });
+
+  return (
+    <div className="card overflow-x-auto">
+      <p className="p-label p-4 pb-0">
+        চালান {chalan.code} · {chalan.status === 'open' ? 'চলছে' : 'বন্ধ'}
+      </p>
+      {isPending ? (
+        <div className="p-4">
+          <Skeleton className="h-14 w-full" />
         </div>
-      )}
-      {transfers && transfers.length > 0 && (
-        <div className="card overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-hairline text-left">
-                <th className="p-3 font-semibold">সময়</th>
-                <th className="p-3 font-semibold">হস্তান্তর</th>
-                <th className="p-3 font-semibold">টাকা</th>
+      ) : (rows ?? []).length === 0 ? (
+        <p className="p-caption p-4 text-ink-mute">কেনা বা প্যাকেট নেই।</p>
+      ) : (
+        <table className="mt-2 w-full text-sm">
+          <thead>
+            <tr className="border-b border-hairline text-left">
+              <th className="p-3 font-semibold">পার্টনার</th>
+              <th className="p-3 font-semibold">পুঁজি</th>
+              <th className="p-3 font-semibold">বিক্রির টাকা</th>
+              <th className="p-3 font-semibold">কস্ট</th>
+              <th className="p-3 font-semibold">লাভ</th>
+              <th className="p-3 font-semibold">নিজের খরচ</th>
+              <th className="p-3 font-semibold">প্রাপ্য</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(rows ?? []).map((s) => (
+              <tr key={s.chalan_id + s.partner_id} className="border-b border-hairline last:border-0">
+                <td className="p-3">{s.partner_name}</td>
+                <td className="p-3">{formatMoney(s.capital)}</td>
+                <td className="p-3">{formatMoney(Number(s.ext_rev) + Number(s.internal_rev))}</td>
+                <td className="p-3">{formatMoney(s.cost)}</td>
+                <td className="p-3">{formatMoney(s.profit)}</td>
+                <td className="p-3">{formatMoney(Number(s.expenses_attributed) - Number(s.pocket_paid) + Number(s.consumption_due))}</td>
+                <td className="p-3 font-semibold">{formatMoney(s.entitlement)}</td>
               </tr>
-            </thead>
-            <tbody>
-              {transfers.map((t) => (
-                <tr key={t.id} className="border-b border-hairline last:border-0">
-                  <td className="whitespace-nowrap p-3">{formatDhakaDate(t.transferred_on)}</td>
-                  <td className="p-3">
-                    {nameOf(t.from_partner_id)} কে {nameOf(t.to_partner_id)} দিয়েছে
-                  </td>
-                  <td className="p-3">{formatMoney(t.amount)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
@@ -169,12 +131,6 @@ function numberSentence(balances: BalanceRow[]): string {
   const receiver = Number(a.balance) > 0 ? a : b2;
   const payer = Number(a.balance) > 0 ? b2 : a;
   return `${payer.partner_name} কে ${receiver.partner_name} ${formatMoney(Number(payer.balance) ? Number(payer.balance) : -Number(receiver.balance))} দেবে।`;
-}
-
-async function fetchPartners() {
-  const { data, error } = await supabase.from('partners').select('id, name').order('name');
-  if (error) throw error;
-  return data ?? [];
 }
 
 async function fetchBalances() {

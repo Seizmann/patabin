@@ -1,71 +1,72 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchExpenses, fetchPartners } from './api';
-import { supabase } from 'lib/supabase';
+import { createExpense, fetchExpenses, fetchPartners, fetchWallets, type ExpenseRow } from './api';
 import { usePageTitle } from 'hooks/usePageTitle';
+import { supabase } from 'lib/supabase';
 import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import TimeInput from 'components/forms/TimeInput';
 import NumberInput from 'components/forms/NumberInput';
+import { mapError } from 'lib/errors';
 import { formatDhakaDate, formatMoney } from '@patabin/shared';
 import emptyExpenses from 'assets/images/empty/empty-expenses.png';
 
 export default function ExpensesPage() {
   usePageTitle('খরচ');
   const qc = useQueryClient();
-  const [batchId, setBatchId] = useState('');
-  const [category, setCategory] = useState('transport');
-  const [costType, setCostType] = useState('operating');
-  const [funding, setFunding] = useState('own_pocket');
-  const [paidBy, setPaidBy] = useState('');
+  const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
+  const [paidBy, setPaidBy] = useState('');
+  const [attributedTo, setAttributedTo] = useState('');
+  const [wallet, setWallet] = useState('');
   const [note, setNote] = useState('');
-  const [spentOn, setSpentOn] = useState<string | undefined>(undefined);
+  const [spentAt, setSpentAt] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
 
-  const { data: batches = [] } = useQuery({
-    queryKey: ['batches-all'],
+  const { data: partners = [] } = useQuery({ queryKey: ['partners'], queryFn: fetchPartners });
+  const { data: wallets } = useQuery({ queryKey: ['wallets'], queryFn: fetchWallets });
+  const { data: rows, isPending } = useQuery({ queryKey: ['expenses'], queryFn: fetchExpenses });
+  const { data: categories = [] } = useQuery({
+    queryKey: ['expense-categories'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('batches').select('id, code, status').order('purchase_date', { ascending: false });
+      const { data, error } = await supabase.from('expense_categories').select('*').order('created_at');
       if (error) throw error;
-      return data as { id: string; code: string; status: string }[];
+      return (data ?? []) as { id: string; name: string }[];
     },
   });
-  const { data: partners = [] } = useQuery({ queryKey: ['partners'], queryFn: fetchPartners });
-  const { data: rows, isPending } = useQuery({ queryKey: ['expenses'], queryFn: fetchExpenses });
 
   const nameOf = (id: string | null) => partners.find((x) => x.id === id)?.name ?? '';
-  const codeOf = (id: string) => batches.find((b) => b.id === id)?.code ?? '-';
+  const catOf = (id: string) => categories.find((c) => c.id === id)?.name ?? '';
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     setOk('');
-    if (!batchId || !paidBy || !Number(amount)) {
-      setError('ব্যাচ, প্রদানকারী ও টাকার পরিমাণ দিন।');
+    if (!category || !Number(amount) || !paidBy || !attributedTo) {
+      setError('ক্যাটাগরি, টাকা এবং কে দিল আর কার খরচ বাছুন।');
       return;
     }
     setBusy(true);
     try {
-      const { error: insErr } = await supabase.from('expenses').insert({
-        batch_id: batchId,
-        spent_on: spentOn ?? null,
-        category,
-        cost_type: costType,
+      await createExpense({
+        category_id: category,
         amount: Number(amount),
         paid_by_partner_id: paidBy,
-        funding,
+        attributed_to_partner_id: attributedTo,
+        wallet_account_id: wallet || null,
         note: note || null,
+        spent_at: spentAt ?? null,
       });
-      if (insErr) throw insErr;
       await qc.invalidateQueries({ queryKey: ['expenses'] });
-      await qc.invalidateQueries({ queryKey: ['batches'] });
+      await qc.invalidateQueries({ queryKey: ['balances'] });
+      await qc.invalidateQueries({ queryKey: ['wallets'] });
+      await qc.invalidateQueries({ queryKey: ['dashboard'] });
       setOk('খরচ সংরক্ষিত');
       setAmount('');
       setNote('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'সমস্যা');
+      setError(mapError(err));
     }
     setBusy(false);
   };
@@ -74,11 +75,10 @@ export default function ExpensesPage() {
     setError('');
     if (!window.confirm('খরচটি মুছে ফেলা হবে; নিশ্চিত?')) return;
     try {
-      const { error: delErr } = await supabase.from('expenses').update({ deleted_at: new Date().toISOString() }).eq('id', id);
-      if (delErr) throw delErr;
+      await supabase.rpc('delete_expense', { p_id: id });
       await qc.invalidateQueries({ queryKey: ['expenses'] });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'সমস্যা');
+      setError(mapError(err));
     }
   };
 
@@ -86,36 +86,14 @@ export default function ExpensesPage() {
     <div className="mx-auto flex max-w-4xl flex-col gap-5">
       <PageTitle tag="PataBin" title="খরচ" />
       <form onSubmit={submit} noValidate className="card grid grid-cols-2 gap-4 p-6">
-        <Field label="ব্যাচ" className="col-span-2 sm:col-span-1">
-          <select className="field" value={batchId} onChange={(e) => setBatchId(e.target.value)}>
-            <option value="">-- নির্বাচন করুন --</option>
-            {batches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.code}{b.status === 'closed' ? ' (বন্ধ)' : ''}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="সময়" className="col-span-2 sm:col-span-1">
-          <TimeInput value={spentOn} onChange={setSpentOn} />
-        </Field>
         <Field label="ক্যাটাগরি">
           <select className="field" value={category} onChange={(e) => setCategory(e.target.value)}>
-            <option value="transport">পরিবহন</option>
-            <option value="packaging">প্যাকেজিং</option>
-            <option value="other">অন্যান্য</option>
-          </select>
-        </Field>
-        <Field label="ধরন">
-          <select className="field" value={costType} onChange={(e) => setCostType(e.target.value)}>
-            <option value="landed">প্রতি-পিস কস্টে যুক্ত</option>
-            <option value="operating">সরাসরি খরচ</option>
-          </select>
-        </Field>
-        <Field label="টাকার উৎস">
-          <select className="field" value={funding} onChange={(e) => setFunding(e.target.value)}>
-            <option value="own_pocket">নিজের পকেট</option>
-            <option value="sales_cash">ক্যাশ</option>
+            <option value="">-- নির্বাচন করুন --</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
           </select>
         </Field>
         <Field label="টাকা (৳)">
@@ -131,9 +109,37 @@ export default function ExpensesPage() {
             ))}
           </select>
         </Field>
-        <Field label="নোট (ঐচ্ছিক)">
+        <Field label="কার খরচ (ম্যানুয়াল বাছুন)">
+          <select className="field" value={attributedTo} onChange={(e) => setAttributedTo(e.target.value)}>
+            <option value="">-- নির্বাচন করুন --</option>
+            {partners.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="কোথা থেকে দেওয়া হলো" className="col-span-2 sm:col-span-1">
+          <select className="field" value={wallet} onChange={(e) => setWallet(e.target.value)}>
+            <option value="">নিজের পকেট</option>
+            {(wallets ?? []).map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="সময়" className="col-span-2 sm:col-span-1">
+          <TimeInput value={spentAt} onChange={setSpentAt} />
+        </Field>
+        <Field label="নোট (ঐচ্ছিক)" className="col-span-2">
           <input className="field" value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
+        {paidBy && attributedTo && (
+          <div className="p-caption col-span-2 rounded-xl bg-canvas px-4 py-3">
+            {nameOf(paidBy)} দিল, কিন্তু খরচে ধরা হবে <b>{nameOf(attributedTo)}</b> এর হিসাবে। {wallet === '' && 'ওয়ালেট থেকে না, নিজের পকেট থেকে — {nameOf(paidBy)} কে ফেরত ধরা হবে।'.replace('{nameOf(paidBy)}', nameOf(paidBy))}
+          </div>
+        )}
         <div className="col-span-2 flex items-center gap-3">
           <Btn type="submit" busy={busy}>
             খরচ যোগ করুন
@@ -150,26 +156,26 @@ export default function ExpensesPage() {
           ))}
         </div>
       )}
-      {rows?.length === 0 && <Empty img={emptyExpenses} title="কোনো খরচ নেই" caption="ব্যাচ বেছে খরচ যোগ করুন।" />}
+      {rows?.length === 0 && <Empty img={emptyExpenses} title="কোনো খরচ নেই" caption="ট্রান্সপোর্ট, রিচার্জ ইত্যাদি এখানে যোগ হবে।" />}
       {rows && rows.length > 0 && (
         <div className="card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-hairline text-left">
                 <th className="p-3 font-semibold">সময়</th>
-                <th className="p-3 font-semibold">ব্যাচ</th>
+                <th className="p-3 font-semibold">ক্যাটাগরি</th>
                 <th className="p-3 font-semibold">বিবরণ</th>
                 <th className="p-3 font-semibold">টাকা</th>
                 <th className="p-3" />
               </tr>
             </thead>
             <tbody>
-              {rows.map((x) => (
+              {rows.map((x: ExpenseRow) => (
                 <tr key={x.id} className="border-b border-hairline last:border-0">
-                  <td className="whitespace-nowrap p-3">{formatDhakaDate(x.spent_on)}</td>
-                  <td className="p-3">{codeOf(x.batch_id)}</td>
-                  <td className="p-3">
-                    {bnCat(x.category)} · {x.cost_type === 'landed' ? 'কস্টে যুক্ত' : 'অপারেটিং'} · {x.funding === 'own_pocket' ? 'নিজের পকেট' : 'ক্যাশ'} · {nameOf(x.paid_by_partner_id)}
+                  <td className="whitespace-nowrap p-3">{formatDhakaDate(x.spent_at)}</td>
+                  <td className="p-3">{catOf(x.category_id)}</td>
+                  <td className="p-3 text-xs">
+                    {nameOf(x.paid_by_partner_id)} → {nameOf(x.attributed_to_partner_id)} এর · {x.wallet_account_id ? ((wallets ?? []).find((w) => w.id === x.wallet_account_id)?.label ?? 'ওয়ালেট') : 'নিজের পকেট'}
                   </td>
                   <td className="p-3">{formatMoney(x.amount)}</td>
                   <td className="p-3 text-right">
@@ -185,8 +191,4 @@ export default function ExpensesPage() {
       )}
     </div>
   );
-}
-
-function bnCat(c: string): string {
-  return c === 'transport' ? 'পরিবহন' : c === 'packaging' ? 'প্যাকেজিং' : 'অন্যান্য';
 }

@@ -1,101 +1,119 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import TimeInput from 'components/forms/TimeInput';
 import NumberInput from 'components/forms/NumberInput';
+import { mapError } from 'lib/errors';
 import { formatDhakaDate, toBnDigits } from '@patabin/shared';
 import offline from 'assets/images/empty/offline.png';
 
+type PacketRow = { packet_id: string; packet_code: string; owner_name: string; remaining: number };
+
 export default function AdjustmentsPage() {
-  usePageTitle('নষ্ট/ক্ষতি');
+  usePageTitle('নষ্ট/ফ্রি');
   const qc = useQueryClient();
-  const [batchId, setBatchId] = useState('');
+  const [packetId, setPacketId] = useState('');
   const [qty, setQty] = useState('');
-  const [reason, setReason] = useState('damage');
+  const [reason, setReason] = useState('gift');
+  const [person, setPerson] = useState('');
   const [note, setNote] = useState('');
-  const [takenOn, setTakenOn] = useState<string | undefined>(undefined);
+  const [at, setAt] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
 
-  const { data: batches = [] } = useQuery({
-    queryKey: ['batches-open-adj'],
+  const { data: packets = [] } = useQuery({
+    queryKey: ['packets'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('batches').select('id, code, status').order('purchase_date', { ascending: false });
+      const { data, error } = await supabase.from('v_packet_stock').select('packet_id, packet_code, owner_name, remaining').gt('remaining', 0);
       if (error) throw error;
-      return data as { id: string; code: string; status: string }[];
+      return (data ?? []) as PacketRow[];
     },
   });
   const { data: rows, isPending } = useQuery({
     queryKey: ['adjustments'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('stock_adjustments').select('*').is('deleted_at', null).order('adjusted_on', { ascending: false });
+      const { data, error } = await supabase.from('stock_adjustments').select('*').is('deleted_at', null).order('at', { ascending: false });
       if (error) throw error;
-      return data as { id: string; batch_id: string; adjusted_on: string; qty: number; reason: string; note: string | null }[];
+      return (data ?? []) as { id: string; packet_id: string; at: string; qty: number; reason: string; person: string | null; note: string | null }[];
     },
   });
 
-  const codeOf = (id: string) => batches.find((b) => b.id === id)?.code ?? '-';
+  const { data: packetNames = [] } = useQuery({
+    queryKey: ['packets-all'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('v_packet_stock').select('packet_id, packet_code, owner_name');
+      if (error) throw error;
+      return (data ?? []) as { packet_id: string; packet_code: string; owner_name: string }[];
+    },
+  });
 
-  const submit = async (e: React.FormEvent) => {
+  const packetOf = (id: string) => packets.find((p) => p.packet_id === id) ?? packetNames.find((p) => p.packet_id === id);
+
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     setOk('');
-    if (!batchId || !Number(qty)) {
-      setError('ব্যাচ ও পরিমাণ দিন।');
+    if (!packetId || !Number(qty)) {
+      setError('প্যাকেট ও পরিমাণ দিন।');
       return;
     }
     setBusy(true);
     try {
-      const { error: insErr } = await supabase.from('stock_adjustments').insert({
-        batch_id: batchId,
-        adjusted_on: takenOn ?? null,
-        qty: Number(qty),
-        reason,
-        note: note || null,
+      const { error: rpcErr } = await supabase.rpc('create_adjustment', {
+        p_adj: { packet_id: packetId, qty: Number(qty), reason, person: person || null, note: note || null, at: at ?? null },
       });
-      if (insErr) throw insErr;
+      if (rpcErr) throw rpcErr;
       await qc.invalidateQueries({ queryKey: ['adjustments'] });
-      await qc.invalidateQueries({ queryKey: ['batches'] });
-      await qc.invalidateQueries({ queryKey: ['batch-stock'] });
+      await qc.invalidateQueries({ queryKey: ['packets'] });
+      await qc.invalidateQueries({ queryKey: ['packet'] });
+      await qc.invalidateQueries({ queryKey: ['balances'] });
+      await qc.invalidateQueries({ queryKey: ['dashboard'] });
       setOk('সংরক্ষিত');
       setQty('');
+      setPerson('');
       setNote('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'সমস্যা');
+      setError(mapError(err));
     }
     setBusy(false);
   };
 
+  const bnReason = (r: string) => (r === 'gift' ? 'ফ্রি দেওয়া' : r === 'damage' ? 'নষ্ট' : r === 'loss' ? 'হারানো' : r === 'sample' ? 'নমুনা' : 'অন্যান্য');
+
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5">
-      <PageTitle tag="PataBin" title="নষ্ট/ক্ষতি" />
+      <PageTitle tag="PataBin" title="নষ্ট/ফ্রি" />
       <form onSubmit={submit} noValidate className="card grid grid-cols-2 gap-4 p-6">
-        <Field label="ব্যাচ" className="col-span-2 sm:col-span-1">
-          <select className="field" value={batchId} onChange={(e) => setBatchId(e.target.value)}>
+        <Field label="প্যাকেট, যারটা থেকে" className="col-span-2">
+          <select className="field" value={packetId} onChange={(e) => setPacketId(e.target.value)}>
             <option value="">-- নির্বাচন করুন --</option>
-            {batches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.code}{b.status === 'closed' ? ' (বন্ধ)' : ''}
+            {packets.map((p) => (
+              <option key={p.packet_id} value={p.packet_id}>
+                {p.packet_code} · {p.owner_name} · {toBnDigits(p.remaining)} বাকি
               </option>
             ))}
           </select>
-        </Field>
-        <Field label="সময়" className="col-span-2 sm:col-span-1">
-          <TimeInput value={takenOn} onChange={setTakenOn} />
         </Field>
         <Field label="পরিমাণ (পিস)">
           <NumberInput value={qty} onChange={setQty} />
         </Field>
         <Field label="কারণ">
           <select className="field" value={reason} onChange={(e) => setReason(e.target.value)}>
+            <option value="gift">ফ্রি দেওয়া</option>
             <option value="damage">নষ্ট</option>
             <option value="loss">হারানো</option>
             <option value="sample">নমুনা</option>
             <option value="other">অন্যান্য</option>
           </select>
+        </Field>
+        <Field label="কাকে ফ্রি দেওয়া হলো (ঐচ্ছিক)">
+          <input className="field" value={person} onChange={(e) => setPerson(e.target.value)} />
+        </Field>
+        <Field label="সময়">
+          <TimeInput value={at} onChange={setAt} />
         </Field>
         <Field label="নোট (ঐচ্ছিক)" className="col-span-2">
           <input className="field" value={note} onChange={(e) => setNote(e.target.value)} />
@@ -116,25 +134,32 @@ export default function AdjustmentsPage() {
           ))}
         </div>
       )}
-      {rows?.length === 0 && <Empty img={offline} title="কিছু নষ্ট হয়নি" caption="স্টক বাদ দিতে হলে এখানে লিখুন।" />}
+      {rows?.length === 0 && <Empty img={offline} title="কিছু নষ্ট বা ফ্রি হয়নি" caption="স্টক বাদ দিতে হলে এখানে লিখুন।" />}
       {rows && rows.length > 0 && (
         <div className="card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-hairline text-left">
                 <th className="p-3 font-semibold">সময়</th>
-                <th className="p-3 font-semibold">ব্যাচ</th>
+                <th className="p-3 font-semibold">প্যাকেট</th>
                 <th className="p-3 font-semibold">পরিমাণ</th>
                 <th className="p-3 font-semibold">কারণ</th>
+                <th className="p-3 font-semibold">কাকে</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((x) => (
                 <tr key={x.id} className="border-b border-hairline last:border-0">
-                  <td className="whitespace-nowrap p-3">{formatDhakaDate(x.adjusted_on)}</td>
-                  <td className="p-3">{codeOf(x.batch_id)}</td>
+                  <td className="whitespace-nowrap p-3">{formatDhakaDate(x.at)}</td>
+                  <td className="p-3 text-xs">{
+                    (() => {
+                      const p = packetOf(x.packet_id);
+                      return p ? `${p.packet_code} · ${p.owner_name}` : '-';
+                    })()
+                  }</td>
                   <td className="p-3">{toBnDigits(x.qty)}</td>
-                  <td className="p-3">{x.reason === 'damage' ? 'নষ্ট' : x.reason === 'loss' ? 'হারানো' : x.reason === 'sample' ? 'নমুনা' : 'অন্যান্য'}</td>
+                  <td className="p-3">{bnReason(x.reason)}</td>
+                  <td className="p-3">{x.person ?? '-'}</td>
                 </tr>
               ))}
             </tbody>

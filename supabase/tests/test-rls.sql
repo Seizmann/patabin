@@ -5,7 +5,7 @@ update public.profiles set must_change_password = false where id = (select id fr
 set local role anon;
 do $$
 begin
-  select 1 from public.batches limit 1;
+  select 1 from public.chalans limit 1;
   raise 'anon read must fail';
 exception
   when insufficient_privilege then
@@ -46,8 +46,8 @@ begin
   if not found then
     raise 'self deactivate failed';
   end if;
-  if exists (select 1 from public.batches) then
-    raise 'deactivated user reads batches';
+  if exists (select 1 from public.chalans) then
+    raise 'deactivated user reads chalans';
   end if;
   if exists (select 1 from public.profiles) then
     raise 'deactivated user reads profiles';

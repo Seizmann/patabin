@@ -1,9 +1,10 @@
 import { Suspense, lazy, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchBalances, fetchBreakdown, fetchDailyIncome, fetchStockCurrent, fetchTotals, METHOD_BN, type Totals } from './api';
+import { fetchBalances, fetchBreakdown, fetchDailyIncome, fetchStockCurrent, fetchTotals, fetchWalletBalances, type Totals } from './api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Card, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { dhakaDate, formatDhakaDate, formatMoney, periodRange, toBnDigits } from '@patabin/shared';
+import { supabase } from 'lib/supabase';
 import heroImg from 'assets/images/backgrounds/dashboard-hero.webp';
 import offlineImg from 'assets/images/empty/offline.png';
 import emptySales from 'assets/images/empty/empty-sales.png';
@@ -11,9 +12,10 @@ import emptySales from 'assets/images/empty/empty-sales.png';
 const Donut = lazy(() => import('components/ui/Donut'));
 const IncomeBar = lazy(() => import('components/ui/IncomeBar'));
 
-type PeriodId = 'today' | 'yesterday' | 'week' | 'month' | 'lastMonth' | 'custom';
+type PeriodId = 'chalan' | 'today' | 'yesterday' | 'week' | 'month' | 'lastMonth' | 'custom';
 
 const periods: { id: PeriodId; label: string }[] = [
+  { id: 'chalan', label: 'এই চালান' },
   { id: 'today', label: 'আজ' },
   { id: 'yesterday', label: 'গতকাল' },
   { id: 'week', label: 'এই সপ্তাহ' },
@@ -23,26 +25,46 @@ const periods: { id: PeriodId; label: string }[] = [
 
 export default function DashboardPage() {
   usePageTitle('হোম', 'পাতাবিন হোম পাতা: আয়, খরচ, লাভ, স্টক ও হিসাবের সারসংক্ষেপ।');
-  const [period, setPeriod] = useState<PeriodId>('month');
+  const [period, setPeriod] = useState<PeriodId>('chalan');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
 
+  const { data: openChalan } = useQuery({
+    queryKey: ['dashboard', 'open-chalan'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('chalans')
+        .select('code, purchase_date')
+        .eq('status', 'open')
+        .is('deleted_at', null)
+        .order('code', { ascending: false })
+        .limit(1);
+      if (error) throw error;
+      return (data ?? [])[0] as { code: string; purchase_date: string } | undefined;
+    },
+  });
+
   const [start, end] = useMemo(() => {
+    if (period === 'chalan') {
+      const nowIso = new Date().toISOString();
+      return openChalan?.purchase_date ? [openChalan.purchase_date, nowIso] : periodRange('today', nowIso);
+    }
     if (period === 'custom') {
       const now = dhakaDate(new Date().toISOString());
       const endIso = customTo ? `${customTo}T23:59:59+06:00` : new Date().toISOString();
       return [customFrom ? `${customFrom}T00:00:00+06:00` : `${now}T00:00:00+06:00`, endIso];
     }
     return periodRange(period, new Date().toISOString());
-  }, [period, customFrom, customTo]);
+  }, [period, customFrom, customTo, openChalan?.purchase_date]);
 
   const totals = useQuery({ queryKey: ['dashboard', 'totals', start, end], queryFn: () => fetchTotals(start, end) });
   const stock = useQuery({ queryKey: ['stock'], queryFn: fetchStockCurrent, staleTime: 30_000 });
   const balances = useQuery({ queryKey: ['balances'], queryFn: fetchBalances });
+  const walletBalances = useQuery({ queryKey: ['wallets-all'], queryFn: fetchWalletBalances });
   const breakdown = useQuery({ queryKey: ['dashboard', 'breakdown', start, end], queryFn: () => fetchBreakdown(start, end) });
   const daily = useQuery({ queryKey: ['dashboard', 'daily', start, end], queryFn: () => fetchDailyIncome(start, end) });
 
-  const donutData = (breakdown.data ?? []).map((s) => ({ name: METHOD_BN[s.slice] ?? s.slice, value: s.amount })).filter((d) => d.value !== 0);
+  const donutData = (breakdown.data ?? []).map((s) => ({ name: s.slice, value: s.amount })).filter((d) => d.value !== 0);
 
   return (
     <div className="flex flex-col gap-5">
@@ -56,13 +78,21 @@ export default function DashboardPage() {
       ) : (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Stat label="আয়" value={totals.data && formatMoney(totals.data.income)} tone="good" />
-          <Stat label="খরচ" value={totals.data && formatMoney(totals.data.expenses)} tone="bad" sub={totals.data && `ল্যান্ডেড ${formatMoney(totals.data.landed_expenses)}`} />
+          <Stat label="খরচ" value={totals.data && formatMoney(totals.data.expenses)} tone="bad" />
           <Stat label="নিট লাভ" value={totals.data && formatMoney(totals.data.net_profit)} tone={Number(totals.data?.net_profit ?? 0) >= 0 ? 'good' : 'bad'} />
           <Stat label="স্টক" value={`${toBnDigits(stock.data ?? 0)} পিস`} />
         </div>
       )}
 
       <HeroCard totals={totals.data} loading={totals.isPending} cash={totals.data ? totals.data.cash_received : 0} />
+
+      {walletBalances.data && walletBalances.data.length > 0 && (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {walletBalances.data.map((w) => (
+            <Stat key={w.wallet_id} label={w.type === 'cash' ? 'ক্যাশ' : w.type === 'bkash' ? `বিকাশ · ${w.label}` : `নগদ · ${w.label}`} value={formatMoney(w.balance)} />
+          ))}
+        </div>
+      )}
 
       {balances.data && balances.data.length > 0 && (
         <Card className="p-5">
