@@ -68,7 +68,7 @@ export default function SalesPage() {
       {rows && rows.length > 0 && <SalesTable rows={rows} onEdit={setEditing} onDelete={(id) => void del(id)} />}
       {sheetOpen && (
         <div className="fixed inset-0 z-40 flex items-end overflow-y-auto bg-black/40 sm:items-center sm:p-6">
-          <div role="dialog" aria-modal="true" className="w-full rounded-b-3xl border-0 sm:mx-auto sm:max-w-lg sm:rounded-3xl">
+          <div role="dialog" aria-modal="true" className="w-full max-h-[92vh] overflow-y-auto rounded-b-3xl border-0 sm:mx-auto sm:max-w-lg sm:rounded-3xl">
             <div className="flex justify-end p-2 sm:p-3">
               <button type="button" aria-label="বন্ধ করুন" className="grid h-11 w-11 place-items-center rounded-full bg-surface text-ink-mute" onClick={() => setSheetOpen(false)}>
                 <X weight="bold" size={20} />
@@ -168,7 +168,7 @@ function EditSheet({ sale, onClose, onSaved }: { sale: SaleRowV; onClose: () => 
 
   return (
     <div className="fixed inset-0 z-40 flex items-end overflow-y-auto bg-black/40 sm:items-center sm:p-6">
-      <div role="dialog" aria-modal="true" className="card w-full rounded-b-3xl p-5 sm:mx-auto sm:max-w-lg sm:rounded-3xl">
+      <div role="dialog" aria-modal="true" className="w-full max-h-[92vh] overflow-y-auto rounded-b-3xl p-5 sm:mx-auto sm:max-w-lg sm:rounded-3xl">
         {error && <div className="mb-3"><Notice tone="error">{error}</Notice></div>}
         <SaleForm
           title="বিক্রি সম্পাদনা"

@@ -126,7 +126,7 @@ export default function CustomersPage() {
 
       {editing && (
         <div className="fixed inset-0 z-40 flex items-end overflow-y-auto bg-black/40 sm:items-center sm:p-6">
-          <div role="dialog" aria-modal="true" className="card w-full rounded-b-3xl p-5 sm:mx-auto sm:max-w-lg sm:rounded-3xl">
+          <div role="dialog" aria-modal="true" className="card w-full max-h-[92vh] overflow-y-auto rounded-b-3xl p-5 sm:mx-auto sm:max-w-lg sm:rounded-3xl">
             <form onSubmit={saveEdit} noValidate className="flex flex-col gap-4">
               <Field label="নাম">
                 <input className="field" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
