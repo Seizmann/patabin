@@ -8,7 +8,7 @@ select set_config('request.jwt.claims', '{"sub":"' || (select id::text from publ
 set local role authenticated;
 
 do $$ begin
-  insert into public.batches (code) values ('TEST-PENDING-1');
+  insert into public.chalans (code) values ('TEST-PENDING-1');
   raise 'pending write missing';
 exception when insufficient_privilege then
   assert sqlerrm like '%row-level security%' or sqlerrm like '%CHANGE_PASSWORD%' or sqlerrm like '%password_gate%', 'unexpected: ' || sqlerrm;
