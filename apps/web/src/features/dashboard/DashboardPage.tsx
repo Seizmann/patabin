@@ -4,6 +4,7 @@ import { fetchBalances, fetchBreakdown, fetchDailyIncome, fetchStockCurrent, fet
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Card, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { dhakaDate, formatDhakaDate, formatMoney, periodRange, toBnDigits } from '@patabin/shared';
+import { supabase } from 'lib/supabase';
 import heroImg from 'assets/images/backgrounds/dashboard-hero.webp';
 import offlineImg from 'assets/images/empty/offline.png';
 import emptySales from 'assets/images/empty/empty-sales.png';
@@ -11,9 +12,10 @@ import emptySales from 'assets/images/empty/empty-sales.png';
 const Donut = lazy(() => import('components/ui/Donut'));
 const IncomeBar = lazy(() => import('components/ui/IncomeBar'));
 
-type PeriodId = 'today' | 'yesterday' | 'week' | 'month' | 'lastMonth' | 'custom';
+type PeriodId = 'chalan' | 'today' | 'yesterday' | 'week' | 'month' | 'lastMonth' | 'custom';
 
 const periods: { id: PeriodId; label: string }[] = [
+  { id: 'chalan', label: 'এই চালান' },
   { id: 'today', label: 'আজ' },
   { id: 'yesterday', label: 'গতকাল' },
   { id: 'week', label: 'এই সপ্তাহ' },
@@ -23,18 +25,37 @@ const periods: { id: PeriodId; label: string }[] = [
 
 export default function DashboardPage() {
   usePageTitle('হোম', 'পাতাবিন হোম পাতা: আয়, খরচ, লাভ, স্টক ও হিসাবের সারসংক্ষেপ।');
-  const [period, setPeriod] = useState<PeriodId>('month');
+  const [period, setPeriod] = useState<PeriodId>('chalan');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
 
+  const { data: openChalan } = useQuery({
+    queryKey: ['dashboard', 'open-chalan'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('chalans')
+        .select('code, purchase_date')
+        .eq('status', 'open')
+        .is('deleted_at', null)
+        .order('code', { ascending: false })
+        .limit(1);
+      if (error) throw error;
+      return (data ?? [])[0] as { code: string; purchase_date: string } | undefined;
+    },
+  });
+
   const [start, end] = useMemo(() => {
+    if (period === 'chalan') {
+      const nowIso = new Date().toISOString();
+      return openChalan?.purchase_date ? [openChalan.purchase_date, nowIso] : periodRange('today', nowIso);
+    }
     if (period === 'custom') {
       const now = dhakaDate(new Date().toISOString());
       const endIso = customTo ? `${customTo}T23:59:59+06:00` : new Date().toISOString();
       return [customFrom ? `${customFrom}T00:00:00+06:00` : `${now}T00:00:00+06:00`, endIso];
     }
     return periodRange(period, new Date().toISOString());
-  }, [period, customFrom, customTo]);
+  }, [period, customFrom, customTo, openChalan?.purchase_date]);
 
   const totals = useQuery({ queryKey: ['dashboard', 'totals', start, end], queryFn: () => fetchTotals(start, end) });
   const stock = useQuery({ queryKey: ['stock'], queryFn: fetchStockCurrent, staleTime: 30_000 });

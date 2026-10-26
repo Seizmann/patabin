@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       session,
       profile: data as AuthState['profile'] ?? null,
-      loading: loading && !!uid,
+      loading: loading || (!!session && data === undefined),
       suAdmin: data?.role === 'su_admin',
       refreshProfile: () => void refetch(),
     }),
