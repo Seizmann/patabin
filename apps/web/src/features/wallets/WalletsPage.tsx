@@ -9,9 +9,10 @@ import TimeInput from 'components/forms/TimeInput';
 import { fetchPartners, myPartnerId } from 'lib/api';
 import { mapError } from 'lib/errors';
 import { formatDhakaDate, formatMoney } from '@patabin/shared';
+import { walletDisplay } from 'lib/wallet';
 import offlineImg from 'assets/images/empty/offline.png';
 
-type WalletBalance = { wallet_id: string; type: string; label: string; is_active: boolean; balance: string | number };
+type WalletBalance = { wallet_id: string; type: string; name: string; label: string; is_active: boolean; balance: string | number };
 
 export default function WalletsPage() {
   usePageTitle('ওয়ালেট');
@@ -35,23 +36,19 @@ export default function WalletsPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         {wallets.map((w) => (
           <Card key={w.wallet_id} className="p-5">
-            <p className="p-label">{bnType(w.type)} · {w.label}</p>
+            <p className="p-label">{walletDisplay(w)}</p>
             <p className="p-display">{formatMoney(w.balance)}</p>
           </Card>
         ))}
       </div>
 
-      <AccountsCard wallets={wallets.map((w) => ({ id: w.wallet_id, type: w.type, label: w.label, is_active: w.is_active }))} suAdmin={suAdmin} />
+      <AccountsCard wallets={wallets.map((w) => ({ id: w.wallet_id, type: w.type, name: w.name, label: w.label, is_active: w.is_active }))} suAdmin={suAdmin} />
       <TransferCard wallets={wallets} partners={partners} myId={myId ?? null} />
       <WithdrawCard wallets={wallets} partners={partners} myId={myId ?? null} />
 
       <MfsNote partners={partners} myId={myId ?? null} />
     </div>
   );
-}
-
-function bnType(t: string): string {
-  return t === 'cash' ? 'ক্যাশ' : t === 'bkash' ? 'বিকাশ' : t === 'nagad' ? 'নগদ' : t;
 }
 
 function TransferCard({ wallets, partners }: { wallets: WalletBalance[]; partners: { id: string; name: string }[]; myId: string | null }) {
@@ -114,7 +111,7 @@ function TransferCard({ wallets, partners }: { wallets: WalletBalance[]; partner
             <option value="">-- নির্বাচন করুন --</option>
             {wallets.map((w) => (
               <option key={w.wallet_id} value={w.wallet_id}>
-                {bnType(w.type)} · {w.label}
+                {walletDisplay(w)}
               </option>
             ))}
           </select>
@@ -124,7 +121,7 @@ function TransferCard({ wallets, partners }: { wallets: WalletBalance[]; partner
             <option value="">-- নির্বাচন করুন --</option>
             {wallets.map((w) => (
               <option key={w.wallet_id} value={w.wallet_id}>
-                {bnType(w.type)} · {w.label}
+                {walletDisplay(w)}
               </option>
             ))}
           </select>
@@ -181,14 +178,14 @@ function TransfersTable() {
   const { data: walletsAll = [] } = useQuery({
     queryKey: ['wallets-names'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('wallets').select('id, type, label');
+      const { data, error } = await supabase.from('wallets').select('id, type, name, label');
       if (error) throw error;
-      return (data ?? []) as { id: string; type: string; label: string }[];
+      return (data ?? []) as { id: string; type: string; name: string; label: string }[];
     },
   });
   const walletName = (id: string) => {
     const w = walletsAll.find((x) => x.id === id);
-    return w ? `${bnType(w.type)}/${w.label}` : id;
+    return w ? walletDisplay(w) : id;
   };
   const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? '';
 
@@ -274,7 +271,7 @@ function WithdrawCard({ wallets, partners, myId }: { wallets: WalletBalance[]; p
             <option value="">-- নির্বাচন করুন --</option>
             {wallets.map((w) => (
               <option key={w.wallet_id} value={w.wallet_id}>
-                {bnType(w.type)} · {w.label}
+                {walletDisplay(w)}
               </option>
             ))}
           </select>
@@ -300,9 +297,10 @@ function WithdrawCard({ wallets, partners, myId }: { wallets: WalletBalance[]; p
   );
 }
 
-function AccountsCard({ wallets, suAdmin }: { wallets: { id: string; type: string; label: string; is_active: boolean }[]; suAdmin: boolean }) {
+function AccountsCard({ wallets, suAdmin }: { wallets: { id: string; type: string; name: string; label: string; is_active: boolean }[]; suAdmin: boolean }) {
   const qc = useQueryClient();
   const [type, setType] = useState('bkash');
+  const [name, setName] = useState('');
   const [label, setLabel] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -311,15 +309,16 @@ function AccountsCard({ wallets, suAdmin }: { wallets: { id: string; type: strin
   const add = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!label) {
-      setError('নাম দিন।');
+    if (!label || !name) {
+      setError('নাম ও নাম্বার দিন।');
       return;
     }
     setBusy(true);
     try {
-      const { error: insErr } = await supabase.from('wallets').insert({ type, label });
+      const { error: insErr } = await supabase.from('wallets').insert({ type, name, label });
       if (insErr) throw insErr;
       await qc.invalidateQueries({ queryKey: ['wallets-all'] });
+      setName('');
       setLabel('');
     } catch (err) {
       setError(mapError(err));
@@ -342,7 +341,7 @@ function AccountsCard({ wallets, suAdmin }: { wallets: { id: string; type: strin
       <div className="flex flex-col divide-y divide-hairline">
         {mfs.map((w) => (
           <div key={w.id} className="flex items-center justify-between py-2">
-            <span>{bnType(w.type)} · {w.label}{w.is_active ? '' : ' (নিষ্ক্রিয়)'}</span>
+            <span>{walletDisplay(w)}{w.is_active ? '' : ' (নিষ্ক্রিয়)'}</span>
             {w.is_active && (
               <Btn variant="ghost" onClick={() => void deactivate(w.id)}>
                 নিষ্ক্রিয় করুন
@@ -358,6 +357,9 @@ function AccountsCard({ wallets, suAdmin }: { wallets: { id: string; type: strin
             <option value="bkash">বিকাশ</option>
             <option value="nagad">নগদ</option>
           </select>
+        </Field>
+        <Field label="নাম">
+          <input className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Bappy" />
         </Field>
         <Field label="বিকাশ/নগদ নাম্বার">
           <input className="field" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="01XXXXXXXXX" />

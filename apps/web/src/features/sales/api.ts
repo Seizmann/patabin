@@ -6,12 +6,14 @@ export type SaleRowV = {
   qty: number;
   list_unit_price: number;
   amount_received: number;
+  due_amount: number;
   discount: number;
   discount_pct: number | null;
   customer_id: string | null;
   customer_name: string | null;
   customer_phone: string | null;
   wallet_type: string;
+  wallet_name: string;
   wallet_label: string;
   note: string | null;
   created_at: string;
@@ -23,6 +25,7 @@ export type SaleInput = {
   qty: number;
   list_unit_price: number;
   amount_received: number;
+  due_amount?: number;
   customer_id?: string | null;
   customer_name?: string | null;
   customer_phone?: string | null;
@@ -31,8 +34,8 @@ export type SaleInput = {
   sold_at?: string | null;
 };
 
-export async function fetchWallets(): Promise<{ id: string; type: string; label: string }[]> {
-  const { data, error } = await supabase.from('wallets').select('id, type, label').eq('is_active', true).order('type');
+export async function fetchWallets(): Promise<{ id: string; type: string; name: string; label: string }[]> {
+  const { data, error } = await supabase.from('wallets').select('id, type, name, label').eq('is_active', true).order('type');
   if (error) throw error;
   return data ?? [];
 }

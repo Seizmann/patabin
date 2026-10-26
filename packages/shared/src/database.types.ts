@@ -196,6 +196,74 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_payments: {
+        Row: {
+          amount: number
+          at: string
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          deleted_at: string | null
+          id: string
+          note: string | null
+          updated_at: string
+          wallet_account_id: string
+        }
+        Insert: {
+          amount: number
+          at?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          deleted_at?: string | null
+          id?: string
+          note?: string | null
+          updated_at?: string
+          wallet_account_id: string
+        }
+        Update: {
+          amount?: number
+          at?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          deleted_at?: string | null
+          id?: string
+          note?: string | null
+          updated_at?: string
+          wallet_account_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_payments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_payments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_balance"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "customer_payments_wallet_account_id_fkey"
+            columns: ["wallet_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_wallet_balance"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "customer_payments_wallet_account_id_fkey"
+            columns: ["wallet_account_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           created_at: string
@@ -643,6 +711,7 @@ export type Database = {
           customer_phone: string | null
           deleted_at: string | null
           discount: number | null
+          due_amount: number
           id: string
           list_unit_price: number
           note: string | null
@@ -660,6 +729,7 @@ export type Database = {
           customer_phone?: string | null
           deleted_at?: string | null
           discount?: number | null
+          due_amount?: number
           id?: string
           list_unit_price: number
           note?: string | null
@@ -677,6 +747,7 @@ export type Database = {
           customer_phone?: string | null
           deleted_at?: string | null
           discount?: number | null
+          due_amount?: number
           id?: string
           list_unit_price?: number
           note?: string | null
@@ -692,6 +763,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_balance"
+            referencedColumns: ["customer_id"]
           },
           {
             foreignKeyName: "sales_wallet_account_id_fkey"
@@ -918,6 +996,7 @@ export type Database = {
           id: string
           is_active: boolean
           label: string
+          name: string
           type: string
           updated_at: string
         }
@@ -927,6 +1006,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           label: string
+          name?: string
           type: string
           updated_at?: string
         }
@@ -936,6 +1016,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           label?: string
+          name?: string
           type?: string
           updated_at?: string
         }
@@ -1050,6 +1131,27 @@ export type Database = {
         }
         Relationships: []
       }
+      v_customer_balance: {
+        Row: {
+          balance: number | null
+          customer_id: string | null
+          name: string | null
+          phone: string | null
+        }
+        Insert: {
+          balance?: never
+          customer_id?: string | null
+          name?: string | null
+          phone?: string | null
+        }
+        Update: {
+          balance?: never
+          customer_id?: string | null
+          name?: string | null
+          phone?: string | null
+        }
+        Relationships: []
+      }
       v_packet_stock: {
         Row: {
           chalan_code: string | null
@@ -1131,6 +1233,7 @@ export type Database = {
           customer_phone: string | null
           discount: number | null
           discount_pct: number | null
+          due_amount: number | null
           id: string | null
           list_unit_price: number | null
           note: string | null
@@ -1140,6 +1243,7 @@ export type Database = {
           sold_at: string | null
           wallet_account_id: string | null
           wallet_label: string | null
+          wallet_name: string | null
           wallet_type: string | null
         }
         Relationships: [
@@ -1149,6 +1253,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_balance"
+            referencedColumns: ["customer_id"]
           },
           {
             foreignKeyName: "sales_wallet_account_id_fkey"
@@ -1171,6 +1282,7 @@ export type Database = {
           balance: number | null
           is_active: boolean | null
           label: string | null
+          name: string | null
           type: string | null
           wallet_id: string | null
         }
@@ -1178,6 +1290,7 @@ export type Database = {
           balance?: never
           is_active?: boolean | null
           label?: string | null
+          name?: string | null
           type?: string | null
           wallet_id?: string | null
         }
@@ -1185,6 +1298,7 @@ export type Database = {
           balance?: never
           is_active?: boolean | null
           label?: string | null
+          name?: string | null
           type?: string | null
           wallet_id?: string | null
         }
@@ -1201,6 +1315,7 @@ export type Database = {
       complete_password_change: { Args: never; Returns: undefined }
       create_adjustment: { Args: { p_adj: Json }; Returns: string }
       create_chalan: { Args: { p_payload: Json }; Returns: string }
+      create_customer_payment: { Args: { p_pay: Json }; Returns: string }
       create_expense: { Args: { p_exp: Json }; Returns: string }
       create_packets: { Args: { p_payload: Json }; Returns: undefined }
       create_personal_use: { Args: { p_use: Json }; Returns: string }

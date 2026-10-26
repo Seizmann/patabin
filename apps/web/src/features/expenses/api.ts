@@ -2,7 +2,7 @@ import { supabase } from 'lib/supabase';
 
 export type ExpenseRow = { id: string; category_id: string; amount: string | number; paid_by_partner_id: string; attributed_to_partner_id: string; wallet_account_id: string | null; note: string | null; spent_at: string };
 export type PartnerRow = { id: string; name: string };
-export type WalletRow = { id: string; type: string; label: string };
+export type WalletRow = { id: string; type: string; name: string; label: string };
 
 export async function fetchExpenses(): Promise<ExpenseRow[]> {
   const { data, error } = await supabase
@@ -28,7 +28,7 @@ export async function createExpense(input: {
 }
 
 export async function fetchWallets(): Promise<WalletRow[]> {
-  const { data, error } = await supabase.from('wallets').select('id, type, label').eq('is_active', true).order('type');
+  const { data, error } = await supabase.from('wallets').select('id, type, name, label').eq('is_active', true).order('type');
   if (error) throw error;
   return data ?? [];
 }

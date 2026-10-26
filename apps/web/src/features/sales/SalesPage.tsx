@@ -133,7 +133,7 @@ function SalesTable({ rows, onEdit, onDelete }: { rows: SaleRowV[]; onEdit: (r: 
               <td className="p-3">{formatMoney(r.amount_received)}</td>
               <td className="p-3">{Number(r.discount) ? formatMoney(r.discount) : '-'}</td>
               <td className="p-3 text-xs">{r.packet_codes}</td>
-              <td className="p-3 text-xs">{r.wallet_label}</td>
+              <td className="p-3 text-xs">{r.wallet_name ? `${r.wallet_name} (${r.wallet_label.slice(-2)})` : r.wallet_label}</td>
               <td className="p-3">
                 <div className="flex justify-end gap-2">
                   <Btn variant="ghost" onClick={() => onEdit(r)}>
@@ -158,9 +158,9 @@ function EditSheet({ sale, onClose, onSaved }: { sale: SaleRowV; onClose: () => 
   const { data: raw, error: rawError } = useQuery({
     queryKey: ['sale-raw', sale.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('sales').select('wallet_account_id, customer_id').eq('id', sale.id).single();
+      const { data, error } = await supabase.from('sales').select('wallet_account_id, customer_id, due_amount').eq('id', sale.id).single();
       if (error) throw error;
-      return data as { wallet_account_id: string; customer_id: string | null } | null;
+      return data as { wallet_account_id: string; customer_id: string | null; due_amount: number } | null;
     },
   });
 
@@ -179,6 +179,7 @@ function EditSheet({ sale, onClose, onSaved }: { sale: SaleRowV; onClose: () => 
             amount_received: Number(sale.amount_received),
             wallet_account_id: raw.wallet_account_id,
             note: sale.note ?? '',
+            due_amount: Number(raw.due_amount ?? 0),
             customerId: raw.customer_id ?? undefined,
           }}
           onSubmit={async (payload: SaleInput) => {

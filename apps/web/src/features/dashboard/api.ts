@@ -40,10 +40,10 @@ export async function fetchBreakdown(start: string, end: string): Promise<Slice[
 }
 
 function sliceLabel(s: string): string {
-  const [type = '', label = ''] = s.split('|');
+  const [type = '', name = ''] = s.split('|');
   if (type === 'personal') return 'ব্যক্তিগত ব্যবহার';
   const base = type === 'cash' ? 'ক্যাশ' : type === 'bkash' ? 'বিকাশ' : type === 'nagad' ? 'নগদ' : type;
-  return label && label !== 'Cash' ? `${base} · ${label}` : base;
+  return name ? `${base} · ${name}` : base;
 }
 
 export async function fetchStockCurrent(): Promise<number> {
