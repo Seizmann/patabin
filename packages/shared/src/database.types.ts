@@ -196,6 +196,36 @@ export type Database = {
         }
         Relationships: []
       }
+      customers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       expense_categories: {
         Row: {
           created_at: string
@@ -608,6 +638,7 @@ export type Database = {
           amount_received: number
           created_at: string
           created_by: string | null
+          customer_id: string | null
           customer_name: string | null
           customer_phone: string | null
           deleted_at: string | null
@@ -624,6 +655,7 @@ export type Database = {
           amount_received: number
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
           customer_name?: string | null
           customer_phone?: string | null
           deleted_at?: string | null
@@ -640,6 +672,7 @@ export type Database = {
           amount_received?: number
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
           customer_name?: string | null
           customer_phone?: string | null
           deleted_at?: string | null
@@ -653,6 +686,13 @@ export type Database = {
           wallet_account_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "sales_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sales_wallet_account_id_fkey"
             columns: ["wallet_account_id"]
@@ -1086,6 +1126,7 @@ export type Database = {
         Row: {
           amount_received: number | null
           created_at: string | null
+          customer_id: string | null
           customer_name: string | null
           customer_phone: string | null
           discount: number | null
@@ -1102,6 +1143,13 @@ export type Database = {
           wallet_type: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "sales_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sales_wallet_account_id_fkey"
             columns: ["wallet_account_id"]

@@ -36,6 +36,7 @@ const sections: Section[] = [
 
 const moreItems = (suAdmin: boolean): Omit<Section, 'end'>[] => [
   { to: '/chalans', label: bn.chalans, Icon: Package },
+  { to: '/customers', label: bn.customerNav, Icon: UserCircle },
   { to: '/reports', label: bn.reports, Icon: Receipt },
   { to: '/personal-use', label: bn.personalUse, Icon: UserCircle },
   { to: '/adjustments', label: bn.adjustments, Icon: Receipt },

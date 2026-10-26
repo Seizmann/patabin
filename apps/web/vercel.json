@@ -46,6 +46,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/customers",
+      "destination": "/index.html"
+    },
+    {
       "source": "/wallets",
       "destination": "/index.html"
     },

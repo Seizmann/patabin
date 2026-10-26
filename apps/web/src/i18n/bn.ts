@@ -27,6 +27,7 @@ const bn = {
   home: 'হোম',
   sales: 'বিক্রি',
   packetsNav: 'প্যাকেট',
+  customerNav: 'কাস্টমার',
   expensesNav: 'খরচ',
   settlement: 'হিসাব',
   income: 'আয়',

@@ -8,6 +8,7 @@ export type SaleRowV = {
   amount_received: number;
   discount: number;
   discount_pct: number | null;
+  customer_id: string | null;
   customer_name: string | null;
   customer_phone: string | null;
   wallet_type: string;
@@ -22,6 +23,7 @@ export type SaleInput = {
   qty: number;
   list_unit_price: number;
   amount_received: number;
+  customer_id?: string | null;
   customer_name?: string | null;
   customer_phone?: string | null;
   wallet_account_id: string;
@@ -38,21 +40,13 @@ export async function fetchWallets(): Promise<{ id: string; type: string; label:
 export async function fetchPacketsPreview(): Promise<{ packet_id: string; packet_code: string; owner_name: string; remaining: number; position: number | null }[]> {
   const { data, error } = await supabase.from('v_packet_stock').select('packet_id, packet_code, owner_name, remaining, position').eq('chalan_status', 'open').order('position');
   if (error) throw error;
-  return (data ?? []).filter((p) => p.remaining > 0);
+  return (data ?? []).filter((p) => Number(p.remaining) > 0);
 }
 
 export async function fetchSales(from: string, to: string): Promise<SaleRowV[]> {
   const { data, error } = await supabase.from('v_sales_enriched').select('*').gte('sold_at', from).lt('sold_at', to).order('sold_at', { ascending: false });
   if (error) throw error;
   return data as SaleRowV[];
-}
-
-export async function fetchCustomerHints(): Promise<{ name: string; phone: string | null }[]> {
-  const { data, error } = await supabase.from('v_sales_enriched').select('customer_name, customer_phone').not('customer_name', 'is', null).limit(200);
-  if (error) return [];
-  return ((data ?? []) as { customer_name: string; customer_phone: string | null }[])
-    .filter((c) => c.customer_name)
-    .map((c) => ({ name: c.customer_name, phone: c.customer_phone }));
 }
 
 export async function createSale(input: SaleInput): Promise<void> {

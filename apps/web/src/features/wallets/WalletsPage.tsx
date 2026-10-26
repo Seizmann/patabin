@@ -41,9 +41,9 @@ export default function WalletsPage() {
         ))}
       </div>
 
+      <AccountsCard wallets={wallets.map((w) => ({ id: w.wallet_id, type: w.type, label: w.label, is_active: w.is_active }))} suAdmin={suAdmin} />
       <TransferCard wallets={wallets} partners={partners} myId={myId ?? null} />
       <WithdrawCard wallets={wallets} partners={partners} myId={myId ?? null} />
-      <AccountsCard wallets={wallets.map((w) => ({ id: w.wallet_id, type: w.type, label: w.label, is_active: w.is_active }))} suAdmin={suAdmin} />
 
       <MfsNote partners={partners} myId={myId ?? null} />
     </div>
@@ -359,8 +359,8 @@ function AccountsCard({ wallets, suAdmin }: { wallets: { id: string; type: strin
             <option value="nagad">নগদ</option>
           </select>
         </Field>
-        <Field label="অ্যাকাউন্টের নাম">
-          <input className="field" value={label} onChange={(e) => setLabel(e.target.value)} />
+        <Field label="বিকাশ/নগদ নাম্বার">
+          <input className="field" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="01XXXXXXXXX" />
         </Field>
         <div className="col-span-2 max-w-xs">
           <Btn type="submit" busy={busy} disabled={!suAdmin}>

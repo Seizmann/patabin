@@ -1,17 +1,19 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchCustomerHints, fetchPacketsPreview, fetchWallets, type SaleInput } from './api';
+import { createCustomer, fetchCustomers } from 'features/customers/api';
+import { fetchPacketsPreview, fetchWallets, type SaleInput } from './api';
 import { fetchSettings } from 'lib/api';
 import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
 import { Btn, Card, Field, Notice, PageTitle } from 'components/ui/base';
 import { formatMoney } from '@patabin/shared';
 
+const NEW = '__new__';
+
 type Props = {
   title: string;
   submitLabel: string;
-  initial?: Partial<SaleInput> & { id?: string };
-  consumerDefault?: string;
+  initial?: Partial<SaleInput> & { customerId?: string };
   showCustomer?: boolean;
   onSubmit: (payload: SaleInput) => Promise<void>;
 };
@@ -20,8 +22,10 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
   const [qty, setQty] = useState(String(initial?.qty ?? 1));
   const [price, setPrice] = useState(String(initial?.list_unit_price ?? ''));
   const [amount, setAmount] = useState(initial?.amount_received != null ? String(initial.amount_received) : '');
-  const [customerName, setCustomerName] = useState(initial?.customer_name ?? '');
-  const [customerPhone, setCustomerPhone] = useState(initial?.customer_phone ?? '');
+  const [customerId, setCustomerId] = useState(initial?.customerId ?? '');
+  const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [freeName, setFreeName] = useState(initial?.customer_name ?? '');
   const [wallet, setWallet] = useState(initial?.wallet_account_id ?? '');
   const [note, setNote] = useState(initial?.note ?? '');
   const [soldAt, setSoldAt] = useState<string | undefined>(initial?.sold_at ?? undefined);
@@ -31,7 +35,8 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
   const { data: wallets = [] } = useQuery({ queryKey: ['wallets'], queryFn: fetchWallets });
   const { data: packets = [] } = useQuery({ queryKey: ['packets'], queryFn: fetchPacketsPreview });
-  const { data: hints = [] } = useQuery({ queryKey: ['customer-hints'], queryFn: fetchCustomerHints });
+  const { data: customers } = useQuery({ queryKey: ['customers'], queryFn: fetchCustomers });
+  const list = customers ?? [];
 
   const listValue = Number(qty || '0') * Number(price || '0');
   const discount = Math.max(0, listValue - Number(amount === '' ? listValue : amount || '0'));
@@ -60,12 +65,30 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
     }
     setBusy(true);
     try {
+      let saleCustomer: string | null = customerId || null;
+      let name: string | null = customerId === NEW ? null : freeName || null;
+      let phone: string | null = null;
+      if (customerId === NEW) {
+        if (!newName.trim()) {
+          setError('নতুন কাস্টমার-এর নাম দিন।');
+          setBusy(false);
+          return;
+        }
+        saleCustomer = await createCustomer(newName.trim(), newPhone.trim() || null);
+        name = newName.trim();
+        phone = newPhone.trim() || null;
+      } else if (saleCustomer) {
+        const hit = list.find((c) => c.id === saleCustomer);
+        name = hit?.name ?? null;
+        phone = hit?.phone ?? null;
+      }
       await onSubmit({
         qty: Number(qty),
         list_unit_price: Number(price) || Number(settings?.default_sell_price ?? 300),
         amount_received: Number(amount === '' ? listValue : amount),
-        customer_name: customerName || null,
-        customer_phone: customerPhone || null,
+        customer_id: saleCustomer,
+        customer_name: name,
+        customer_phone: phone,
         wallet_account_id: wallet,
         note: note || null,
         sold_at: soldAt ?? null,
@@ -124,17 +147,32 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
 
         {showCustomer && (
           <>
-            <Field label="ক্রেতার নাম (ঐচ্ছিক)">
-              <input className="field" list="customer-names" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
-              <datalist id="customer-names">
-                {hints.map((h, i) => (
-                  <option key={i} value={h.name} />
+            <Field label="কাস্টমার (ঐচ্ছিক)">
+              <select className="field" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+                <option value="">-- নির্বাচন করুন --</option>
+                {list.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.phone ? ` · ${c.phone}` : ''}
+                  </option>
                 ))}
-              </datalist>
+                <option value={NEW}>নতুন কাস্টমার…</option>
+              </select>
             </Field>
-            <Field label="ফোন (ঐচ্ছিক)">
-              <input className="field" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
-            </Field>
+            {customerId === NEW && (
+              <>
+                <Field label="নতুন কাস্টমার-এর নাম">
+                  <input className="field" value={newName} onChange={(e) => setNewName(e.target.value)} />
+                </Field>
+                <Field label="ফোন নাম্বার">
+                  <input className="field" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} />
+                </Field>
+              </>
+            )}
+            {customerId === '' && (
+              <Field label="নাম (কাস্টমার বিনা বিক্রি হলে)">
+                <input className="field" value={freeName} onChange={(e) => setFreeName(e.target.value)} />
+              </Field>
+            )}
           </>
         )}
 

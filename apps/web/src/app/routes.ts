@@ -9,6 +9,7 @@ export const ROUTES = [
   '/chalans/new',
   '/chalans/:code',
   '/packets',
+  '/customers',
   '/expenses',
   '/adjustments',
   '/wallets',

@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from 'lib/supabase';
-import { deleteSale, fetchSales, updateSale, type SaleInput, type SaleRowV } from './api';
+import { createSale, deleteSale, fetchSales, updateSale, type SaleInput, type SaleRowV } from './api';
 import SaleForm from './SaleForm';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { Plus, X } from '@phosphor-icons/react';
 import { formatDhakaDate, formatMoney, isoAtDhaka, dhakaDate, toBnDigits } from '@patabin/shared';
 import emptySales from 'assets/images/empty/empty-sales.png';
 
@@ -15,6 +16,7 @@ export default function SalesPage() {
   const [to, setTo] = useState('');
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<SaleRowV | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const start = from ? isoAtDhaka(from) : '2000-01-01T00:00:00+06:00';
   const end = to ? isoAtDhaka(to, '23:59:59') : '2100-01-01T00:00:00+06:00';
@@ -41,9 +43,14 @@ export default function SalesPage() {
         tag="PataBin"
         title="বিক্রির তালিকা"
         right={
-          <Btn variant="ghost" onClick={() => { const t = dhakaDate(new Date().toISOString()); setFrom(t); setTo(t); }}>
-            আজ
-          </Btn>
+          <div className="flex items-center gap-2">
+            <Btn variant="ghost" onClick={() => { const t = dhakaDate(new Date().toISOString()); setFrom(t); setTo(t); }}>
+              আজ
+            </Btn>
+            <button type="button" aria-label="নতুন বিক্রি" className="btn grid h-11 w-11 place-items-center p-0" onClick={() => setSheetOpen(true)}>
+              <Plus weight="bold" size={20} />
+            </button>
+          </div>
         }
       />
       <div className="card flex flex-wrap items-end gap-3 p-4">
@@ -59,6 +66,26 @@ export default function SalesPage() {
       {isError && <Notice tone="error">ডেটা আনতে সমস্যা হয়েছে</Notice>}
       {rows?.length === 0 && <Empty img={emptySales} title="কোনো বিক্রি নেই" caption="নতুন বিক্রি যুক্ত করে শুরু করুন।" />}
       {rows && rows.length > 0 && <SalesTable rows={rows} onEdit={setEditing} onDelete={(id) => void del(id)} />}
+      {sheetOpen && (
+        <div className="fixed inset-0 z-40 flex items-end overflow-y-auto bg-black/40 sm:items-center sm:p-6">
+          <div role="dialog" aria-modal="true" className="w-full rounded-b-3xl border-0 sm:mx-auto sm:max-w-lg sm:rounded-3xl">
+            <div className="flex justify-end p-2 sm:p-3">
+              <button type="button" aria-label="বন্ধ করুন" className="grid h-11 w-11 place-items-center rounded-full bg-surface text-ink-mute" onClick={() => setSheetOpen(false)}>
+                <X weight="bold" size={20} />
+              </button>
+            </div>
+            <SaleForm
+              title="নতুন বিক্রি"
+              submitLabel="বিক্রি সংরক্ষণ"
+              onSubmit={async (payload: SaleInput) => {
+                await createSale(payload);
+                await invalidate(qc);
+                setSheetOpen(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
       {editing && (
         <EditSheet
           sale={editing}
@@ -75,7 +102,7 @@ export default function SalesPage() {
 }
 
 async function invalidate(qc: ReturnType<typeof useQueryClient>) {
-  await Promise.all(['sales', 'packets', 'dashboard', 'balances', 'wallets'].map((k) => qc.invalidateQueries({ queryKey: [k] })));
+  await Promise.all(['sales', 'packets', 'dashboard', 'balances', 'wallets', 'customers'].map((k) => qc.invalidateQueries({ queryKey: [k] })));
 }
 
 function SalesTable({ rows, onEdit, onDelete }: { rows: SaleRowV[]; onEdit: (r: SaleRowV) => void; onDelete: (id: string) => void }) {
@@ -131,9 +158,9 @@ function EditSheet({ sale, onClose, onSaved }: { sale: SaleRowV; onClose: () => 
   const { data: raw, error: rawError } = useQuery({
     queryKey: ['sale-raw', sale.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('sales').select('wallet_account_id').eq('id', sale.id).single();
+      const { data, error } = await supabase.from('sales').select('wallet_account_id, customer_id').eq('id', sale.id).single();
       if (error) throw error;
-      return data as { wallet_account_id: string } | null;
+      return data as { wallet_account_id: string; customer_id: string | null } | null;
     },
   });
 
@@ -150,10 +177,9 @@ function EditSheet({ sale, onClose, onSaved }: { sale: SaleRowV; onClose: () => 
             qty: sale.qty,
             list_unit_price: Number(sale.list_unit_price),
             amount_received: Number(sale.amount_received),
-            customer_name: sale.customer_name ?? '',
-            customer_phone: sale.customer_phone ?? '',
             wallet_account_id: raw.wallet_account_id,
             note: sale.note ?? '',
+            customerId: raw.customer_id ?? undefined,
           }}
           onSubmit={async (payload: SaleInput) => {
             try {
