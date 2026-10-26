@@ -30,15 +30,23 @@
       "destination": "/index.html"
     },
     {
-      "source": "/batches",
+      "source": "/chalans",
       "destination": "/index.html"
     },
     {
-      "source": "/batches/new",
+      "source": "/chalans/new",
       "destination": "/index.html"
     },
     {
-      "source": "/batches/(B-\\d+)",
+      "source": "/chalans/(C-\\d+)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/packets",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/wallets",
       "destination": "/index.html"
     },
     {

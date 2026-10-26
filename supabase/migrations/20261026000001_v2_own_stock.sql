@@ -226,22 +226,27 @@ create or replace function public.guard_closed_chalan() returns trigger
 language plpgsql security definer set search_path = public
 as $$
 declare
+  v_row jsonb;
   v_chalan_id uuid;
+  v_packet_id uuid;
 begin
   if tg_op = 'DELETE' then
-    if tg_table_name = 'sale_allocations' and exists (select 1 from public.sales where id = old.sale_id and deleted_at is not null) then
+    if tg_table_name = 'sale_allocations' and exists (select 1 from public.sales where id = (to_jsonb(old) ->> 'sale_id')::uuid and deleted_at is not null) then
       return old;
     end if;
+    v_row := to_jsonb(old);
+  else
+    v_row := to_jsonb(new);
   end if;
-  v_chalan_id := coalesce(new.chalan_id, old.chalan_id);
+  v_packet_id := (v_row ->> 'packet_id')::uuid;
+  if v_packet_id is not null then
+    select pk.chalan_id into v_chalan_id from public.packets pk where pk.id = v_packet_id;
+  end if;
   if v_chalan_id is null then
-    v_chalan_id := (
-      select c.id from public.packets pk
-      join public.chalans c on c.id = pk.chalan_id
-      where pk.id = coalesce(new.packet_id, old.packet_id)
-    );
+    v_chalan_id := (v_row ->> 'chalan_id')::uuid;
   end if;
-  if exists (select 1 from public.chalans where id = v_chalan_id and (status = 'closed' or deleted_at is not null)) then
+  if v_chalan_id is not null
+    and exists (select 1 from public.chalans where id = v_chalan_id and (status = 'closed' or deleted_at is not null)) then
     raise exception 'CHALAN_CLOSED';
   end if;
   return coalesce(new, old);
@@ -797,7 +802,7 @@ begin
   from public.v_partner_chalan_settlement pv
   where pv.chalan_id = p_chalan_id;
   select coalesce(jsonb_agg(jsonb_build_object(
-    'wallet_id', w.id,
+    'wallet_id', w.wallet_id,
     'type', w.type,
     'label', w.label,
     'balance', w.balance
@@ -1165,8 +1170,10 @@ as $$
       + (select coalesce(sum(aj.qty * c.buy_rate), 0) from public.stock_adjustments aj join public.packets pk on pk.id = aj.packet_id join public.chalans c on c.id = pk.chalan_id where aj.deleted_at is null and aj.at >= p_start and aj.at < p_end)
       + (select coalesce(sum(pu.qty * c.buy_rate), 0) from public.personal_uses pu left join public.packets pk on pk.id = pu.packet_id left join public.chalans c on c.id = coalesce(pk.chalan_id, pu.chalan_id) where pu.deleted_at is null and pu.at >= p_start and pu.at < p_end),
     (select coalesce(sum(s.amount_received), 0) from public.sales s where s.deleted_at is null and s.sold_at >= p_start and s.sold_at < p_end)
+      + (select coalesce(sum(pu.qty * pu.unit_value), 0) from public.personal_uses pu join public.packets pk on pk.id = pu.packet_id where pu.deleted_at is null and pu.eater_partner_id <> pk.owner_partner_id and pu.at >= p_start and pu.at < p_end)
       - (select coalesce(sum(sa.qty * c.buy_rate), 0) from public.sale_allocations sa join public.sales s on s.id = sa.sale_id and s.deleted_at is null and s.sold_at >= p_start and s.sold_at < p_end join public.packets pk on pk.id = sa.packet_id join public.chalans c on c.id = pk.chalan_id)
       - (select coalesce(sum(aj.qty * c.buy_rate), 0) from public.stock_adjustments aj join public.packets pk on pk.id = aj.packet_id join public.chalans c on c.id = pk.chalan_id where aj.deleted_at is null and aj.at >= p_start and aj.at < p_end)
+      - (select coalesce(sum(pu.qty * c.buy_rate), 0) from public.personal_uses pu left join public.packets pk on pk.id = pu.packet_id left join public.chalans c on c.id = coalesce(pk.chalan_id, pu.chalan_id) where pu.deleted_at is null and pu.at >= p_start and pu.at < p_end)
       - (select coalesce(sum(e.amount), 0) from public.expenses e where e.deleted_at is null and e.spent_at >= p_start and e.spent_at < p_end),
     (select coalesce(sum(s.qty * s.list_unit_price), 0) from public.sales s where s.deleted_at is null and s.sold_at >= p_start and s.sold_at < p_end),
     (select coalesce(sum(s.amount_received), 0) from public.sales s where s.deleted_at is null and s.sold_at >= p_start and s.sold_at < p_end),

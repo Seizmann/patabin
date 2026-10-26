@@ -5,7 +5,7 @@ const config = JSON.parse(readFileSync('apps/web/vercel.json', 'utf8')) as {
   rewrites: { source: string; destination: string }[];
 };
 
-const template = (r: ROUTES[number]): string => r.replace(':code', '(B-\\d+)');
+const template = (r: ROUTES[number]): string => r.replace(':code', '(C-\\d+)');
 const wanted = new Set(ROUTES.map(template));
 const present = new Set(config.rewrites.map((r) => r.source).filter((src) => src !== '/(.*)'));
 

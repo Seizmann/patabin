@@ -22,20 +22,23 @@ interface Section {
   to: string;
   label: string;
   Icon: Icon;
-  su?: boolean;
   end?: boolean;
 }
 
 const sections: Section[] = [
   { to: '/', label: bn.home, Icon: House, end: true },
   { to: '/sales', label: bn.sales, Icon: Money },
-  { to: '/batches', label: bn.batches, Icon: Package },
-  { to: '/expenses', label: bn.expts, Icon: Wallet },
+  { to: '/packets', label: bn.packetsNav, Icon: Package },
+  { to: '/expenses', label: bn.expensesNav, Icon: Receipt },
   { to: '/settlement', label: bn.settlement, Icon: Calculator },
+  { to: '/wallets', label: bn.wallets, Icon: Wallet },
 ];
 
 const moreItems = (suAdmin: boolean): Omit<Section, 'end'>[] => [
+  { to: '/chalans', label: bn.chalans, Icon: Package },
   { to: '/reports', label: bn.reports, Icon: Receipt },
+  { to: '/personal-use', label: bn.personalUse, Icon: UserCircle },
+  { to: '/adjustments', label: bn.adjustments, Icon: Receipt },
   { to: '/audit-trail', label: bn.auditTrail, Icon: Receipt },
   ...(suAdmin
     ? [
@@ -91,7 +94,7 @@ export default function AppShell() {
           className="fixed inset-x-0 bottom-0 z-20 flex border-t border-hairline bg-surface lg:hidden"
           style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         >
-          {sections.map((s) => (
+          {sections.slice(0, 5).map((s) => (
             <NavLink key={s.to} to={s.to} end={s.end} className={tabCls} aria-label={s.label}>
               {({ isActive }) => (
                 <span className={`flex flex-col items-center gap-0.5 ${isActive ? 'text-espresso' : ''}`}>

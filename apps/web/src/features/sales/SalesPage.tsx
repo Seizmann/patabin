@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from 'lib/supabase';
-import { deleteSale, fetchSales, mapError, updateSale, type SaleRowV } from './api';
+import { deleteSale, fetchSales, updateSale, type SaleInput, type SaleRowV } from './api';
 import SaleForm from './SaleForm';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
@@ -11,8 +11,8 @@ import emptySales from 'assets/images/empty/empty-sales.png';
 export default function SalesPage() {
   usePageTitle('বিক্রির তালিকা');
   const qc = useQueryClient();
-  const [from, setFrom] = useState<'' | `${string}`>('');
-  const [to, setTo] = useState<'' | `${string}`>('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<SaleRowV | null>(null);
 
@@ -31,7 +31,7 @@ export default function SalesPage() {
       await deleteSale(id);
       await invalidate(qc);
     } catch (e) {
-      setError(mapError(e));
+      setError(e instanceof Error ? e.message : 'সমস্যা');
     }
   };
 
@@ -41,7 +41,7 @@ export default function SalesPage() {
         tag="PataBin"
         title="বিক্রির তালিকা"
         right={
-          <Btn variant="ghost" onClick={() => { const t = dhakaDate(new Date().toISOString()); setFrom(t as `${string}`); setTo(t as `${string}`); }}>
+          <Btn variant="ghost" onClick={() => { const t = dhakaDate(new Date().toISOString()); setFrom(t); setTo(t); }}>
             আজ
           </Btn>
         }
@@ -75,9 +75,7 @@ export default function SalesPage() {
 }
 
 async function invalidate(qc: ReturnType<typeof useQueryClient>) {
-  await Promise.all(
-    ['sales', 'stock', 'dashboard', 'balances', 'batch-stock'].map((k) => qc.invalidateQueries({ queryKey: [k] })),
-  );
+  await Promise.all(['sales', 'packets', 'dashboard', 'balances', 'wallets'].map((k) => qc.invalidateQueries({ queryKey: [k] })));
 }
 
 function SalesTable({ rows, onEdit, onDelete }: { rows: SaleRowV[]; onEdit: (r: SaleRowV) => void; onDelete: (id: string) => void }) {
@@ -91,7 +89,8 @@ function SalesTable({ rows, onEdit, onDelete }: { rows: SaleRowV[]; onEdit: (r: 
             <th className="p-3 font-semibold">পরিমাণ</th>
             <th className="p-3 font-semibold">টাকা</th>
             <th className="p-3 font-semibold">ছাড়</th>
-            <th className="p-3 font-semibold">ব্যাচ</th>
+            <th className="p-3 font-semibold">প্যাকেট</th>
+            <th className="p-3 font-semibold">মাধ্যম</th>
             <th className="p-3" />
           </tr>
         </thead>
@@ -100,14 +99,14 @@ function SalesTable({ rows, onEdit, onDelete }: { rows: SaleRowV[]; onEdit: (r: 
             <tr key={r.id} className="border-b border-hairline last:border-0">
               <td className="whitespace-nowrap p-3">{formatDhakaDate(r.sold_at)}</td>
               <td className="p-3">
-                {r.kind === 'external'
-                  ? `${r.customer_name || 'ক্রেতা'} · গ্রহণ: ${r.received_by_name ?? ''}`
-                  : `ব্যক্তিগত ব্যবহার · ${r.customer_partner_name ?? ''}`}
+                {r.customer_name || 'ক্রেতা'}
+                {r.customer_phone ? ` · ${r.customer_phone}` : ''}
               </td>
               <td className="p-3">{toBnDigits(r.qty)}</td>
               <td className="p-3">{formatMoney(r.amount_received)}</td>
               <td className="p-3">{Number(r.discount) ? formatMoney(r.discount) : '-'}</td>
-              <td className="p-3 text-xs">{r.batch_codes}</td>
+              <td className="p-3 text-xs">{r.packet_codes}</td>
+              <td className="p-3 text-xs">{r.wallet_label}</td>
               <td className="p-3">
                 <div className="flex justify-end gap-2">
                   <Btn variant="ghost" onClick={() => onEdit(r)}>
@@ -132,44 +131,40 @@ function EditSheet({ sale, onClose, onSaved }: { sale: SaleRowV; onClose: () => 
   const { data: raw, error: rawError } = useQuery({
     queryKey: ['sale-raw', sale.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('sales').select('partner_id, received_by_partner_id').eq('id', sale.id).single();
+      const { data, error } = await supabase.from('sales').select('wallet_account_id').eq('id', sale.id).single();
       if (error) throw error;
-      return data as { partner_id: string | null; received_by_partner_id: string | null };
+      return data as { wallet_account_id: string } | null;
     },
   });
 
-  if (rawError) return null;
+  if (rawError || !raw) return null;
 
   return (
     <div className="fixed inset-0 z-40 flex items-end overflow-y-auto bg-black/40 sm:items-center sm:p-6">
-      <div role="dialog" aria-modal="true" className="card w-full rounded-b-3xl p-5 sm:mx-auto sm:max-w-lg sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" className="card w-full rounded-b-3xl p-5 sm:mx-auto sm:max-w-lg sm:rounded-3xl">
         {error && <div className="mb-3"><Notice tone="error">{error}</Notice></div>}
-        {raw && (
-          <SaleForm
-            title="বিক্রি সম্পাদনা"
-            submitLabel="হালনাগাদ"
-            initial={{
-              kind: sale.kind === 'external' ? 'external' : 'internal',
-              customer_name: sale.customer_name,
-              partner_id: raw.partner_id,
-              received_by_partner_id: raw.received_by_partner_id,
-              qty: sale.qty,
-              list_unit_price: Number(sale.list_unit_price),
-              amount_received: Number(sale.amount_received),
-              payment_method: sale.payment_method,
-              note: sale.note,
-            }}
-            onSubmit={async (payload) => {
-              try {
-                await updateSale(sale.id, payload);
-                await invalidate(qc);
-                onSaved();
-              } catch (e) {
-                setError(mapError(e));
-              }
-            }}
-          />
-        )}
+        <SaleForm
+          title="বিক্রি সম্পাদনা"
+          submitLabel="হালনাগাদ"
+          initial={{
+            qty: sale.qty,
+            list_unit_price: Number(sale.list_unit_price),
+            amount_received: Number(sale.amount_received),
+            customer_name: sale.customer_name ?? '',
+            customer_phone: sale.customer_phone ?? '',
+            wallet_account_id: raw.wallet_account_id,
+            note: sale.note ?? '',
+          }}
+          onSubmit={async (payload: SaleInput) => {
+            try {
+              await updateSale(sale.id, payload);
+              await invalidate(qc);
+              onSaved();
+            } catch (e) {
+              setError(e instanceof Error ? e.message : 'সমস্যা');
+            }
+          }}
+        />
         <div className="mt-3 flex justify-end">
           <Btn variant="ghost" onClick={onClose}>
             বন্ধ
@@ -193,4 +188,3 @@ function TableSkeleton() {
     </div>
   );
 }
-
