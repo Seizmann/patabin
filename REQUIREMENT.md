@@ -125,8 +125,7 @@ withdrawn_p      = Σ withdrawals by p
 
 ### 2.12 Rounding and invariants
 - Money `numeric(12,2)`, round half up. Pro-rata revenue splits must be rounded so the Σ of parts equals the exact `amount_received` (the largest allocation absorbs the remainder).
-- Global test invariant — at chalan close with all stock depleted, with backup Wallet total counted in:
-  `wallet_total + Σ pocket_paid(expenses reimbursed) ... verified as: Σ entitlement_p = wallet_total` (all business deltas — revenue in, expenses/withdrawals/charges out — net to exactly this), see Test A/B in §12.
+- Global invariant — at all times (live SQL test): `Σ v_partner_balance.balance = Σ v_wallet_balance.balance + Σ (v_packet_stock.remaining × buy_rate)`. I.e. cash in the pool plus the value of stocked pcs equals everything the partners own together. With the stock fully depleted at close: Σ balance = wallet total exactly.
 - Packet remaining can never go below 0; sales, personal use and adjustments must reject otherwise, atomically, inside one transaction with packet rows locked.
 
 ---
@@ -385,12 +384,11 @@ Design language (light mode only — no dark mode, no `dark:` classes, `color-sc
 
 SQL tests in `supabase/tests/*.sql`, each wrapped in `BEGIN; ... ROLLBACK;`, using `DO $$ ... ASSERT ... $$`, run by `pnpm test:sql` via `psql` with `SUPABASE_DB_URL`.
 
-**Test A — core numbers (own-stock).** Chalan: `buy_rate` 190. Bappy buys 220 pcs (paid 41,800 own pocket), Sijan 100 pcs (paid 19,000 own pocket). Personal kept: Bappy 20, Sijan 20. Packing: Bappy 200 (10 packets × 20), Sijan 80 (4 × 20). Sales: external 275 pcs received 82,250 (list 300) and 5 pcs received 1,450 (list 1500 → discount 50); total external revenue 83,950; no expenses, no withdrawals.
-Expected: ext_rev Bappy = 83,950 × 200/280 = **59,964.29**, Sijan = **23,985.71**; pcs_out Bappy 220, Sijan 100; profit Bappy = 59,964.29 − 41,800 = 18,164.29; entitlement Bappy = **59,964.29**, Sijan = **23,985.71**; Σ = 83,950 = wallet total (only Cash wallet used). Chalan closes (stock 0).
+**Test A — core numbers (own-stock).** Chalan: `buy_rate` 190. Bappy buys 220 pcs (paid 41,800 own pocket), Sijan 100 pcs (paid 19,000 own pocket). Personal kept: Bappy 20, Sijan 20. Packing: Bappy 200 (10 packets × 20), Sijan 80 (4 × 20); priority order left as packed (Bappy's packets first). Sales: 275 pcs received 82,250 (list 300) → Bappy 200 / Sijan 75; 5 pcs received 1,450 (list 300) → Sijan 5. Totals: ext_rev Bappy **59,818.18**, Sijan **23,881.82**; pcs_out Bappy 220, Sijan 100; costs = capital; entitlement Bappy **59,818.18**, Sijan **23,881.82**; Σ entitlement = **83,700.00** = wallet total (Cash only). Dashboard: income 95,700.00 (incl personal value 12,000), net profit **22,900.00** = batch profit sum. Close succeeds (stock 0).
 
-**Test B — personal use, expenses, reimbursements.** Same chalan, but sales: external 270 pcs received 81,000 (no discount); Sijan eats 10 pcs from one of Bappy's packets (`unit_value` 300 → internal revenue 3,000 to Bappy); expense "Bappy-র রিচার্জ" 200, paid_by Sijan, wallet NULL, attributed_to Bappy; expected: profit Bappy = 57,857.14 − 41,800 + 3,000 = 19,057.14; entitlement Bappy = 41,800 + 19,057.14 − 200 = 60,657.14; entitlement Sijan = 19,000 + (23,142.86 − 19,000) − 3,000 + 200 = 20,342.86; Σ = **81,000.00** = wallet total. Close succeeds (Sijan kept 20 + ate 10; Bappy kept 20).
+**Test B — personal use, expenses, reimbursements.** Same chalan; priority set alternating (Sijan's packets interleaved). Sales: 260 pcs received 78,000 (list 300) → Bappy 180 / Sijan 80. Sijan eats 10 pcs from a Bappy packet (`unit_value` 300 → internal revenue 3,000 to Bappy), Bappy then eats the last 10 of that packet (own). Expense "Bappy-র রিচার্জ" 200, paid_by Sijan from own pocket (wallet NULL), attributed_to Bappy. Expected: entitlement Bappy = **56,800.00**, Sijan = **21,200.00**; Σ = **78,000.00** = wallet total; stock 0; close succeeds.
 
-**Test C — priority allocation.** One open chalan, packets in priority order: P-01 (Bappy, 20), P-02 (Sijan, 20), P-03 (Bappy, 20). Sale of 25 pcs → allocations P-01:20, P-02:5; revenue split 20/25 and 5/25 of `amount_received`; the sale's detail shows both packet codes and owners. Sale of 100 pcs with only 60 in stock → rejected, no rows left.
+**Test C — priority allocation.** One open chalan: Bappy 40 pcs (7,600), Sijan 40 (7,600), four 20-pc packets; priority reordered (drag & drop) to P-001, P-003, P-002, P-004. Sale of 25 pcs at 7,500 → allocations P-001:20 (Bappy, 6,000), P-003:5 (Sijan, 1,500). Sale of 30 at 9,000 → P-003:15 + P-002:15. Sale of 100 with 25 in stock → rejected (NO_STOCK), no rows left. Gift/damage adjustments clear the rest; close succeeds; Σ balance = wallet = 16,500.
 
 **Other required checks:**
 - Priority renumbering via `set_sell_priority` persists and drives the next sale's consumption order.
