@@ -15,7 +15,10 @@ declare
 begin
   p_su := (select id from public.partners where user_id = auth.uid());
   p_b := (select id from public.partners where user_id = (select id from public.profiles where role = 'patabin_admin'));
-  insert into public.wallets (type, label) values ('cash', 'Cash') returning id into v_wallet;
+  select id into v_wallet from public.wallets where type = 'cash' limit 1;
+  if v_wallet is null then
+    insert into public.wallets (type, label) values ('cash', 'Cash') returning id into v_wallet;
+  end if;
 
   v_chalan := public.create_chalan(jsonb_build_object(
     'buy_rate', 190,
