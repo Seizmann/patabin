@@ -944,19 +944,23 @@ where c.deleted_at is null;
 
 create or replace view public.v_partner_chalan_settlement with (security_invoker = true) as
 with rev as (
-  select t.sale_id, t.partner_id, t.qty,
-    round(t.share, 2)
-    + (case when t.rn = 1 then t.amount_received - sum(round(t.share, 2)) over (partition by t.sale_id) else 0 end) as share
+  select chalan_id, partner_id, sum(share) as share
   from (
-    select s.id as sale_id, pk.owner_partner_id as partner_id, sum(sa.qty) as qty,
-      s.amount_received * sum(sa.qty) / s.qty as share,
-      s.amount_received,
-      row_number() over (partition by s.id order by sum(sa.qty) desc, pk.owner_partner_id) as rn
-    from public.sale_allocations sa
-    join public.sales s on s.id = sa.sale_id and s.deleted_at is null
-    join public.packets pk on pk.id = sa.packet_id
-    group by s.id, pk.owner_partner_id, s.amount_received, s.qty
-  ) t
+    select t.chalan_id, t.partner_id,
+      round(t.share, 2)
+      + (case when t.rn = 1 then t.amount_received - sum(round(t.share, 2)) over (partition by t.sale_id) else 0 end) as share
+    from (
+      select s.id as sale_id, pk.chalan_id, pk.owner_partner_id as partner_id, sum(sa.qty) as qty,
+        s.amount_received * sum(sa.qty) / s.qty as share,
+        s.amount_received,
+        row_number() over (partition by s.id order by sum(sa.qty) desc, pk.owner_partner_id) as rn
+      from public.sale_allocations sa
+      join public.sales s on s.id = sa.sale_id and s.deleted_at is null
+      join public.packets pk on pk.id = sa.packet_id
+      group by s.id, pk.chalan_id, pk.owner_partner_id, s.amount_received, s.qty
+    ) t
+  ) u
+  group by chalan_id, partner_id
 ),
 pcs_out as (
   select pk.chalan_id, pk.owner_partner_id as partner_id, sum(x.qty) as qty
@@ -1038,7 +1042,7 @@ select
 from partners pn
 join public.partners pr on pr.id = pn.partner_id
 left join capital cap on cap.chalan_id = pn.chalan_id and cap.partner_id = pn.partner_id
-left join rev on rev.partner_id = pn.partner_id
+left join rev on rev.chalan_id = pn.chalan_id and rev.partner_id = pn.partner_id
 left join internal_rev ir on ir.chalan_id = pn.chalan_id and ir.partner_id = pn.partner_id
 left join pcs_out po on po.chalan_id = pn.chalan_id and po.partner_id = pn.partner_id
 left join kept kp on kp.chalan_id = pn.chalan_id and kp.partner_id = pn.partner_id
