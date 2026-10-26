@@ -6,6 +6,7 @@ export type SaleRowV = {
   qty: number;
   list_unit_price: number;
   amount_received: number;
+  due_amount: number;
   discount: number;
   discount_pct: number | null;
   customer_id: string | null;
@@ -24,6 +25,7 @@ export type SaleInput = {
   qty: number;
   list_unit_price: number;
   amount_received: number;
+  due_amount?: number;
   customer_id?: string | null;
   customer_name?: string | null;
   customer_phone?: string | null;

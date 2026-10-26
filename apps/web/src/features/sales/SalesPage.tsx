@@ -158,9 +158,9 @@ function EditSheet({ sale, onClose, onSaved }: { sale: SaleRowV; onClose: () => 
   const { data: raw, error: rawError } = useQuery({
     queryKey: ['sale-raw', sale.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('sales').select('wallet_account_id, customer_id').eq('id', sale.id).single();
+      const { data, error } = await supabase.from('sales').select('wallet_account_id, customer_id, due_amount').eq('id', sale.id).single();
       if (error) throw error;
-      return data as { wallet_account_id: string; customer_id: string | null } | null;
+      return data as { wallet_account_id: string; customer_id: string | null; due_amount: number } | null;
     },
   });
 
@@ -179,6 +179,7 @@ function EditSheet({ sale, onClose, onSaved }: { sale: SaleRowV; onClose: () => 
             amount_received: Number(sale.amount_received),
             wallet_account_id: raw.wallet_account_id,
             note: sale.note ?? '',
+            due_amount: Number(raw.due_amount ?? 0),
             customerId: raw.customer_id ?? undefined,
           }}
           onSubmit={async (payload: SaleInput) => {

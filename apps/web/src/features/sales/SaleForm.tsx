@@ -24,6 +24,7 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
   const [price, setPrice] = useState(String(initial?.list_unit_price ?? ''));
   const [amount, setAmount] = useState(initial?.amount_received != null ? String(initial.amount_received) : '');
   const [customerId, setCustomerId] = useState(initial?.customerId ?? '');
+  const [due, setDue] = useState(String(initial?.due_amount ?? ''));
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [freeName, setFreeName] = useState(initial?.customer_name ?? '');
@@ -64,6 +65,14 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
       setError('কোথায় টাকা গেল বাছুন।');
       return;
     }
+    if (Number(due || 0) > 0 && customerId === '') {
+      setError('বাকি রাখতে কাস্টমার বাছুন।');
+      return;
+    }
+    if (Number(due || 0) + (amount === '' ? 0 : Number(amount)) > listValue) {
+      setError('টাকা + বাকি তালিকা মূল্যের বেশি হয়নি তো?');
+      return;
+    }
     setBusy(true);
     try {
       let saleCustomer: string | null = customerId || null;
@@ -87,6 +96,7 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
         qty: Number(qty),
         list_unit_price: Number(price) || Number(settings?.default_sell_price ?? 300),
         amount_received: Number(amount === '' ? listValue : amount),
+        due_amount: Number(due || 0),
         customer_id: saleCustomer,
         customer_name: name,
         customer_phone: phone,
@@ -122,7 +132,7 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
           <NumberInput className="grow" value={amount === '' ? String(listValue) : amount} onChange={setAmount} />
         </Field>
         <div className="p-caption rounded-xl bg-canvas px-4 py-3">
-          তালিকা: {formatMoney(listValue)} · ছাড়: {formatMoney(discount)} ({qty && listValue ? Math.round((discount * 100) / listValue) : 0}%)
+          তালিকা: {formatMoney(listValue)} · ছাড়: {formatMoney(discount)} ({qty && listValue ? Math.round((discount * 100) / listValue) : 0}%) · বাকি: {formatMoney(Number(due || 0))}
         </div>
 
         {packetPreview.length > 0 && (
@@ -174,6 +184,9 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
                 <input className="field" value={freeName} onChange={(e) => setFreeName(e.target.value)} />
               </Field>
             )}
+            <Field label="বাকি (ঐচ্ছিক — পরে নেওয়া টাকা)">
+              <NumberInput value={due} onChange={setDue} placeholder="0" />
+            </Field>
           </>
         )}
 
