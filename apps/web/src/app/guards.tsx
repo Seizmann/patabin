@@ -5,8 +5,8 @@ import { useAuth } from 'lib/auth';
 export function RequireAuth(): ReactElement {
   const { session, profile, loading } = useAuth();
   const loc = useLocation();
-  if (!session) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
   if (loading) return <RouteLoading />;
+  if (!session) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
   if (!profile) return <Navigate to="/login" replace />;
   if (profile.must_change_password) return <Navigate to="/change-password" replace />;
   return <Outlet />;
