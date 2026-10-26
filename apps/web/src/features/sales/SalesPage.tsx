@@ -133,7 +133,7 @@ function SalesTable({ rows, onEdit, onDelete }: { rows: SaleRowV[]; onEdit: (r: 
               <td className="p-3">{formatMoney(r.amount_received)}</td>
               <td className="p-3">{Number(r.discount) ? formatMoney(r.discount) : '-'}</td>
               <td className="p-3 text-xs">{r.packet_codes}</td>
-              <td className="p-3 text-xs">{r.wallet_label}</td>
+              <td className="p-3 text-xs">{r.wallet_name ? `${r.wallet_name} (${r.wallet_label.slice(-2)})` : r.wallet_label}</td>
               <td className="p-3">
                 <div className="flex justify-end gap-2">
                   <Btn variant="ghost" onClick={() => onEdit(r)}>

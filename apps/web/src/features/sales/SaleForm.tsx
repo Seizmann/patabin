@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createCustomer, fetchCustomers } from 'features/customers/api';
 import { fetchPacketsPreview, fetchWallets, type SaleInput } from './api';
 import { fetchSettings } from 'lib/api';
+import { walletDisplay } from 'lib/wallet';
 import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
 import { Btn, Card, Field, Notice, PageTitle } from 'components/ui/base';
@@ -139,7 +140,7 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
             <option value="">-- নির্বাচন করুন --</option>
             {wallets.map((w) => (
               <option key={w.id} value={w.id}>
-                {w.label}
+                {walletDisplay(w)}
               </option>
             ))}
           </select>

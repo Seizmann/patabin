@@ -5,6 +5,7 @@ import { usePageTitle } from 'hooks/usePageTitle';
 import { Card, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { dhakaDate, formatDhakaDate, formatMoney, periodRange, toBnDigits } from '@patabin/shared';
 import { supabase } from 'lib/supabase';
+import { walletDisplay } from 'lib/wallet';
 import heroImg from 'assets/images/backgrounds/dashboard-hero.webp';
 import offlineImg from 'assets/images/empty/offline.png';
 import emptySales from 'assets/images/empty/empty-sales.png';
@@ -89,7 +90,7 @@ export default function DashboardPage() {
       {walletBalances.data && walletBalances.data.length > 0 && (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {walletBalances.data.map((w) => (
-            <Stat key={w.wallet_id} label={w.type === 'cash' ? 'ক্যাশ' : w.type === 'bkash' ? `বিকাশ · ${w.label}` : `নগদ · ${w.label}`} value={formatMoney(w.balance)} />
+            <Stat key={w.wallet_id} label={walletDisplay(w)} value={formatMoney(w.balance)} />
           ))}
         </div>
       )}

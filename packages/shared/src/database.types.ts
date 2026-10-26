@@ -918,6 +918,7 @@ export type Database = {
           id: string
           is_active: boolean
           label: string
+          name: string
           type: string
           updated_at: string
         }
@@ -927,6 +928,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           label: string
+          name?: string
           type: string
           updated_at?: string
         }
@@ -936,6 +938,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           label?: string
+          name?: string
           type?: string
           updated_at?: string
         }
@@ -1140,6 +1143,7 @@ export type Database = {
           sold_at: string | null
           wallet_account_id: string | null
           wallet_label: string | null
+          wallet_name: string | null
           wallet_type: string | null
         }
         Relationships: [
@@ -1171,6 +1175,7 @@ export type Database = {
           balance: number | null
           is_active: boolean | null
           label: string | null
+          name: string | null
           type: string | null
           wallet_id: string | null
         }
@@ -1178,6 +1183,7 @@ export type Database = {
           balance?: never
           is_active?: boolean | null
           label?: string | null
+          name?: string | null
           type?: string | null
           wallet_id?: string | null
         }
@@ -1185,6 +1191,7 @@ export type Database = {
           balance?: never
           is_active?: boolean | null
           label?: string | null
+          name?: string | null
           type?: string | null
           wallet_id?: string | null
         }
