@@ -1,120 +1,153 @@
-# PataBin — REQUIREMENT.md
+# PataBin — REQUIREMENT.md (revision 2)
 
-Build spec for AI coding agents (Claude Code / Z Code). Read this whole file before writing any code. When this file and your assumptions disagree, this file wins.
+Build spec for AI coding agents. Read this whole file before writing any code. When this file and your assumptions disagree, this file wins.
+
+**Revision 2 — own-stock model.** The earlier batch-contribution model (shared profit split by contribution %, FIFO across all batches) is REPLACED. Each partner owns their own stock; profit from a partner's packets belongs to that partner alone. This file is consolidated: previous session-override sections are merged here.
 
 ---
 
 ## 0. Agent rules (read first)
 
 1. **Secrets** live only in `SECRETS.md` at the repo root (see §5). Read it, never print its values to logs, commits, README, PR text or chat output.
-2. `SECRETS.md` must be in `.gitignore` **before the first commit**. Never commit it, never copy values into tracked files. Commit `SECRETS.example.md` (same keys, empty values) instead.
-3. You run everything yourself: git, Supabase CLI (login, link, migrations, config push, edge function deploy, type generation), seed scripts, Vercel CLI. Do not ask the human to run commands. Stop and ask only when a required key in `SECRETS.md` is missing or a step fails twice for a reason you cannot fix. When you stop, list exactly which keys or actions are missing.
-4. Safety on the live database (there is one cloud project, it is production):
-   - Never run `supabase db reset`, `DROP TABLE`, `TRUNCATE` or any destructive statement against the linked project after seeding. Schema changes go through new migration files only.
+2. `SECRETS.md` must be in `.gitignore` before the first commit. Never commit it, never copy values into tracked files. Commit `SECRETS.example.md` (same keys, empty values) instead.
+3. You run everything yourself: git, Supabase CLI (login, link, migrations, config push, edge function deploy, type generation), seed scripts, Vercel steps that are scripted. Do not ask the human to run commands. Stop and ask only when a required key in `SECRETS.md` is missing or a step fails twice for a reason you cannot fix. When you stop, list exactly which keys or actions are missing.
+4. Safety on the live database (one cloud project, treated as production):
+   - Never run `supabase db reset`, `TRUNCATE` or destructive statements against the linked project after seeding.
+   - Revision 2 is a model pivot (see §15). Schema replacement requires a `db:backup` first and explicit user confirmation before any DROP of v1 tables.
    - SQL tests must run inside `BEGIN; ... ROLLBACK;` so they never leave data behind.
    - Never `git push --force`.
-5. Commit after each phase in §13 with clear messages, and push to `origin main`.
+5. Commit after each phase in §13 with clear conventional-commit messages, and push to `origin main`.
 6. Definition of done is §12 (all checks pass), not "it compiles".
 
 ---
 
 ## 1. Product summary
 
-**PataBin** is a Bangla-language, mobile-first PWA for two partners who buy chocolates in bulk, break packets, and resell per piece. It tracks purchases (who paid for how many pieces), stock, sales (with free-form discounts), personal consumption, expenses, profit and who owes whom.
+**PataBin** is a Bangla-language, mobile-first PWA for two partners (Sijan = `su_admin`, Bappy = `patabin_admin`) who buy chocolates in bulk, break them into packets, and resell per piece.
 
-- Single product (chocolate). No product catalogue.
-- Two users, two partners. The design should still work if a third partner is added later (no hardcoded "2").
-- Currency BDT (৳). Timezone `Asia/Dhaka`. UI language Bangla only (strings kept in one module so English can be added later).
-- Online-only. No credit sales (baki), no offline queue, no email flows.
+- Buy rate ~190 BDT/pc (paikari). Sell rate 300 BDT/pc. Free-form discounts.
+- **Own-stock model**: at chalan (purchase) entry each partner pays for his own pieces from his own pocket. Stock is packed into packets owned by the buying partner. Whatever is sold from a partner's packet belongs to that partner (revenue and profit). No shared profit-percentage split.
+- Sijan does the selling; Bappy's money still sits in shared wallets, so the app must track **per-partner balances** ("who gets what from the cash pool") plus **shared wallet balances**.
+- Business runs chalan by chalan: a chalan is an independent unit of accounts, gets settled and closed, then a new chalan starts fresh.
+- Two users, two partners. No hardcoded "2". Currency BDT (৳). Timezone `Asia/Dhaka`. UI language Bangla only (strings in one module so English can be added later).
+- Online-only. No credit sales (baki). No offline write queue.
 
 ---
 
-## 2. Domain rules and formulas (source of truth)
+## 2. Domain model (source of truth)
 
 ### 2.1 Units
-All stock is counted in **pieces (pcs)**. Packets are only a purchase/packing note (`pcs_per_packet`, informational). Never model a "packet" stock unit.
+All stock is counted in **pieces (pcs)**. Packets are packing units, never a stock unit. Money `numeric(12,2)`.
 
-### 2.2 Batch (one purchase lot)
-Each partner records how many pieces they bought and how much they paid.
-- `contribution_p = amount_paid_p + (expenses paid by p with funding = own_pocket)`
-- `total_pcs = Σ qty` of the batch contributions.
+### 2.2 Chalan (one purchase lot)
+- Chalan = one bulk purchase. Fields: `code` (C-001, C-002 …), `purchase_date`, `buy_rate` (form default from settings, editable), `pcs_per_packet` (form default from settings, default 20, editable), `status` (`open`/`closed`), `note`.
+- Per partner purchase rows: `partner_id`, `qty`, `amount_paid` (defaults to `qty × buy_rate`, editable). **Each partner pays with his own money (own pocket)** — capital is never funded from wallets.
+- Transport and any other cost are NOT mixed into the chocolate price. They are expenses (§2.8), attributed manually.
 
-Batch expenses have a `cost_type`:
-- `landed`: added to inventory cost (transport, packaging that is part of getting stock ready).
-- `operating`: charged to profit directly, not part of per-piece cost.
+### 2.3 Packing and packets
+- Packing converts a chalan's un-packed stock into packets. Multiple packing sessions per chalan are allowed. Packet size defaults to the chalan's `pcs_per_packet` but is editable per packing session (e.g. 20 or 25).
+- `packets`: `chalan_id`, `code` (P-01, P-02 … unique within chalan), `owner_partner_id`, `total_pcs`. The UI always shows the owner (Sijan's / Bappy's packet).
+- Before or during packing, a partner may record **personal kept pcs** (khawar stock) from his own chalan purchase — recorded as personal use (§2.6) with `packet_id = NULL` at the time of keeping. Example: bought 220, kept 20, packed 200.
+- Packet and chalan code display together as `C-001/P-01` where useful. No repack/merge operations in v1.
 
-`landed_pool = Σ amount_paid + Σ landed expenses`
-`landed_cost_per_pc = landed_pool / total_pcs`
+### 2.4 Sell priority (drag & drop)
+- The packets page shows the open chalan's packets as a **priority list**, reorderable on mobile by drag & drop (`@dnd-kit`).
+- Sales consume stock strictly in priority order: from the first packet that has stock; if a sale needs more pieces than that packet has, the rest auto-cuts from following packets. A sale spanning packets records one allocation row per packet (packet_id, qty).
+- Example: P-01 (Sijan, 3 left), P-02 (Bappy), customer buys 5 → 3 pcs from P-01, 2 from P-02, both packet numbers shown on the sale.
+- The priority list covers packets of ALL open chalans (a leftover packet from an older open chalan is still sellable and sits in the same list). Closed chalans reject new allocations.
 
-Per-piece cost is spread over **all** pieces bought (including personal-use ones).
+### 2.5 Sales (external)
+- Per-sale entry: `qty`, `list_unit_price` (snapshot of the default sell price, 300), `amount_received` (actual money; discount is free-form: user types the final amount), `discount` = `qty × list_unit_price − amount_received` (generated column), `customer_name`, `customer_phone`, `wallet_account_id` (where the payment landed — mandatory), `note`, `sold_at`.
+- Example: 10 pcs, list 3000, received 2900 → discount 100.
+- Revenue attribution: split pro-rata by qty across allocation rows; each allocation's revenue belongs to the packet's owner. A sale spanning two partners' packets splits revenue accordingly (20/5 pcs → 20/25 of `amount_received` to the first, 5/25 to the second).
+- A sale needing more pieces than total remaining stock in open packets must be rejected with a clear Bangla error; failed attempts leave no rows.
+- Selling is normally done by Sijan; no collector field. `created_by` covers audit.
 
-### 2.3 Sales
-- **External sale**: sold to a customer. `amount_received` is the actual money. `list_unit_price` is a snapshot of the default price (300) at entry. `discount = qty × list_unit_price − amount_received` (stored as generated column). Discounts are free-form: the user types the final amount, there are no discount rules or tiers. Example: 5 pcs, list 1500, received 1450, discount 50.
-- **Personal use** = an **internal sale** to a partner, valued at the sell price (default 300/pc, editable). It counts as revenue to the batch and is deducted from that partner's payout.
-- Every sale (both kinds) consumes stock via **FIFO** from open batches (oldest `purchase_date`, then `created_at`). A sale spanning two batches is split across them in `sale_allocations`; revenue is split pro-rata by qty.
-- A sale that needs more pieces than total remaining stock must be rejected with a clear error.
+### 2.6 Personal use (internal consumption)
+- A partner eating pieces is a personal-use entry: `eater_partner_id`, `qty`, `packet_id` (or NULL for kept pcs outside packets), `unit_value` (default = current sell price, editable), `note`, `at`.
+- Eaten from **another partner's** packet → valued at the unit value and **owed to the packet owner**: the owner's account is credited (internal revenue), the eater's account is debited the same amount ("sell er packet theke khaile 300 taka dhora hobe").
+- Eaten from **own** packet or own kept pcs → no cash movement, only stock depletion (cost of own goods).
+- Kept pcs (`packet_id = NULL`) always belong to the eater.
 
-### 2.4 Damage / loss / samples
-`stock_adjustments` remove pieces from stock. Their cost (landed cost per pc) is a loss borne by all partners via profit sharing.
+### 2.7 Gifts / free pieces and damage
+- `stock_adjustments` remove pieces from a specific packet: `reason` (`gift`/`damage`/`loss`/`sample`/`other`), optional `person`/`note`. The UI asks **from which packet and whose packet** the free pieces are given.
+- The cost of adjusted pcs is borne by the packet owner: it flows into that owner's accounting as `buy_rate × qty` (a real cost of goods that were bought but not sold).
+- Record enough history (person, note) so gifts are traceable.
 
-### 2.5 Per-batch numbers
-Let, for one batch:
-- `sold_ext`, `personal`, `damaged` = piece counts allocated to it; `remaining = total_pcs − sold_ext − personal − damaged`
-- `revenue = revenue_external + revenue_internal` (allocated pro-rata)
-- `realized_cost = landed_cost_per_pc × (sold_ext + personal + damaged)`
-- `unsold_cost = landed_cost_per_pc × remaining`
-- `operating_expenses = Σ operating expenses`
-- `profit = revenue − realized_cost − operating_expenses` (this is "realized" profit; unsold stock is valued at cost and does not count as profit; once `remaining = 0` it is the final profit)
+### 2.8 Expenses and withdrawals
+- Expense entry: `category`, `amount > 0`, `paid_by_partner_id` (whose money went out), `attributed_to_partner_id` (whose expense it is — **manually selected at entry**), `wallet_account_id` (NULL = paid from own pocket, outside the app), `chalan_id` NULL (optional link, e.g. transport for a chalan), `note`, `spent_at`.
+- Categories are a managed list seeded with: `transport`, `cigarette`, `mobile recharge`, `others`; `su_admin` can add categories.
+- Attribution rules:
+  - Recharge for Bappy's phone paid by Sijan → paid_by Sijan, attributed_to **Bappy**. It reduces Bappy's balance; because Sijan paid from his own pocket, Sijan is automatically reimbursed (credited) the same amount from the cash pool.
+  - Expense paid from a wallet → the wallet decreases; attribution still decides whose cost it is.
+  - An expense paid by X from own pocket and attributed to X → no balance effect beyond the record.
+- `withdrawals`: a partner taking money out of a wallet for himself (`partner_id`, `wallet_account_id`, `amount`, `note`). Reduces the wallet and that partner's balance. Transport fee is usually entered as an attributed expense, not a withdrawal.
 
-### 2.6 Profit sharing and payout (per batch, per partner p)
+### 2.9 Wallets (shared cash pool)
+- Wallet = a real money location, **shared** (not per-partner). Types: `cash`, `bkash`, `nagad`. Multiple bkash/nagad accounts can be added (each is one wallet row with a label).
+- Money in: external sales `amount_received` (records which wallet/account received it).
+- Money out: wallet-paid expenses, withdrawals, MFS→Cash cashout charges.
+- `wallet_transfers`: `from_wallet_id`, `to_wallet_id`, `amount > 0`, `charge` (numeric, default 0), `note`, `at`.
+  - Cash ↔ MFS: charge 0.
+  - MFS → Cash: **custom cashout charge** entered at transfer time; the destination cash increases by `amount − charge`, and the charge is recorded so it is visible (the charge is also an outflow of the pool, debited to the transfer creator's chosen attribution — pick `attributed_to_partner_id` on the transfer form).
+- Wallet balance for each account must always be visible. Wallet totals and per-partner balances are displayed separately (§2.10).
+
+### 2.10 Per-partner accounting (per chalan, per partner p)
 ```
-share_p  = contribution_p / Σ contribution
-payout_p = contribution_p − share_p × unsold_cost + share_p × profit − personal_value_p
+capital_p        = Σ amount_paid of p's purchase rows (own pocket money)
+sold_pcs_p       = pcs sold from p's packets
+ext_rev_p        = Σ amount_received allocated to p's packets (pro-rata)
+internal_rev_p   = Σ unit_value × personal pcs eaten by the OTHER partner from p's packets
+kept_pcs_p       = personal kept pcs (packet_id NULL)
+gift_loss_pcs_p  = pcs removed from p's packets via stock_adjustments
+consumption_due_p = Σ unit_value × pcs p ate from OTHER packets
+pcs_out_p        = sold_pcs_p + kept_pcs_p + gift_loss_pcs_p + personal pcs eaten from p's packets (any eater)
+cost_p           = buy_rate × pcs_out_p
+profit_p         = ext_rev_p + internal_rev_p − cost_p
+expenses_attributed_p = Σ expenses attributed to p
+pocket_paid_p    = Σ expenses paid_by p with wallet NULL (reimbursement)
+withdrawn_p      = Σ withdrawals by p
+ entitlement_p   = capital_p + profit_p
+                   − consumption_due_p
+                   − expenses_attributed_p
+                   + pocket_paid_p
+                   − withdrawn_p
 ```
-`personal_value_p` = Σ `amount_received` of internal sales of partner p (allocated pro-rata to the batch).
+- Positive `entitlement_p`: p should receive that amount from the cash pool. Negative: p owes the pool.
+- Live entitlement is recomputed while the chalan is open; a closed chalan uses its snapshot.
 
-Meaning: capital comes back, profit is split by investment %, personal consumption is paid for at sell price. Profit % is **not** reduced again for personal use (that would double-penalise).
+### 2.11 Closing a chalan and settlement
+- `close_chalan` is allowed only when every packet of the chalan has 0 remaining (stock must be depleted via sales, personal use, gifts, or damage/loss adjustments).
+- Settlement screen (before/while closing) shows, per partner: capital back, profit, consumption due, attributed expenses, withdrawals, and the final plain sentence "A কে B ৳X দেবে" style balance statements.
+- On close, store a snapshot (summary + per-partner figures + wallet balances) in `chalan_close_snapshots`. Closed chalans reject new allocations and edits to their purchases, packets, sales, personal uses, adjustments, expenses (linked), and transfers.
+- `reopen_chalan` is allowed for both roles (no business rule blocks it), logged in the audit log.
+- A new chalan starts fresh; old chalan reports stay separate.
 
-Rounding: `numeric(12,2)`, round half up. The partner with the larger share absorbs the rounding remainder so that Σ payout equals the exact total.
-
-Invariant (must hold in tests): `Σ payout_p = revenue_external − expenses funded from sales_cash`.
-
-### 2.7 Cash held, settlement and balance
-- `cash_held_p = Σ external sales collected by p (received_by_partner_id) − Σ expenses paid by p with funding = sales_cash + Σ transfers received by p − Σ transfers sent by p`
-- `entitlement_p = Σ over all batches payout_p` (closed batch: from its snapshot; open batch: live value)
-- `balance_p = entitlement_p − cash_held_p`
-  - positive: p should receive that amount
-  - negative: p should hand over that amount
-  - `Σ balance_p = 0`
-- UI shows a plain sentence: "<A> কে <B> ৳X দেবে". A **transfer** (money handed between partners) updates the balances.
-
-### 2.8 Closing a batch
-- `close_batch` is allowed only when `remaining = 0`. If stock is left, the user must first add a write-off adjustment.
-- On close, store a snapshot (summary + per-partner payout) in `batch_close_snapshots`. A closed batch rejects new allocations and edits to its contributions, expenses, adjustments and sales.
-- `reopen_batch` is `su_admin` only; it removes the snapshot (the audit log keeps history).
-
-### 2.9 Funding of expenses
-- `own_pocket`: a partner paid from their own money, counts as contribution (capital) and is returned through payout.
-- `sales_cash`: paid out of sales money that partner was holding. Not a contribution; it reduces their `cash_held`.
+### 2.12 Rounding and invariants
+- Money `numeric(12,2)`, round half up. Pro-rata revenue splits must be rounded so the Σ of parts equals the exact `amount_received` (the largest allocation absorbs the remainder).
+- Global test invariant — at chalan close with all stock depleted, with backup Wallet total counted in:
+  `wallet_total + Σ pocket_paid(expenses reimbursed) ... verified as: Σ entitlement_p = wallet_total` (all business deltas — revenue in, expenses/withdrawals/charges out — net to exactly this), see Test A/B in §12.
+- Packet remaining can never go below 0; sales, personal use and adjustments must reject otherwise, atomically, inside one transaction with packet rows locked.
 
 ---
 
 ## 3. Roles and permissions
 
-Two app roles (enum `user_role`):
+Two app roles (enum `user_role`): `su_admin` (Sijan), `patabin_admin` (Bappy).
 
-| Capability | `su_admin` (Sijan) | `patabin_admin` (friend) |
+| Capability | `su_admin` | `patabin_admin` |
 |---|---|---|
-| View everything (dashboard, reports, audit log) | yes | yes |
-| Create/edit/soft-delete batches, contributions, expenses, adjustments, sales, personal use, transfers | yes | yes |
-| Close a batch | yes | yes |
-| Reopen a closed batch | yes | no |
+| View everything (dashboard, reports, audit log, both partners' numbers) | yes | yes |
+| Create/edit/soft-delete chalan, packing, priority order, sales, personal use, adjustments, expenses, transfers, withdrawals | yes | yes |
+| Close / reopen a chalan | yes | yes |
+| Change settings (default buy rate, default sell price, default packet size) | yes | no (read-only) |
+| Add expense categories | yes | no |
 | Create / deactivate users, reset passwords | yes | no |
-| Change settings (default sell price) | yes | no |
 
 Rules:
 - Public signup is **disabled**. Verify by attempting a signup with the anon key; it must fail.
 - Deactivated users (`profiles.is_active = false`) get no data access (enforced in RLS, not only in UI).
+- Safeguards re-checked inside the edge function and in the DB: nobody can change their own role; only `su_admin` can modify, deactivate, reset the password of, or change the role of a `su_admin` account; the last active `su_admin` can never be deactivated. All other user management is available to both roles.
 - No hard deletes anywhere from the app. Deleting = set `deleted_at`. No DELETE RLS policy on business tables.
 
 ---
@@ -122,10 +155,10 @@ Rules:
 ## 4. Tech stack and repo layout
 
 - **Package manager**: pnpm workspace monorepo (`packageManager` field set, Node 20+ LTS).
-- **Web**: React + TypeScript (strict) + Vite + Tailwind CSS v4 (`@tailwindcss/vite`) + React Router + TanStack Query + react-hook-form + zod + `vite-plugin-pwa` + `@supabase/supabase-js` + `lucide-react`. Charts: `recharts` only if needed.
+- **Web**: React + TypeScript (strict) + Vite + Tailwind CSS v4 (`@tailwindcss/vite`) + React Router + TanStack Query + react-hook-form + zod + `vite-plugin-pwa` + `@supabase/supabase-js` + `@phosphor-icons/react` (light/regular inactive, fill active; named imports) + `@dnd-kit/core` + `@dnd-kit/sortable` for the priority drag & drop. Charts: `recharts` only if needed. Font: Noto Sans Bengali self-hosted via `@fontsource`.
 - **Backend**: Supabase cloud (free): Postgres, Auth, one Edge Function. Business logic in Postgres (views, functions, triggers), not in the frontend.
 - **Lint/format/test**: ESLint, Prettier, Vitest (shared helpers), SQL tests via `psql`.
-- **Deploy**: Vercel (see §11).
+- **Deploy**: Vercel, manual (see §11).
 
 ```
 patabin/
@@ -136,20 +169,21 @@ patabin/
     migrations/             # timestamped .sql, forward-only
     functions/manage-users/ # edge function (Deno)
     tests/                  # *.sql tests (BEGIN ... ROLLBACK)
-  scripts/                  # seed, db push, types, tests, backup, secrets loader (tsx)
-  .github/                  # optional
-  vercel.json               # REQUIRED, at repo root
+  scripts/                  # seed, db push, types, tests, backup, secrets loader, icon generation (tsx)
+  docs/img/                 # generated image assets
+  vercel.json               # none at root; apps/web/vercel.json only (§11)
   pnpm-workspace.yaml
   package.json
   SECRETS.md                # gitignored
   SECRETS.example.md
+  AGENT.md
   REQUIREMENT.md
   README.md
 ```
 
-Root scripts: `dev`, `build`, `typecheck`, `lint`, `test`, `test:sql`, `db:link`, `db:push`, `db:types`, `db:seed`, `db:backup`, `check:secrets`, `deploy`.
+Root scripts: `dev`, `build`, `typecheck`, `lint`, `test`, `test:sql`, `db:link`, `db:push`, `db:types`, `db:seed`, `db:backup`, `check:secrets`.
 
-Git: `git init` (if needed), branch `main`, remote `origin` = `https://github.com/Seizmann/patabin.git` (private). Authenticate with the token from `SECRETS.md` **without writing it into `.git/config`** (use a credential helper or `GIT_ASKPASS` for the process). If the remote already has commits, fetch and integrate non-destructively.
+Git: branch `main`, remote `origin` = `https://github.com/Seizmann/patabin.git` (private). Authenticate with the token from `SECRETS.md` without writing it into `.git/config`.
 
 ---
 
@@ -182,57 +216,77 @@ VERCEL_PROJECT_ID=
 
 Notes:
 - `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` may hold either the legacy JWT keys or the newer publishable / secret keys; support both.
-- `VERCEL_PROJECT_ID` may be empty; create/link the project with the Vercel CLI and use the token.
-- **Frontend gets only** `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Generate `apps/web/.env.local` from `SECRETS.md` (gitignored). The service role key, DB password and access token must never reach the web bundle. CI check: after build, grep `apps/web/dist` for the service role key and for the string `service_role`; fail if found.
+- **Frontend gets only** `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SITE_URL`. Generate `apps/web/.env.local` from `SECRETS.md` (gitignored). Service role key, DB password and access token must never reach the web bundle. CI check: after build, grep `apps/web/dist` for the service role key and the string `service_role`; fail if found.
 - `pnpm check:secrets`: fail if `SECRETS.md` or `.env*` is tracked or staged, or if any value from `SECRETS.md` appears in a tracked file.
-- Default admin passwords in `SECRETS.md` are **temporary**: both accounts are created with `must_change_password = true`.
-- Do not rely on email: Supabase free SMTP is rate-limited. No email confirmation, magic links or "forgot password" emails. Create users with `email_confirm: true` through the admin API.
+- Default admin passwords are temporary: both accounts are created with `must_change_password = true`.
+- Do not rely on email: Supabase free SMTP is rate-limited. No email confirmation, magic links, or "forgot password" emails. Create users with `email_confirm: true` through the admin API.
 
 ---
 
 ## 6. Database design (Postgres, `public` schema)
 
-General: `uuid` PK (`gen_random_uuid()`), `created_at`, `updated_at` (trigger), `created_by default auth.uid()`, `deleted_at` on business tables. Money `numeric(12,2)`, quantities `integer`. RLS **enabled on every table**; `anon` has no access.
+General: `uuid` PK (`gen_random_uuid()`), `created_at`, `updated_at` (trigger), `created_by default auth.uid()`, `deleted_at` on business tables. Money `numeric(12,2)`, quantities `integer >= 0`. Time columns are `timestamptz` (§8 time rules). RLS enabled and forced on every table; `anon` has no access.
 
 | Table | Key columns |
 |---|---|
 | `profiles` | `id` (= auth.users.id), `role user_role`, `display_name`, `must_change_password bool default true`, `is_active bool default true` |
 | `partners` | `id`, `name`, `user_id unique null` |
-| `settings` | singleton row: `default_sell_price default 300`, `updated_by` |
-| `batches` | `code` unique (B-001 …), `purchase_date`, `unit_cost default 190` (form default only), `pcs_per_packet null`, `status` (`open`/`closed`), `closed_at`, `closed_by`, `note` |
-| `batch_contributions` | `batch_id`, `partner_id`, `qty ≥ 0`, `amount_paid ≥ 0` (default qty × unit_cost, editable); unique (`batch_id`,`partner_id`) |
-| `expenses` | `batch_id` NOT NULL, `spent_on`, `category` (`transport`/`packaging`/`other`), `cost_type` (`landed`/`operating`), `amount > 0`, `paid_by_partner_id`, `funding` (`own_pocket`/`sales_cash`), `note` |
-| `stock_adjustments` | `batch_id`, `adjusted_on`, `qty > 0`, `reason` (`damage`/`loss`/`sample`/`other`), `note` |
-| `sales` | `sold_at timestamptz`, `kind` (`external`/`internal`), `customer_name null`, `partner_id null` (the consumer, internal), `received_by_partner_id null` (collector, external), `qty > 0`, `list_unit_price`, `amount_received ≥ 0`, `discount` (generated), `payment_method null` (`cash`/`bkash`/`nagad`/`rocket`/`bank`/`other`), `note` |
-| `sale_allocations` | `sale_id`, `batch_id`, `qty`; PK (`sale_id`,`batch_id`) |
-| `transfers` | `transferred_on`, `from_partner_id`, `to_partner_id` (≠ from), `amount > 0`, `method`, `note` |
-| `batch_close_snapshots` | `batch_id` PK, `closed_at`, `data jsonb` |
+| `settings` | singleton row: `default_buy_rate default 190`, `default_sell_price default 300`, `default_packet_size default 20`, `updated_by` |
+| `expense_categories` | `name` unique; seeded: ট্রান্সপোর্ট, সিগারেট, মোবাইল রিচার্জ, অন্যান্য |
+| `chalans` | `code` unique (C-001 …), `purchase_date`, `buy_rate default 190`, `pcs_per_packet default 20`, `status` (`open`/`closed`), `closed_at`, `closed_by`, `note` |
+| `chalan_purchases` | `chalan_id`, `partner_id`, `qty > 0`, `amount_paid >= 0` (default `qty × buy_rate`, editable); unique (`chalan_id`,`partner_id`) |
+| `packets` | `chalan_id`, `code` (P-01 … unique within chalan), `owner_partner_id`, `total_pcs > 0`, `packed_at` |
+| `sell_priority` | `packet_id` PK, `position integer` (continuous renumbering on drag & drop; per open-chalan list) |
+| `sales` | `sold_at timestamptz`, `qty > 0`, `list_unit_price`, `amount_received >= 0`, `discount` (generated = `qty × list_unit_price − amount_received`), `customer_name null`, `customer_phone null`, `wallet_account_id NOT NULL`, `note` |
+| `sale_allocations` | `sale_id`, `packet_id`, `qty > 0`; PK (`sale_id`,`packet_id`) |
+| `personal_uses` | `at timestamptz`, `eater_partner_id`, `packet_id null` (NULL = kept pcs), `qty > 0`, `unit_value`, `note` |
+| `stock_adjustments` | `at timestamptz`, `packet_id`, `qty > 0`, `reason` (`gift`/`damage`/`loss`/`sample`/`other`), `person null`, `note` |
+| `expenses` | `category_id`, `amount > 0`, `paid_by_partner_id`, `attributed_to_partner_id`, `wallet_account_id null` (NULL = own pocket), `chalan_id null`, `note`, `spent_at timestamptz` |
+| `withdrawals` | `at timestamptz`, `partner_id`, `wallet_account_id`, `amount > 0`, `note` |
+| `wallets` | `type` (`cash`/`bkash`/`nagad`), `label` (e.g. "Bappy-র বিকাশ"), `is_active bool default true` |
+| `wallet_transfers` | `at timestamptz`, `from_wallet_id`, `to_wallet_id` (different wallets), `amount > 0`, `charge numeric default 0`, `attributed_to_partner_id`, `note` |
+| `chalan_close_snapshots` | `chalan_id` PK, `closed_at`, `data jsonb` (summary + per-partner figures + wallet balances) |
 | `audit_log` | `id bigserial`, `at`, `user_id`, `table_name`, `row_id`, `action` (I/U/D), `old_data`, `new_data` |
 
-Constraints: `internal` ⇒ `partner_id` NOT NULL and `received_by_partner_id` NULL; `external` ⇒ `received_by_partner_id` NOT NULL and `partner_id` NULL.
+Constraints:
+- `sales.qty` and allocation qty sum: Σ `sale_allocations.qty` = `sales.qty` (function-enforced, trigger-checked).
+- Packet remaining never below 0: enforced inside the allocation functions with row locks.
+- Wallet transfers: `from_wallet_id <> to_wallet_id`.
+- Cash `type` wallets: at most one active Cash wallet.
 
 ### RLS
 - Helpers (`SECURITY DEFINER`, `stable`, fixed `search_path`): `is_active_user()`, `is_su_admin()`.
-- Active users: SELECT and INSERT/UPDATE on business tables (soft-delete is an UPDATE). No DELETE policies.
-- `settings` UPDATE and `profiles` writes: `su_admin` only (profile writes also via the edge function).
-- `audit_log`: SELECT for active users, no direct writes (written by triggers).
-- Closed-batch immutability is enforced by triggers (not only UI).
+- Active users: SELECT and INSERT/UPDATE on business tables (soft-delete is an UPDATE; delete = set `deleted_at`). No DELETE policies.
+- `settings`, `expense_categories` writes, `profiles` writes: `su_admin` only (profile writes also via the edge function).
+- `audit_log`: SELECT for active users, no direct writes (written by triggers), append-only (no update/delete grants for anyone).
+- Closed-chalan immutability enforced by triggers, not only UI.
 - Views use `security_invoker = true`.
 
 ### Triggers
 - `updated_at` on all tables.
 - Audit trigger on every business table (old/new as jsonb).
-- Closed-batch guard on contributions, expenses, adjustments, allocations.
+- Closed-chalan guard on purchases, packets, allocations, sales, personal uses, adjustments, chalan-linked expenses.
 
-### Functions (RPC) and views
-Functions (atomic, transactional, lock batch rows during allocation):
-- `create_sale(payload jsonb)`, `update_sale(id, payload jsonb)`, `delete_sale(id)` — handle FIFO allocation and stock checks; update/delete recompute allocations.
-- `create_batch(payload jsonb)` — batch + contributions + optional expenses in one call.
-- `close_batch(id)`, `reopen_batch(id)`.
+### Functions (RPC), atomic and transactional
+- `create_chalan(payload jsonb)` — chalan + purchase rows in one call.
+- `create_packets(payload jsonb)` — packing session: creates the packet rows for one chalan.
+- `set_sell_priority(ordered uuid[])` — renumbers `sell_priority`.
+- `create_sale(payload jsonb)`, `update_sale(id, payload jsonb)`, `delete_sale(id)` — allocate by priority (lock packet rows), stock checks, recompute on update/delete.
+- `create_personal_use(payload jsonb)`, `create_adjustment(payload jsonb)` — stock check and depletion from a packet (or kept-pcs none for packet NULL).
+- `create_expense`, `update_expense`, `delete_expense`, `create_withdrawal`, `create_transfer` — wallet math only, no allocation.
+- `close_chalan(id)`, `reopen_chalan(id)` — snapshot + lock.
 
-Views: `v_batch_stock`, `v_batch_summary` (all §2.5 numbers), `v_partner_batch_payout` (§2.6, uses snapshot when closed), `v_partner_balance` (§2.7), `v_dashboard_totals`, `v_sales_enriched` (with discount %, batch codes).
+### Views
+- `v_packet_stock` — per packet: owner, total, remaining, priority position.
+- `v_chalan_summary` — per chalan totals (bought, sold, kept, gifts, remaining, expenses linked).
+- `v_partner_chalan_settlement` — §2.10 figures per chalan per partner.
+- `v_partner_balance` — current entitlement per partner (snapshot when closed), `Σ = wallet_total`.
+- `v_wallet_balance` — per wallet: inflow, outflow, charge, current balance.
+- `v_sales_enriched` — sale + allocations + packet codes + owners + customer + discount %.
+- `v_dashboard_totals` — stock, today/month sales, income, discount, wallet balances.
 
-Seed (idempotent, `scripts/seed`): `settings` row (price 300); two `partners` (names from `SECRETS.md`); the two auth users + `profiles` (roles `su_admin` for `SU_ADMIN_*`, `patabin_admin` for `PATABIN_ADMIN_*`, `must_change_password = true`), linked to their partner rows.
+### Seed (idempotent, `scripts/seed`)
+- `settings` row (190 / 300 / 20); expense categories; two `partners` (names from `SECRETS.md`); the two auth users + `profiles` (`su_admin` for `SU_ADMIN_*`, `patabin_admin` for `PATABIN_ADMIN_*`, `must_change_password = true`), linked to their partner rows; wallets: one `cash` wallet plus label-less bkash/nagad none (users add MFS accounts in the UI).
 
 ---
 
@@ -240,11 +294,11 @@ Seed (idempotent, `scripts/seed`): `settings` row (price 300); two `partners` (n
 
 - Deno, `verify_jwt = true`. Reads the caller from the JWT, checks `profiles.role = 'su_admin'` and `is_active`; otherwise 403.
 - Uses the injected service role env var for admin API calls.
-- Actions: `create_user` (email, temp password, display_name, role, optional partner link), `reset_password` (sets a temp password and `must_change_password = true`), `set_active` (activate/deactivate).
-- Proper CORS and JSON errors. Deploy with `supabase functions deploy manage-users`.
+- Actions: `create_user` (email, temp password, display_name, role, optional partner link), `reset_password` (temp password + `must_change_password = true`), `set_active` (activate/deactivate).
+- Proper CORS (from an `ALLOWED_ORIGINS` function secret, localhost dev only, never wildcard) and JSON errors, generic messages, no secret or password logging. Deploy with `supabase functions deploy manage-users`.
 - Recovery if su_admin is locked out: `pnpm admin:reset` script (service role, from `SECRETS.md`).
 
-Auth config (via `supabase/config.toml` + `supabase config push`, or the Management API): signups disabled, email confirmations off, set Site URL to the Vercel production URL once known.
+Auth config (via `supabase/config.toml` + `supabase config push`, or the Management API): signups disabled, email confirmations off, minimum password length 10, Site URL set to the Vercel production URL once known.
 
 ---
 
@@ -252,36 +306,56 @@ Auth config (via `supabase/config.toml` + `supabase config push`, or the Managem
 
 General:
 - All strings in `apps/web/src/i18n/bn.ts` (no hardcoded UI text in components).
-- Font: Noto Sans Bengali, self-hosted via `@fontsource` (works offline in the PWA).
-- Show numbers with Bangla digits and lakh grouping (`Intl.NumberFormat('bn-BD')`), currency ৳, dates in `Asia/Dhaka`. **Inputs must accept both Bangla and English digits** (normalise on input; `type="text" inputMode="decimal"`).
-- Bottom tab bar on mobile: হোম · বিক্রি · ব্যাচ · খরচ · আরও. Large tap targets, light and clean, one-hand use.
-- Every list is searchable/filterable by date; empty and loading and error states in Bangla.
+- Money and dates: Bangla digits and lakh grouping (`Intl.NumberFormat('bn-BD')`), ৳, dates in `Asia/Dhaka`. **Inputs accept both Bangla and English digits** (normalise on input; `type="text" inputMode="decimal"`).
+- Bottom tab bar on mobile with 6 icon-only tabs (`@phosphor-icons/react` outline; fill when active; Bangla `aria-label`s): হোম, বিক্রি, প্যাকেট, খরচ, হিসাব, আরও. "আরও" opens a sheet with: রিপোর্ট, চালান, ব্যক্তিগত ব্যবহার, নষ্ট/ফ্রি, ওয়ালেট, পরিবর্তনের ইতিহাস, ব্যবহারকারী (su_admin only), সেটিংস (su_admin only), প্রোফাইল, লগআউট.
+- Every list is searchable/filterable by date; empty, loading (skeletons, no layout shift) and error states in Bangla.
 - Never optimistic-update money values; refetch after write.
+- Route-level code splitting; charts lazy-load.
+- The only allowed symbol besides icons is the taka sign. Absolutely no emoji or unicode pictographs anywhere (UI, code, docs, commits, seed data).
 
-Pages:
-1. **লগইন**, then forced **পাসওয়ার্ড পরিবর্তন** while `must_change_password` is true.
-2. **হোম**: stock left, today and this month sales, revenue, discount total, estimated profit, each partner's balance sentence ("X কে Y ৳Z দেবে"), quick buttons: নতুন বিক্রি, ব্যক্তিগত ব্যবহার.
-3. **নতুন বিক্রি**: quantity stepper; amount auto-fills `qty × price` and is editable; live discount (৳ and %); optional customer name; payment method; `received_by` defaults to the logged-in user's partner; save in ~3 taps. Stock check message if not enough.
-4. **ব্যক্তিগত ব্যবহার**: partner, qty, amount defaulting to `qty × price` (editable).
-5. **বিক্রির তালিকা**: filter by date/customer/kind, edit and soft-delete with confirmation.
-6. **ব্যাচ**: list with status chip; **নতুন ব্যাচ** form (date, unit cost, per-partner qty + amount paid, optional packet size, expenses). Batch detail: contributions, expenses, adjustments, stock, summary numbers, per-partner payout, **ব্যাচ বন্ধ করুন** / **আবার খুলুন** (su_admin).
-7. **খরচ**: add/list (batch required, category, cost type, who paid, funding).
-8. **নষ্ট/ক্ষতি**: add adjustment.
-9. **হিসাব মেটানো**: balances, transfer form, transfer history.
-10. **রিপোর্ট**: batch-wise and partner-wise, date range, CSV export.
-11. **পরিবর্তনের ইতিহাস** (audit log viewer).
-12. **ব্যবহারকারী** (su_admin only): create, reset password, activate/deactivate.
-13. **সেটিংস** (su_admin only): default sell price.
+**Time (Bangladesh time):**
+- Every entry defaults to `now()` from the database server clock, displayed in `Asia/Dhaka`. The device clock is never trusted for defaults.
+- Every entry form has a compact time control showing the current server time with the option to pick a custom date and time manually (Bangla, mobile friendly). Unchanged control = server default.
+- Reports/dashboards: today, yesterday, this week, this month, last month, custom range; boundaries computed in `Asia/Dhaka`, custom datetimes carry an explicit `+06:00` offset, never device timezone parsing.
+
+### Pages
+
+1. **লগইন**, then forced **পাসওয়ার্ড পরিবর্তন** while `must_change_password` is true. While the flag is true the DB blocks all writes except the password change itself; the flag clears only via a real password change.
+2. **হোম**:
+   - Stock left (open chalans), today/month sales, income, discount total, profit indicator.
+   - **Per-partner account cards**: Sijan's own balance and Bappy's own balance (from `v_partner_balance`), each also showing his remaining packet pcs.
+   - **Shared wallet balances**: Cash, each bKash/Nagad account.
+   - Settlement sentence ("X কে Y ৳Z দেবে") when balances are opposed.
+   - Quick buttons: নতুন বিক্রি, ব্যক্তিগত ব্যবহার.
+3. **বিক্রি (new sale)**: qty stepper; amount auto-fills `qty × price`, editable; live discount (৳ and %); customer name + phone (optional autocomplete from previous entries); wallet + specific MFS account selection (mandatory); app shows which packets the pcs will come from (packet numbers + owners) per the priority order; save in ~3 taps; stock-insufficient error in Bangla.
+4. **বিক্রির তালিকা**: filter by date/customer/kind/packet; edit and soft-delete with confirmation; per-sale detail shows allocations (packet codes + owners).
+5. **প্যাকেট**: packet grid/list per chalan showing owner, code, total, remaining; **drag & drop priority list** (`@dnd-kit`, mobile-first touch targets) with a visible order indicator; save priority via `set_sell_priority`; state where packing happens too (নতুন প্যাকেট বাটন: choose pcs per packet, creates packets for the owner partition of the chalan).
+6. **ব্যক্তিগত ব্যবহার**: eater (defaults to logged-in partner), qty, source = own kept pcs OR choose packet (any owner); amount defaults to `qty × sell price` (editable); from another's packet shows the "যাকে দিতে হবে" hint.
+7. **নষ্ট/ক্ষতি/ফ্রি**: adjustment entry: packet picker (owner shown), qty, reason, person (for gifts), note.
+8. **খরচ**: add/list; fields → category, amount, কে দিল (paid_by), কার খরচ (attributed_to) with a clear helper line ("বাপ্পির রিচার্জ = বাপ্পির খরচ"), wallet (না = নিজের পকেট), optional chalan link; list filterable by partner/category/date.
+9. **চালান**: list with status chip; **নতুন চালান** form (date, buy rate, per-partner qty + amount paid auto from `qty × buy_rate` editable); chalan detail: purchases, packets, sales, personal uses, adjustments, expenses, summary numbers, per-partner entitlement, **বন্ধ করুন / আবার খুলুন**; close blocked while stock remains (with a hint where the pcs are).
+10. **ওয়ালেট**: balance cards for Cash + every bKash/Nagad account; **ট্রান্সফার ফর্ম**: from, to, amount, cashout charge field shown automatically when `from` is MFS and `to` is Cash (Cash→MFS locks charge at 0 with a note), attributed partner; transfer history; create/deactivate bKash/Nagad accounts (Cash wallet single).
+11. **হিসাব মেটানো**: per-partner entitlement breakdown (capital, profit, consumption, expenses, withdrawals), settlement sentences, marked-settled state per chalan at close; transfer history.
+12. **রিপোর্ট**: chalan-wise and partner-wise reports, date range, CSV export.
+13. **পরিবর্তনের ইতিহাস** (audit log viewer).
+14. **ব্যবহারকারী** (su_admin only): create, reset password, activate/deactivate.
+15. **সেটিংস** (su_admin only, `patabin_admin` read-only): default buy rate, default sell price, default packet size; expense categories management (su_admin adds).
 
 Route guards by role and `is_active`. Role is read from `profiles`, never trusted from the client.
 
-Glossary (use consistently): batch = ব্যাচ, sale = বিক্রি, discount = ছাড়, personal use = ব্যক্তিগত ব্যবহার, stock = স্টক, expense = খরচ, profit = লাভ, payout = প্রাপ্য, balance = পাওনা/দেনা, settlement = হিসাব মেটানো, cash = ক্যাশ, received by = টাকা গ্রহণকারী.
+Glossary (use consistently): chalan = চালান, packet = প্যাকেট, sale = বিক্রি, discount = ছাড়, personal use = ব্যক্তিগত ব্যবহার, gift = ফ্রি, stock = স্টক, expense = খরচ, profit = লাভ, capital = পুঁজি, payout = প্রাপ্য, balance = পাওনা/দেনা, settlement = হিসাব মেটানো, wallet = ওয়ালেট, withdrawal = উত্তোলন.
+
+Design language (light mode only — no dark mode, no `dark:` classes, `color-scheme: light`; warm off-white `#F5F1EA` background, white cards radius 24px with 1px soft warm border, generous padding; stat cards: tiny uppercase muted label + large semibold ৳ number in Bangla digits; positive muted green `#2F6B4F`, negative muted red `#B4723F`; hero card with photo and dark gradient overlay; mobile: fixed bottom bar with safe-area padding; desktop ≥1024px: bottom bar becomes a left sidebar with icon + Bangla labels, content centered max ~1200px, stat cards 4-up, lists become tables, forms open in side panels/dialogs; responsive hard rule: every page works at 360px, 768px and ≥1280px with no horizontal scroll, touch targets ≥44px, no hover-only interactions). Image assets and generation prompts: `docs/image-prompt.md`; icons derived from `logo-mark.png` via a `sharp` script (192, 512, maskable, apple-touch 180, favicon). `apps/web/index.html` includes title, `theme-color` `#F5F1EA`, OG/Twitter meta with `og-image.webp` 1200x630 absolute URL, WebApplication JSON-LD.
+
+**SEO**: dynamic titles per route (`<Page> · PataBin`), one hook; meta description per main route; canonical from `VITE_SITE_URL`; meta robots `noindex, nofollow` + restrictive `robots.txt`; a test fails if the rewrite list and the router config drift apart.
+
+**Security hardening recap**: RLS enabled and forced on every table; no grants to `anon`; default privileges revoked; `execute` granted only to `authenticated`; every `SECURITY DEFINER` function has fixed `search_path`, validates inputs, no dynamic SQL, re-checks caller role and `is_active`; audit log append-only; frontend has no `dangerouslySetInnerHTML`, no secrets in the bundle (build-time grep), no user data in `localStorage` beyond the Supabase session, never caches API responses in the service worker; `pnpm audit` has no high/critical findings; lockfile committed; `SECRETS.md`/`.env*` never tracked; idle sign-out after 60 minutes of inactivity.
 
 ---
 
 ## 9. PWA
 
-- `vite-plugin-pwa`, `registerType: 'autoUpdate'`, manifest: name "PataBin", short_name "PataBin", `lang: 'bn'`, `display: 'standalone'`, `start_url: '/'`, theme/background colours, icons 192 and 512 plus maskable (generate simple placeholder icons).
+- `vite-plugin-pwa`, `registerType: 'autoUpdate'`, manifest: name "PataBin", short_name "PataBin", `lang: 'bn'`, `display: 'standalone'`, `start_url: '/'`, theme/background colours, icons 192/512 + maskable.
 - Cache only the app shell and static assets. **Never cache Supabase API responses.**
 - When offline: show a Bangla banner and disable save buttons (no offline writes).
 - Must pass the installability check in Chrome (Lighthouse PWA/installable).
@@ -289,52 +363,21 @@ Glossary (use consistently): batch = ব্যাচ, sale = বিক্রি,
 ---
 
 ## 10. Quality bar
+
 - TypeScript strict, no `any` in app code, DB types generated into `packages/shared` (`supabase gen types typescript --linked`).
 - zod validation on all forms, mirrored by DB constraints.
 - Accessible labels, sensible contrast, works at 360px width.
 - `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` all green.
+- Shortest readable code; no comments in code (TS/SQL/CSS/config), no docstrings, no TODOs, no `console.log` in committed code.
 
 ---
 
-## 11. Deployment (Vercel)
+## 11. Deployment (Vercel, manual)
 
-`vercel.json` at the **repo root is mandatory**. Use exactly this shape (adjust only if the build needs it):
-
-```json
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "vite",
-  "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter @patabin/web build",
-  "outputDirectory": "apps/web/dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
-  "headers": [
-    {
-      "source": "/assets/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
-    },
-    {
-      "source": "/(sw.js|registerSW.js|manifest.webmanifest)",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
-      ]
-    }
-  ]
-}
-```
-
-Steps (agent does all via Vercel CLI and the token):
-1. Create/link the project (root directory = repo root), no interactive prompts.
-2. Set production env vars `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (only these).
-3. Try `vercel git connect` for GitHub auto-deploy from `main`. If it fails, deploy with `vercel --prod` and note in README that git-connect needs a one-time dashboard step. Do not loop on it.
-4. Set the Supabase Auth Site URL to the production URL.
-5. Open the production URL and verify login, a sale, a batch and the PWA manifest.
+- `vercel.json` lives ONLY at `apps/web/` (no root config). The human sets the Vercel project Root Directory to `apps/web` and deploys manually; no Vercel CLI commands are run by the agent.
+- `apps/web/vercel.json` defines: `framework: vite`; install/build commands that work with Root Directory `apps/web` in this pnpm workspace (`@patabin/shared` resolves via the workspace lockfile); output `dist`; an explicit rewrite to `/index.html` for EVERY app route, then one catch-all so the in-app 404 renders; cache headers (immutable hashed assets; no-cache for service worker, `registerSW.js`, manifest); security headers: strict CSP (`script-src 'self'`, no unsafe-eval; `connect-src` only the app's Supabase https origin + wss twin; `img-src self data blob`; self-hosted fonts; `frame-ancestors 'none'`; `object-src 'none'`; `base-uri 'self'`; `form-action 'self'`), HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` (deny camera/microphone/geolocation/payment), `Cross-Origin-Opener-Policy`, `X-Robots-Tag: noindex, nofollow`.
+- `docs/DEPLOY.md` documents: exact project settings, env vars (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SITE_URL`), Supabase Auth Site URL step, first-login steps, backup command.
+- Set the Supabase Auth Site URL to the production URL. Open the production URL and verify login, a sale, a chalan, packet priority and the PWA manifest.
 
 ---
 
@@ -342,110 +385,53 @@ Steps (agent does all via Vercel CLI and the token):
 
 SQL tests in `supabase/tests/*.sql`, each wrapped in `BEGIN; ... ROLLBACK;`, using `DO $$ ... ASSERT ... $$`, run by `pnpm test:sql` via `psql` with `SUPABASE_DB_URL`.
 
-**Test A — core example.** Batch: unit cost 190. Partner S buys 100 pcs (paid 19,000), partner F buys 200 pcs (paid 38,000), no expenses. Sales: external 265 pcs at 300 = 79,500, external 5 pcs for 1,450 (list 1,500, discount 50), personal use S 8 pcs = 2,400, F 22 pcs = 6,600. Remaining stock 0.
-Expected: shares 33.33% / 66.67%; revenue 89,950; cost 57,000; profit 32,950; payout S = **27,583.33**, payout F = **53,366.67**; Σ payout = 80,950 = external revenue.
+**Test A — core numbers (own-stock).** Chalan: `buy_rate` 190. Bappy buys 220 pcs (paid 41,800 own pocket), Sijan 100 pcs (paid 19,000 own pocket). Personal kept: Bappy 20, Sijan 20. Packing: Bappy 200 (10 packets × 20), Sijan 80 (4 × 20). Sales: external 275 pcs received 82,250 (list 300) and 5 pcs received 1,450 (list 1500 → discount 50); total external revenue 83,950; no expenses, no withdrawals.
+Expected: ext_rev Bappy = 83,950 × 200/280 = **59,964.29**, Sijan = **23,985.71**; pcs_out Bappy 220, Sijan 100; profit Bappy = 59,964.29 − 41,800 = 18,164.29; entitlement Bappy = **59,964.29**, Sijan = **23,985.71**; Σ = 83,950 = wallet total (only Cash wallet used). Chalan closes (stock 0).
 
-**Test B — landed expense.** Same as A plus transport 600 (`landed`, paid by F, `own_pocket`). Expected: contributions S 19,000 / F 38,600; profit 32,350; payout S = **27,271.01**, F = **53,678.99**; Σ = 80,950.
+**Test B — personal use, expenses, reimbursements.** Same chalan, but sales: external 270 pcs received 81,000 (no discount); Sijan eats 10 pcs from one of Bappy's packets (`unit_value` 300 → internal revenue 3,000 to Bappy); expense "Bappy-র রিচার্জ" 200, paid_by Sijan, wallet NULL, attributed_to Bappy; expected: profit Bappy = 57,857.14 − 41,800 + 3,000 = 19,057.14; entitlement Bappy = 41,800 + 19,057.14 − 200 = 60,657.14; entitlement Sijan = 19,000 + (23,142.86 − 19,000) − 3,000 + 200 = 20,342.86; Σ = **81,000.00** = wallet total. Close succeeds (Sijan kept 20 + ate 10; Bappy kept 20).
 
-**Test C — settlement.** In A, F collected all external cash (80,950). Balances: F −27,583.33, S +27,583.33. After a transfer F→S of 27,583.33 both balances are 0.
+**Test C — priority allocation.** One open chalan, packets in priority order: P-01 (Bappy, 20), P-02 (Sijan, 20), P-03 (Bappy, 20). Sale of 25 pcs → allocations P-01:20, P-02:5; revenue split 20/25 and 5/25 of `amount_received`; the sale's detail shows both packet codes and owners. Sale of 100 pcs with only 60 in stock → rejected, no rows left.
 
 **Other required checks:**
-- FIFO: a sale spanning two open batches splits allocations and revenue pro-rata; oldest batch is consumed first.
-- Selling more than remaining stock is rejected; failed attempts leave no rows.
-- Closed batch: new allocation, contribution/expense/adjustment edits are rejected; `close_batch` fails when stock remains; `reopen_batch` is rejected for `patabin_admin`.
-- Open-batch invariant `Σ payout = revenue_external − expenses from sales_cash` holds with unsold stock.
+- Priority renumbering via `set_sell_priority` persists and drives the next sale's consumption order.
+- Personal use from another's packet credits the owner and debits the eater at `unit_value`; from own packet, no balance movement; packet remaining decrements in both cases; kept pcs (packet NULL) never touch packets.
+- Gift/adjustment from a packet decrements remaining and bills the owner `buy_rate × qty`.
+- Transfer MFS→Cash with charge 20: bkash −1,000, cash +980, charge 20 visible and debited to the attributed partner; Cash→MFS transfers force charge 0.
+- Withdrawal: wallet decreases, that partner's entitlement decreases.
 - Soft delete of a sale restores stock and balances; audit rows exist for insert, update and delete.
-- RLS: `anon` reads nothing; deactivated user reads nothing; `patabin_admin` cannot call `manage-users`, change settings, or reopen a batch.
+- Closed chalan: new allocation, purchase/packet/sale/personal/adjustment/chalan-expense edits are rejected; `close_chalan` fails while stock remains; reopen works for both roles and is audited.
+- Open-chalan invariant: for every state, `Σ entitlement_p = wallet_total + Σ (own-pocket expenses not yet reimbursed is zero by construction) − Σ (own-pocket expense amounts)` holds i.e. any own-pocket-paid expense makes the pool owe that amount back to the payer; wallets never go negative.
+- RLS: `anon` reads nothing; deactivated user reads nothing; `patabin_admin` cannot call `manage-users`, change settings, add expense categories.
 - Signup with the anon key fails.
-- Frontend Vitest: money rounding, Bangla/English digit normalisation, discount calculation.
+- Frontend Vitest: money rounding (pro-rata remainder), Bangla/English digit normalisation, discount calculation, priority-list drag & drop reordering logic.
 - `pnpm check:secrets` and the bundle grep (§5) pass.
-- Production smoke test on the Vercel URL (§11 step 5).
+- Production smoke test on the Vercel URL (§11).
 
 ---
 
 ## 13. Build order (commit and push after each phase)
 
-1. Monorepo scaffold, `.gitignore` (incl. `SECRETS.md`, `.env*`, `backups/`), `SECRETS.example.md`, `check:secrets`, git remote and first push.
-2. Supabase: login with access token, link project, `config.toml`, migrations for tables, constraints, RLS, triggers, functions, views; `db push`; generate types.
+1. Monorepo scaffold check/update, `.gitignore` (incl. `SECRETS.md`, `.env*`, `backups/`), `check:secrets`.
+2. Model pivot (§15): backup DB, migrate schema to revision-2 tables, RLS, triggers, functions, views; `db push`; regenerate types.
 3. SQL tests A–C and the other checks; fix until green.
-4. Seed script: settings, partners, both users and profiles; auth config (signups off).
-5. Edge function `manage-users` + deploy + test.
+4. Seed script and auth config (signups off).
+5. Edge function `manage-users` — verify existing deploy still matches the spec; redeploy if needed.
 6. Web app foundation: auth, guards, Bangla i18n, layout, forced password change.
-7. Feature pages in the order of §8 (sales and batches first).
-8. PWA (manifest, icons, service worker, offline banner).
-9. `vercel.json`, Vercel project, env vars, deploy, production verification.
+7. Feature pages in the order of §8: চালান → প্যাকেট + priority → বিক্রি → ব্যক্তিগত/ফ্রি → খরচ → ওয়ালেট → হিসাব → হোম → রিপোর্ট.
+8. PWA, SEO, meta, icons.
+9. `apps/web/vercel.json` check against the router; docs/DEPLOY.md; production verification.
 10. `db:backup` script (JSON export of all business tables via service role into gitignored `backups/`), README (setup, scripts, role matrix, how to reset su_admin password, free-tier pause note), final full test run.
 
 ---
 
 ## 14. Out of scope (do not build)
-Credit sales / customer dues, offline write queue, multiple products or price lists, automatic discount tiers, email or SMS flows, English UI, customer database, native apps, payment gateway integration.
+
+Credit sales / customer dues, offline write queue, multiple products or price lists, automatic discount tiers, email or SMS flows, English UI, a separate customers table (name+phone live on sales), native apps, payment gateways or automatic bKash/Nagad verification, packet repack/merge operations, shared profit-percentage splitting (replaced by own-stock), carrying stock value into a new chalan's cost.
 
 ---
 
-## 15. Design addendum (overrides §8 where they conflict)
+## 15. Revision-2 pivot and migration notes
 
-Reference: the "BSZ Ledger" dashboard screenshot. Light mode only — no dark mode, no `dark:` classes, `color-scheme: light`. Premium, calm, editorial feel.
-
-- Page background warm off-white `#F5F1EA`. Cards white, radius 24px, 1px soft warm border, almost no shadow, generous padding.
-- Header: small uppercase letter-spaced muted app label above a large bold page title; compact month/period selector at top right.
-- Stat cards in a 2-column grid on mobile: tiny uppercase muted label, large semibold number with ৳ and Bangla digits; positive values muted green `#2F6B4F`, negative muted red `#B3472F`.
-- Hero card: full-bleed photo (`dashboard-hero.webp`) with dark gradient overlay and white text, plus a footer strip (e.g. last sync time).
-- Charts: donut and bar charts in cocoa/caramel/green tones inside white cards.
-- Mobile bottom navigation: fixed bottom bar (white, 1px top border, safe-area padding) with exactly 6 icon-only tabs, outline icons (lucide-react); muted grey inactive, espresso/cocoa active with a small active indicator; each tab has an `aria-label` in Bangla: হোম, বিক্রি, ব্যাচ, খরচ, হিসাব, আরও. "আরও" opens a sheet with: রিপোর্ট, নষ্ট/ক্ষতি, পরিবর্তনের ইতিহাস, ব্যবহারকারী (su_admin only), সেটিংস (su_admin only), প্রোফাইল, লগআউট. This replaces the 5-tab bar in §8.
-- Desktop (≥1024px): the bottom bar becomes a left sidebar (logo-mark/wordmark on top, icon + Bangla label items, "আরও" items listed inline). Content sits in a centered container (max ~1200px); stat cards 4-up, lists become tables with sticky headers, forms open in a side panel or dialog instead of full pages.
-- Responsive is a hard rule: every page must work at 360px, 768px and ≥1280px with no horizontal scroll, touch targets ≥44px, no hover-only interactions.
-- Image assets and full generation prompts: see `docs/image-prompt.md` (login-bg, 404-bg, dashboard-hero, empty-*, offline, app-texture, logo-mark, wordmark).
-
-### 15.1 Image staging and OG meta
-- Images live in `docs/img/`; the frontend phase copies them to final paths as described in `docs/image-prompt.md`.
-- Derive PWA icons (192, 512, maskable 512 on the `#F5F1EA`-compatible brand background, apple-touch 180, favicon) from `logo-mark.png` with a `sharp` script in `scripts/`.
-- `apps/web/index.html` must include: `<title>`, `theme-color` `#F5F1EA`, `og:type`, `og:site_name` (PataBin), `og:title`, `og:description` (short Bangla text), `og:image` as an absolute URL to the production domain, `og:image:width` 1200, `og:image:height` 630, `twitter:card` `summary_large_image`.
-
----
-
-## 16. Final overrides
-
-Session overrides; where they conflict with earlier sections, they win.
-
-### Roles and permissions
-- `su_admin` can do everything. `patabin_admin` can do everything EXCEPT the two default rates in Settings. The restriction is enforced in the database (RLS/policies), not only in the UI.
-- `settings` holds both defaults: `default_buy_rate` (unit cost, default 190) and `default_sell_price` (default 300). Both are editable only by `su_admin` (DB policy); `patabin_admin` sees both read-only. Per-entry values stay editable by both roles: a purchase's amounts, a sale's `amount_received` and discount, a personal-use amount.
-- Safeguards enforced in the DB and re-checked inside the edge function: nobody can change their own role; only `su_admin` can modify, deactivate, reset the password of, or change the role of a `su_admin` account; the last active `su_admin` can never be deactivated. All other user management is available to both roles.
-- Reopening a closed batch is allowed for both roles (everything except the rates).
-
-### Time (Bangladesh time)
-- Every entry (sale, personal use, expense, damage/adjustment, transfer, batch purchase date) is stored as `timestamptz` defaulting to `now()` from the database server clock, displayed in `Asia/Dhaka`. The device clock is never trusted for defaults; the `date` columns of §6 are converted to `timestamptz`.
-- Every entry form has a compact time control showing the current server time with an option to pick a custom date and time manually (Bangla, mobile friendly). Unchanged control = server default.
-- Dashboard/reports periods: today, yesterday, this week, this month, last month, custom range; boundaries computed in `Asia/Dhaka`. Custom datetimes convert with an explicit `+06:00` offset, never device timezone parsing.
-- Day boundaries for periods: Dhaka-local.
-
-### Deployment (Vercel, manual)
-- `vercel.json` lives ONLY at `apps/web/` (no root config). The human sets the Vercel project Root Directory to `apps/web` and deploys manually; no Vercel CLI commands are run.
-- `apps/web/vercel.json` defines: `framework: vite`; install/build commands working with Root Directory `apps/web` in this pnpm workspace (`@patabin/shared` resolves via the workspace lockfile); output `dist`; an explicit rewrite to `/index.html` for EVERY app route, then one catch-all so the in-app 404 renders; cache headers (immutable hashed assets; no-cache for service worker, `registerSW.js`, manifest); security headers: strict CSP (`script-src 'self'`, no unsafe-eval; `connect-src` only the app's Supabase https origin + wss twin; `img-src self data blob`; self-hosted fonts; `frame-ancestors 'none'`; `object-src 'none'`; `base-uri 'self'`; `form-action 'self'`), HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` (deny camera/microphone/geolocation/payment), `Cross-Origin-Opener-Policy`, `X-Robots-Tag: noindex, nofollow`.
-- A test/script fails if the rewrite list and the router config drift apart.
-- `docs/DEPLOY.md` replaces the Vercel steps of §11: exact project settings, env vars (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SITE_URL`), Supabase Auth Site URL step, first-login steps, backup command.
-
-### UI, UX, design
-- §15 as written, with: Phosphor Icons (`@phosphor-icons/react`, light/regular inactive, fill active, named imports) replacing `lucide-react`. The only allowed symbol besides icons is the taka sign. Absolutely no emoji or unicode pictographs anywhere (UI, code, docs, commits, seed data).
-- Loading: every data region shows a content-shaped skeleton with subtle shimmer matching the final layout (no layout shift), respecting `prefers-reduced-motion`. Route-level code splitting; TanStack Query shows cached data instantly and refreshes in the background.
-- Charts lazy-load so non-dashboard routes do not pay for the chart chunk.
-- UX bar: a sale in about 3 taps, inline Bangla validation, confirmation for destructive actions with undo where possible, empty states with the generated illustrations, AA contrast, keyboard/screen-reader accessibility (`lang="bn"`, aria-labels on icon-only tabs, route announcements), Bangla digits for display and both digit systems in inputs.
-
-### SEO
-- Dynamic titles on every route: `<Page> · PataBin` (detail pages include the identifier), one hook; per-main-route meta description; full head metadata (lang, canonical from `VITE_SITE_URL`, theme-color, manifest, icons, OG with `og-image.webp` 1200x630 absolute, Twitter `summary_large_image`, WebApplication JSON-LD); meta robots `noindex, nofollow` + restrictive `robots.txt`, flag in one place.
-
-### Security hardening
-- RLS enabled and forced on every table; no grants to `anon`; default privileges revoked; `execute` granted only to `authenticated`; every `SECURITY DEFINER` function has fixed `search_path`, validates inputs, no dynamic SQL, and re-checks caller role and `is_active`.
-- While `must_change_password` is true the DB blocks all writes except the password change itself. The flag clears only via a real password change (verified against a hash snapshot on `profiles`), so the fallback RPC cannot be called without changing the password.
-- Signup disabled; minimum password length 10; auth rate limits reviewed and documented; idle sign-out after 60 minutes of inactivity; audit log append-only (no update/delete grants for anyone); edge function verifies JWT, re-checks role + safeguards, validates input, CORS from an `ALLOWED_ORIGINS` function secret (comma separated, localhost dev only, never wildcard), generic errors, no secret or password logging; frontend has no `dangerouslySetInnerHTML`, no secrets in the bundle (build-time grep), no user data in `localStorage` beyond the Supabase session, never caches API responses in the service worker; `pnpm audit` has no high/critical findings; lockfile committed; `SECRETS.md`/`.env*` never tracked.
-
-### Dashboard formulas
-- Income = Σ `amount_received` of all sales in the period (external + internal; legend notes ব্যক্তিগত ব্যবহার is included).
-- Expenses = Σ `amount` of operating expenses in the period, with a secondary line showing landed (purchase-related) expenses for the period.
-- Net profit = Income − Σ (allocated qty × batch `landed_cost_per_pc`) − Σ (stock_adjustments qty of allocated batches in period × `landed_cost_per_pc`) − operating expenses; dashboard totals over a fully closed batch must equal the batch profit of §2.5 (tested).
-- Hero card "নগদ গৃহীত" = external sales cash only; the payment-method donut shows ব্যক্তিগত ব্যবহার as its own slice so the donut total equals Income.
-- Stock = current Σ remaining over open batches. Balances = `v_partner_balance` current values, `Σ = 0`.
-
-### Code style
-- Shortest readable code; no comments in code (TS/SQL/CSS/config), no docstrings, no TODOs, no `console.log` in committed code.
+- The v1 schema (batches, contributions, FIFO across batches, payout by contribution %) and its views/functions/tests are superseded.
+- Before replacing anything: run `db:backup`, then ask the user to confirm the database holds no data that must be preserved. Only after confirmation apply the migration that drops/renames v1 objects and creates the revision-2 schema as fresh migrations. Never touch `SECRETS.md`.
+- Keep `docs/img/`, PWA assets, deployment config, and security hardening from the previous implementation wherever they are still valid.
