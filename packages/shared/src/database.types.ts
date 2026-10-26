@@ -701,6 +701,62 @@ export type Database = {
           },
         ]
       }
+      sale_receives: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          sale_id: string
+          wallet_account_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          sale_id: string
+          wallet_account_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          sale_id?: string
+          wallet_account_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_receives_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_receives_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "v_sales_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_receives_wallet_account_id_fkey"
+            columns: ["wallet_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_wallet_balance"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "sale_receives_wallet_account_id_fkey"
+            columns: ["wallet_account_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales: {
         Row: {
           amount_received: number
@@ -1242,6 +1298,7 @@ export type Database = {
           qty: number | null
           sold_at: string | null
           wallet_account_id: string | null
+          wallet_details: string | null
           wallet_label: string | null
           wallet_name: string | null
           wallet_type: string | null

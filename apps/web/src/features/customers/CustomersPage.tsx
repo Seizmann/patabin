@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createCustomer, createPayment, deleteCustomer, fetchCustomerBalances, fetchCustomers, fetchPayments, fetchWallets, updateCustomer, type CustomerRow, type WalletRow } from './api';
+import { createCustomer, createPayment, deleteCustomer, fetchCustomerBalances, fetchCustomers, fetchPayments, fetchWallets, updateCustomer, type CustomerRow } from './api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { mapError } from 'lib/errors';
 import { walletDisplay } from 'lib/wallet';
+import { Plus } from '@phosphor-icons/react';
 import NumberInput from 'components/forms/NumberInput';
 import { formatDhakaDate, formatMoney } from '@patabin/shared';
 import emptySearch from 'assets/images/empty/empty-search.png';
+
+type Line = { wallet: string; amount: string };
 
 export default function CustomersPage() {
   usePageTitle('কাস্টমার');
@@ -24,9 +27,9 @@ export default function CustomersPage() {
   const { data: payments = [] } = useQuery({ queryKey: ['customer-payments'], queryFn: fetchPayments });
   const { data: wallets = [] } = useQuery({ queryKey: ['wallets'], queryFn: fetchWallets });
 
+  const { data: payWallets = [] } = useQuery({ queryKey: ['wallets'], queryFn: fetchWallets });
   const [payOpen, setPayOpen] = useState<CustomerRow | null>(null);
-  const [payAmount, setPayAmount] = useState('');
-  const [payWallet, setPayWallet] = useState('');
+  const [payLines, setPayLines] = useState<Line[]>([]);
   const [payNote, setPayNote] = useState('');
 
   const add = async (e: React.FormEvent) => {
@@ -67,20 +70,22 @@ export default function CustomersPage() {
 
   const submitPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!payOpen || !Number(payAmount) || !payWallet) {
+    if (!payOpen || payLines.length === 0 || payLines.some((l) => !l.wallet || !Number(l.amount))) {
       setError('টাকা ও ওয়ালেট দিন।');
       return;
     }
     setBusy(true);
     setError('');
     try {
-      await createPayment({ customer_id: payOpen.id, amount: Number(payAmount), wallet_account_id: payWallet, note: payNote || null });
+      for (const l of payLines) {
+        await createPayment({ customer_id: payOpen.id, amount: Number(l.amount), wallet_account_id: l.wallet, note: payNote || null });
+      }
       await qc.invalidateQueries({ queryKey: ['customer-balances'] });
       await qc.invalidateQueries({ queryKey: ['customer-payments'] });
       await qc.invalidateQueries({ queryKey: ['wallets-all'] });
       await qc.invalidateQueries({ queryKey: ['dashboard'] });
       setPayOpen(null);
-      setPayAmount('');
+      setPayLines([]);
       setPayNote('');
     } catch (err) {
       setError(mapError(err));
@@ -171,19 +176,31 @@ export default function CustomersPage() {
           <div role="dialog" aria-modal="true" className="card w-full max-h-[92vh] overflow-y-auto rounded-b-3xl p-5 sm:mx-auto sm:max-w-lg sm:rounded-3xl">
             <p className="p-title mb-4">{payOpen.name} — শোধ নিন</p>
             <form onSubmit={submitPayment} noValidate className="flex flex-col gap-4">
-              <Field label="টাকা (৳)">
-                <NumberInput value={payAmount} onChange={setPayAmount} />
-              </Field>
-              <Field label="কোথায় জমা হলো">
-                <select className="field" value={payWallet} onChange={(e) => setPayWallet(e.target.value)}>
-                  <option value="">-- নির্বাচন করুন --</option>
-                  {wallets.map((w: WalletRow) => (
-                    <option key={w.id} value={w.id}>
-                      {walletDisplay(w)}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+              {payLines.map((l, i) => (
+                <div key={i} className="grid grid-cols-2 gap-3">
+                  <Field label={`ওয়ালেট ${i + 1}`}>
+                    <select className="field" value={l.wallet} onChange={(e) => setPayLines((ls) => ls.map((x, xi) => (xi === i ? { ...x, wallet: e.target.value } : x)))}>
+                      <option value="">-- নির্বাচন করুন --</option>
+                      {payWallets.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {walletDisplay(w)}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label={`টাকা (৳) ${i + 1}`}>
+                    <NumberInput value={l.amount} onChange={(v) => setPayLines((ls) => ls.map((x, xi) => (xi === i ? { ...x, amount: v } : x)))} />
+                  </Field>
+                </div>
+              ))}
+              <div className="flex justify-between">
+                <Btn variant="ghost" onClick={() => setPayLines((ls) => (ls.length <= 1 ? [{ wallet: '', amount: '' }] : ls.filter((_, i) => i !== ls.length - 1)))}>
+                  ভাগ মুছুন
+                </Btn>
+                <button type="button" aria-label="আরেকটি ভাগ" className="btn grid h-11 w-11 place-items-center p-0" onClick={() => setPayLines((ls) => [...ls, { wallet: '', amount: '' }])}>
+                  <Plus weight="bold" size={18} />
+                </button>
+              </div>
               <Field label="নোট (ঐচ্ছিক)">
                 <input className="field" value={payNote} onChange={(e) => setPayNote(e.target.value)} />
               </Field>

@@ -1,15 +1,19 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createCustomer, fetchCustomers } from 'features/customers/api';
-import { fetchPacketsPreview, fetchWallets, type SaleInput } from './api';
+import { fetchPacketsPreview, fetchWallets, type ReceiveInput, type SaleInput } from './api';
 import { fetchSettings } from 'lib/api';
 import { walletDisplay } from 'lib/wallet';
 import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
 import { Btn, Card, Field, Notice, PageTitle } from 'components/ui/base';
+import { Plus } from '@phosphor-icons/react';
 import { formatMoney } from '@patabin/shared';
 
 const NEW = '__new__';
+
+type WalletOption = { id: string; type: string; name: string; label: string };
+type Line = { wallet: string; amount: string };
 
 type Props = {
   title: string;
@@ -29,6 +33,7 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
   const [newPhone, setNewPhone] = useState('');
   const [freeName, setFreeName] = useState(initial?.customer_name ?? '');
   const [wallet, setWallet] = useState(initial?.wallet_account_id ?? '');
+  const [lines, setLines] = useState<Line[]>([]);
   const [note, setNote] = useState(initial?.note ?? '');
   const [soldAt, setSoldAt] = useState<string | undefined>(initial?.sold_at ?? undefined);
   const [busy, setBusy] = useState(false);
@@ -73,6 +78,21 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
       setError('টাকা + বাকি তালিকা মূল্যের বেশি হয়নি তো?');
       return;
     }
+    const received = Number(amount === '' ? listValue : amount);
+    if (lines.length > 0) {
+      const sum = lines.reduce((acc, l) => acc + Number(l.amount || 0), 0);
+      if (sum !== received) {
+        setError(`ভাগ করা টাকা ${formatMoney(sum)} — মোট ${formatMoney(received)} হবে তো?`);
+        return;
+      }
+      if (lines.some((l) => !l.wallet || !Number(l.amount))) {
+        setError('প্রতিটি ভাগে ওয়ালেট ও টাকা দিন।');
+        return;
+      }
+    }
+    const receiveList: ReceiveInput[] | undefined = lines.length > 0
+      ? lines.map((l) => ({ wallet_account_id: l.wallet, amount: Number(l.amount) }))
+      : undefined;
     setBusy(true);
     try {
       let saleCustomer: string | null = customerId || null;
@@ -100,7 +120,8 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
         customer_id: saleCustomer,
         customer_name: name,
         customer_phone: phone,
-        wallet_account_id: wallet,
+        wallet_account_id: receiveList?.[0]?.wallet_account_id ?? wallet,
+        receives: receiveList,
         note: note || null,
         sold_at: soldAt ?? null,
       });
@@ -145,16 +166,62 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
           </div>
         )}
 
-        <Field label="কোথায় টাকা">
-          <select className="field" value={wallet} onChange={(e) => setWallet(e.target.value)}>
-            <option value="">-- নির্বাচন করুন --</option>
-            {wallets.map((w) => (
-              <option key={w.id} value={w.id}>
-                {walletDisplay(w)}
-              </option>
+        {lines.length === 0 && (
+          <Field label="কোথায় টাকা">
+            <div className="flex items-center gap-2">
+              <select className="field min-h-[44px] grow" value={wallet} onChange={(e) => setWallet(e.target.value)}>
+                <option value="">-- নির্বাচন করুন --</option>
+                {(wallets as WalletOption[]).map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {walletDisplay(w)}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                aria-label="ভাগ করুন (একাধিক ওয়ালেট)"
+                className="btn grid h-11 w-11 shrink-0 place-items-center p-0"
+                onClick={() => setLines([{ wallet: wallet, amount: amount === '' ? String(listValue - Number(due || 0)) : amount }, { wallet: wallets[1]?.id ?? '', amount: '0' }])}
+                disabled={wallets.length < 2 && (wallets as WalletOption[]).length < 2}
+              >
+                <Plus weight="bold" size={18} />
+              </button>
+            </div>
+          </Field>
+        )}
+        {lines.length > 0 && (
+          <div className="flex flex-col gap-3">
+            {(lines as Line[]).map((l, i) => (
+              <div key={i} className="grid grid-cols-[1fr_1fr] gap-2">
+                <select
+                  className="field min-h-[44px]"
+                  value={l.wallet}
+                  aria-label={`ভাগ ${i + 1} ওয়ালেট`}
+                  onChange={(e) => setLines((ls) => ls.map((x, xi) => (xi === i ? { ...x, wallet: e.target.value } : x)))}
+                >
+                  <option value="">-- ওয়ালেট --</option>
+                  {(wallets as WalletOption[]).map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {walletDisplay(w)}
+                    </option>
+                  ))}
+                </select>
+                <NumberInput value={l.amount} aria-label={`ভাগ ${i + 1} টাকা`} onChange={(v) => setLines((ls) => ls.map((x, xi) => (xi === i ? { ...x, amount: v } : x)))} placeholder="৳" />
+                <Btn variant="ghost" className="col-span-2 text-left text-bad" onClick={() => setLines((ls) => (ls.length <= 1 ? [] : ls.filter((_, xi) => xi !== i)))}>
+                  ভাগ মুছুন
+                </Btn>
+              </div>
             ))}
-          </select>
-        </Field>
+            <div className="flex items-center justify-between">
+              <div className="p-caption rounded-xl bg-canvas px-3 py-2 grow">
+                বাকি থাকবে: {formatMoney(Math.max(0, Number(amount === '' ? listValue : amount) - lines.reduce((acc, l) => acc + Number(l.amount || 0), 0)))}
+              </div>
+              <button type="button" aria-label="আরেকটি ভাগ" className="btn grid h-11 w-11 shrink-0 place-items-center p-0" onClick={() => setLines((ls) => [...ls, { wallet: "", amount: "0" }])}>
+                <Plus weight="bold" size={18} />
+              </button>
+            </div>
+          </div>
+        )}
 
         {showCustomer && (
           <>

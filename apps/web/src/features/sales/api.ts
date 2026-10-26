@@ -15,11 +15,14 @@ export type SaleRowV = {
   wallet_type: string;
   wallet_name: string;
   wallet_label: string;
+  wallet_details: string;
   note: string | null;
   created_at: string;
   packet_codes: string;
   owner_names: string;
 };
+
+export type ReceiveInput = { wallet_account_id: string; amount: number };
 
 export type SaleInput = {
   qty: number;
@@ -30,6 +33,7 @@ export type SaleInput = {
   customer_name?: string | null;
   customer_phone?: string | null;
   wallet_account_id: string;
+  receives?: ReceiveInput[];
   note?: string | null;
   sold_at?: string | null;
 };
