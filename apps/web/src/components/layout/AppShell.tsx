@@ -122,7 +122,7 @@ export default function AppShell() {
             role="dialog"
             aria-modal="true"
             aria-label={bn.more}
-            className="card w-full rounded-b-3xl border-0 p-5 sm:mx-auto sm:max-w-lg sm:rounded-3xl"
+            className="card w-full max-h-[92vh] overflow-y-auto rounded-b-3xl border-0 p-5 sm:mx-auto sm:max-w-lg sm:rounded-3xl"
             style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
             onClick={(e) => e.stopPropagation()}
           >
