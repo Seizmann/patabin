@@ -7,6 +7,20 @@ import { formatMoney, toBnDigits } from '@patabin/shared';
 import emptySearch from 'assets/images/empty/empty-search.png';
 
 type ReportTab = 'chalan' | 'partner';
+type SettlementX = { partner_id: string; partner_name: string; capital: number; ext_rev: number; internal_rev: number; profit: number; entitlement: number };
+
+function partnerTotals(settlement: SettlementX[]) {
+  const byPartner = new Map<string, { name: string; capital: number; revenue: number; profit: number; entitlement: number }>();
+  for (const x of settlement) {
+    const cur = byPartner.get(x.partner_id) ?? { name: x.partner_name, capital: 0, revenue: 0, profit: 0, entitlement: 0 };
+    cur.capital += Number(x.capital);
+    cur.revenue += Number(x.ext_rev) + Number(x.internal_rev);
+    cur.profit += Number(x.profit);
+    cur.entitlement += Number(x.entitlement);
+    byPartner.set(x.partner_id, cur);
+  }
+  return byPartner;
+}
 
 export default function ReportsPage() {
   usePageTitle('রিপোর্ট');
@@ -35,15 +49,7 @@ export default function ReportsPage() {
       ].join('\n');
       download(csv, 'patabin-chalan-report.csv');
     } else {
-      const byPartner = new Map<string, { name: string; capital: number; revenue: number; profit: number; entitlement: number }>();
-      for (const x of data.settlement as { partner_id: string; partner_name: string; capital: number; ext_rev: number; internal_rev: number; profit: number; entitlement: number }[]) {
-        const cur = byPartner.get(x.partner_id) ?? { name: x.partner_name, capital: 0, revenue: 0, profit: 0, entitlement: 0 };
-        cur.capital += Number(x.capital);
-        cur.revenue += Number(x.ext_rev) + Number(x.internal_rev);
-        cur.profit += Number(x.profit);
-        cur.entitlement += Number(x.entitlement);
-        byPartner.set(x.partner_id, cur);
-      }
+      const byPartner = partnerTotals(data.settlement as SettlementX[]);
       const csv = [
         ['partner', 'capital', 'revenue', 'profit', 'balance'].join(','),
         ...data.partners.map((p) => {
@@ -75,7 +81,7 @@ export default function ReportsPage() {
       )}
       {error && <Notice tone="error">{error}</Notice>}
       {!isPending && tab === 'chalan' && <ChalanReport rows={data.chalans} />}
-      {!isPending && tab === 'partner' && <PartnerReport rows={data.partners} />}
+      {!isPending && tab === 'partner' && <PartnerReport rows={data.partners} settlement={data.settlement as SettlementX[]} />}
     </div>
   );
 }
@@ -90,10 +96,17 @@ function ChalanReport({ rows }: { rows: Record<string, unknown>[] }) {
   );
 }
 
-function PartnerReport({ rows }: { rows: { partner_name: string; balance: number }[] }) {
+function PartnerReport({ rows, settlement }: { rows: { partner_id: string; partner_name: string; balance: number }[]; settlement: SettlementX[] }) {
   if (!rows.length) return <ReportEmpty />;
+  const byPartner = partnerTotals(settlement);
   return (
-    <Table head={['পার্টনার', 'ব্যালেন্স']} rows={rows.map((x) => [x.partner_name, formatMoney(x.balance)])} />
+    <Table
+      head={['পার্টনার', 'পুঁজি', 'বিক্রির টাকা', 'লাভ', 'ব্যালেন্স']}
+      rows={rows.map((p) => {
+        const x = byPartner.get(p.partner_id);
+        return [p.partner_name, formatMoney(x?.capital ?? 0), formatMoney(x?.revenue ?? 0), formatMoney(x?.profit ?? 0), formatMoney(p.balance)];
+      })}
+    />
   );
 }
 
