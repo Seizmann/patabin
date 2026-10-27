@@ -136,7 +136,7 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
       <PageTitle tag="PataBin" title={title} />
       <form onSubmit={submit} className="flex flex-col gap-5" noValidate>
         <Field label="তালিকা মূল্য (প্রতি পিস)">
-          <NumberInput value={price} onChange={setPrice} placeholder={String(settings?.default_sell_price ?? 300)} />
+          <NumberInput value={price || String(settings?.default_sell_price ?? 300)} onChange={setPrice} />
         </Field>
         <Field label="পরিমাণ (পিস)">
           <div className="flex gap-2">
