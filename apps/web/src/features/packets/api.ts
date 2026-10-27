@@ -18,6 +18,21 @@ export async function savePriority(ordered: string[]): Promise<void> {
   if (error) throw error;
 }
 
+export type PacketSaleRow = { sold_at: string; qty: number; amount_received: number; due_amount: number; customer_id: string | null; customer_name: string | null; customer_phone: string | null };
+
+export async function fetchPacketSales(packetId: string): Promise<PacketSaleRow[]> {
+  const { data, error } = await supabase
+    .from('sale_allocations')
+    .select('qty, sales!inner(sold_at, qty, customer_id, customer_name, customer_phone, amount_received, due_amount, deleted_at)')
+    .eq('packet_id', packetId);
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as { qty: number; sales: { sold_at: string; customer_id: string | null; customer_name: string | null; customer_phone: string | null; amount_received: number; due_amount: number; deleted_at: string | null } }[];
+  return rows
+    .filter((r) => r.sales && !r.sales.deleted_at)
+    .map((r) => ({ sold_at: r.sales.sold_at, customer_id: r.sales.customer_id, customer_name: r.sales.customer_name, customer_phone: r.sales.customer_phone, amount_received: r.sales.amount_received, due_amount: r.sales.due_amount, qty: r.qty }))
+    .sort((a, b) => b.sold_at.localeCompare(a.sold_at));
+}
+
 export async function fetchOpenSummaries(): Promise<{ chalan_id: string; code: string; remaining: number; pcs_per_packet_hint: number }[]> {
   const { data, error } = await supabase.from('v_chalan_summary').select('*').eq('status', 'open');
   if (error) throw error;
