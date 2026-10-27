@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from 'lib/supabase';
-import { createSale, deleteSale, fetchSales, updateSale, type SaleInput, type SaleRowV } from './api';
+import { fetchSaleDetails, createSale, deleteSale, fetchSales, updateSale, type SaleInput, type SaleRowV } from './api';
 import SaleForm from './SaleForm';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { Plus, X } from '@phosphor-icons/react';
 import { formatDhakaDate, formatMoney, isoAtDhaka, dhakaDate, toBnDigits } from '@patabin/shared';
+import { walletDisplay } from 'lib/wallet';
+import { mapError } from 'lib/errors';
 import emptySales from 'assets/images/empty/empty-sales.png';
 
 export default function SalesPage() {
@@ -16,6 +18,7 @@ export default function SalesPage() {
   const [to, setTo] = useState('');
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<SaleRowV | null>(null);
+  const [detail, setDetail] = useState<SaleRowV | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const start = from ? isoAtDhaka(from) : '2000-01-01T00:00:00+06:00';
@@ -65,7 +68,7 @@ export default function SalesPage() {
       {isPending && <TableSkeleton />}
       {isError && <Notice tone="error">ডেটা আনতে সমস্যা হয়েছে</Notice>}
       {rows?.length === 0 && <Empty img={emptySales} title="কোনো বিক্রি নেই" caption="নতুন বিক্রি যুক্ত করে শুরু করুন।" />}
-      {rows && rows.length > 0 && <SalesTable rows={rows} onEdit={setEditing} onDelete={(id) => void del(id)} />}
+      {rows && rows.length > 0 && <SalesTable rows={rows} onEdit={setEditing} onDelete={(id) => void del(id)} onDetail={setDetail} />}
       {sheetOpen && (
         <div className="fixed inset-0 z-40 flex items-end overflow-y-auto bg-black/40 sm:items-center sm:p-6">
           <div role="dialog" aria-modal="true" className="w-full max-h-[92vh] overflow-y-auto rounded-b-3xl border-0 sm:mx-auto sm:max-w-lg sm:rounded-3xl">
@@ -97,15 +100,16 @@ export default function SalesPage() {
           }}
         />
       )}
+      {detail && <SaleDetailSheet sale={detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }
 
 async function invalidate(qc: ReturnType<typeof useQueryClient>) {
-  await Promise.all(['sales', 'packets', 'dashboard', 'balances', 'wallets', 'customers'].map((k) => qc.invalidateQueries({ queryKey: [k] })));
+  await Promise.all(['sales', 'packets', 'packets-preview', 'dashboard', 'balances', 'wallets', 'customers'].map((k) => qc.invalidateQueries({ queryKey: [k] })));
 }
 
-function SalesTable({ rows, onEdit, onDelete }: { rows: SaleRowV[]; onEdit: (r: SaleRowV) => void; onDelete: (id: string) => void }) {
+function SalesTable({ rows, onEdit, onDelete, onDetail }: { rows: SaleRowV[]; onEdit: (r: SaleRowV) => void; onDelete: (id: string) => void; onDetail: (r: SaleRowV) => void }) {
   return (
     <div className="card overflow-x-auto">
       <table className="w-full text-sm">
@@ -126,8 +130,10 @@ function SalesTable({ rows, onEdit, onDelete }: { rows: SaleRowV[]; onEdit: (r: 
             <tr key={r.id} className="border-b border-hairline last:border-0">
               <td className="whitespace-nowrap p-3">{formatDhakaDate(r.sold_at)}</td>
               <td className="p-3">
-                {r.customer_name || 'ক্রেতা'}
-                {r.customer_phone ? ` · ${r.customer_phone}` : ''}
+                <button type="button" className="font-semibold hover:underline" onClick={() => onDetail(r)}>
+                  {r.customer_name || 'ক্রেতা'}
+                  {r.customer_phone ? ` · ${r.customer_phone}` : ''}
+                </button>
               </td>
               <td className="p-3">{toBnDigits(r.qty)}</td>
               <td className="p-3">{formatMoney(r.amount_received)}</td>
@@ -212,6 +218,120 @@ function TableSkeleton() {
           <Skeleton className="h-8 w-24" />
         </div>
       ))}
+    </div>
+  );
+}
+
+function SaleDetailSheet({ sale, onClose }: { sale: SaleRowV; onClose: () => void }) {
+  const { data, isPending, error } = useQuery({ queryKey: ['sale-detail', sale.id], queryFn: () => fetchSaleDetails(sale.id) });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  const listValue = Number(sale.qty) * Number(sale.list_unit_price);
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center lg:items-center">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="card relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-b-none p-5 lg:rounded-b-[24px]" role="dialog" aria-modal="true" aria-label="বিক্রির বিস্তারিত">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="p-title">বিক্রি — {formatDhakaDate(sale.sold_at)}</p>
+            <p className="p-caption">
+              {sale.customer_name || 'ক্রেতা'}
+              {sale.customer_phone ? ` · ${sale.customer_phone}` : ''}
+            </p>
+          </div>
+          <Btn variant="ghost" onClick={onClose}>
+            বন্ধ
+          </Btn>
+        </div>
+        {isPending ? <Skeleton className="mt-4 h-40 w-full" /> : error ? <Notice tone="error">{mapError(error)}</Notice> : (
+          <div className="mt-4 flex flex-col gap-4">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-xl bg-canvas px-2 py-3">
+                <p className="p-caption text-ink-mute">পরিমাণ</p>
+                <p className="text-base font-bold">{toBnDigits(sale.qty)} পিস</p>
+              </div>
+              <div className="rounded-xl bg-canvas px-2 py-3">
+                <p className="p-caption text-ink-mute">তালিকা মূল্য</p>
+                <p className="text-base font-bold">{formatMoney(listValue)}</p>
+              </div>
+              <div className="rounded-xl bg-canvas px-2 py-3">
+                <p className="p-caption text-ink-mute">দেওয়া</p>
+                <p className="text-base font-bold">{formatMoney(sale.amount_received)}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col divide-y divide-hairline text-sm">
+              <div className="flex justify-between py-1.5">
+                <span>তালিকা মূল্য (প্রতি পিস)</span>
+                <span>{formatMoney(sale.list_unit_price)}</span>
+              </div>
+              {Number(sale.discount) > 0 && (
+                <div className="flex justify-between py-1.5">
+                  <span>ছাড়</span>
+                  <span className="text-bad">
+                    {formatMoney(sale.discount)} {sale.discount_pct ? `(${toBnDigits(Math.round(Number(sale.discount_pct)))}%)` : ''}
+                  </span>
+                </div>
+              )}
+              {Number(sale.due_amount) > 0 && (
+                <div className="flex justify-between py-1.5">
+                  <span>বাকি</span>
+                  <span className="font-semibold text-bad">{formatMoney(sale.due_amount)}</span>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="p-label">প্যাকেট কাটা</p>
+              {(data?.packets ?? []).length === 0 ? (
+                <p className="p-caption mt-2 text-ink-mute">তথ্য নেই।</p>
+              ) : (
+                <div className="mt-2 flex flex-col divide-y divide-hairline">
+                  {(data?.packets ?? []).map((p, i) => (
+                    <div key={i} className="flex items-center justify-between py-2 text-sm">
+                      <span>
+                        <b>{p.label}</b> · {p.owner_name}
+                      </span>
+                      <span>{toBnDigits(p.qty)} পিস</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="p-label">টাকা কোথায় গেল</p>
+              {(data?.receives ?? []).length === 0 ? (
+                <div className="mt-2 flex justify-between py-2 text-sm">
+                  <span>{walletDisplay({ type: sale.wallet_type, name: sale.wallet_name, label: sale.wallet_label })}</span>
+                  <span>{formatMoney(sale.amount_received)}</span>
+                </div>
+              ) : (
+                <div className="mt-2 flex flex-col divide-y divide-hairline">
+                  {(data?.receives ?? []).map((r, i) => (
+                    <div key={i} className="flex items-center justify-between py-2 text-sm">
+                      <span>{walletDisplay({ type: r.type, label: r.label })}</span>
+                      <span>{formatMoney(r.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {sale.note && (
+              <div>
+                <p className="p-label">নোট</p>
+                <p className="p-caption mt-1">{sale.note}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

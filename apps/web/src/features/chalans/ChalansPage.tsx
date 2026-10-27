@@ -1,14 +1,20 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { fetchChalans } from './api';
+import { closeChalan, fetchChalans, reopenChalan } from './api';
 import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
-import { Empty, PageTitle, Skeleton } from 'components/ui/base';
+import { Btn, Empty, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { mapError } from 'lib/errors';
 import { formatDhakaDate, formatMoney } from '@patabin/shared';
 import emptyChalan from 'assets/images/empty/empty-expenses.png';
 
 export default function ChalansPage() {
   usePageTitle('চালান');
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [ok, setOk] = useState('');
   const { data: rows, isPending } = useQuery({ queryKey: ['chalans'], queryFn: fetchChalans });
   const { data: summaries } = useQuery({
     queryKey: ['chalan-summaries'],
@@ -19,9 +25,28 @@ export default function ChalansPage() {
     },
   });
 
+  const act = async (id: string, close: boolean) => {
+    setBusy(true);
+    setError('');
+    setOk('');
+    try {
+      await (close ? closeChalan(id) : reopenChalan(id));
+      setOk(close ? 'চালান বন্ধ হয়েছে' : 'চালান খোলা হয়েছে');
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['chalans'] }),
+        qc.invalidateQueries({ queryKey: ['chalan-summaries'] }),
+      ]);
+    } catch (err) {
+      setError(mapError(err));
+    }
+    setBusy(false);
+  };
+
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5">
       <PageTitle tag="PataBin" title="চালান" right={<Link to="/chalans/new" className="btn">{`+ নতুন চালান`}</Link>} />
+      {error && <Notice tone="error">{error}</Notice>}
+      {ok && <Notice tone="ok">{ok}</Notice>}
       {isPending && (
         <div className="flex flex-col gap-2" aria-busy>
           {[0, 1, 2].map((n) => (
@@ -42,6 +67,7 @@ export default function ChalansPage() {
                 <th className="p-3 font-semibold">বাকি</th>
                 <th className="p-3 font-semibold">পুঁজি</th>
                 <th className="p-3 font-semibold">খরচ</th>
+                <th className="p-3 font-semibold" />
               </tr>
             </thead>
             <tbody>
@@ -64,6 +90,17 @@ export default function ChalansPage() {
                     <td className="p-3">{s ? `${s.remaining} পিস` : '-'}</td>
                     <td className="p-3">{s ? formatMoney(s.capital) : '-'}</td>
                     <td className="p-3">{s ? formatMoney(s.expenses) : '-'}</td>
+                    <td className="p-3">
+                      {c.status === 'open' ? (
+                        <Btn variant="ghost" busy={busy} onClick={() => void act(c.id, true)}>
+                          বন্ধ
+                        </Btn>
+                      ) : (
+                        <Btn variant="ghost" busy={busy} onClick={() => void act(c.id, false)}>
+                          খুলুন
+                        </Btn>
+                      )}
+                    </td>
                   </tr>
                 );
               })}

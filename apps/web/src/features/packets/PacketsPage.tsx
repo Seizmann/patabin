@@ -4,14 +4,14 @@ import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSe
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { DotsSixVertical } from '@phosphor-icons/react';
-import { createPackets, fetchPackets, savePriority, type PacketRow } from './api';
+import { createPackets, fetchPacketSales, fetchPackets, savePriority, type PacketRow } from './api';
 import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Card, Field, Notice, PageTitle } from 'components/ui/base';
 import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
 import { mapError } from 'lib/errors';
-import { toBnDigits } from '@patabin/shared';
+import { formatDhakaDate, formatMoney, toBnDigits } from '@patabin/shared';
 
 export default function PacketsPage() {
   usePageTitle('প্যাকেট');
@@ -30,6 +30,7 @@ export default function PacketsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
+  const [detail, setDetail] = useState<PacketRow | null>(null);
 
   useEffect(() => {
     setOrder(packets.map((p) => p.packet_id));
@@ -86,11 +87,12 @@ export default function PacketsPage() {
                 {order.map((id) => {
                   const p = packets.find((x) => x.packet_id === id);
                   if (!p) return null;
-                  return <PacketCard key={id} p={p} busy={busy} />;
+                  return <PacketCard key={id} p={p} busy={busy} onOpen={() => setDetail(p)} />;
                 })}
               </div>
             </SortableContext>
           </DndContext>
+          {detail && <PacketDetailSheet p={detail} onClose={() => setDetail(null)} />}
           {order.length === 0 && (
             <Card className="p-6">
               <p className="p-caption text-ink-mute">খোলা চালানে কোনো প্যাকেট নেই। নিচে প্যাকিং করুন।</p>
@@ -106,17 +108,24 @@ export default function PacketsPage() {
   );
 }
 
-function PacketCard({ p, busy }: { p: PacketRow; busy: boolean }) {
+function PacketCard({ p, busy, onOpen }: { p: PacketRow; busy: boolean; onOpen: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: p.packet_id });
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`card flex touch-none items-center gap-3 px-4 py-3 ${isDragging ? 'opacity-50' : ''}`}
-      aria-label={`প্যাকেট ${p.packet_code}`}
-      aria-disabled={busy}
+      onClick={busy ? undefined : onOpen}
+      className={`card flex items-center gap-3 px-4 py-3 ${isDragging ? 'opacity-50' : ''}`}
+      aria-label={`প্যাকেট ${p.packet_code} — বিস্তারিত খুলুন`}
     >
-      <button type="button" className="grid h-11 w-8 place-items-center text-ink-mute" {...listeners} {...attributes} aria-label={`প্যাকেট সরান ${p.packet_code}`}>
+      <button
+        type="button"
+        className="grid h-11 w-8 touch-none place-items-center text-ink-mute"
+        onClick={(e) => e.stopPropagation()}
+        {...listeners}
+        {...attributes}
+        aria-label={`প্যাকেট সরান ${p.packet_code}`}
+      >
         <DotsSixVertical weight="regular" size={20} />
       </button>
       <div className="min-w-0 flex-1">
@@ -127,6 +136,87 @@ function PacketCard({ p, busy }: { p: PacketRow; busy: boolean }) {
       <p className="text-sm font-semibold">
         {toBnDigits(p.remaining)}/{toBnDigits(p.total_pcs)}
       </p>
+    </div>
+  );
+}
+
+function PacketDetailSheet({ p, onClose }: { p: PacketRow; onClose: () => void }) {
+  const { data: sales = [], isPending } = useQuery({
+    queryKey: ['packet-sales', p.packet_id],
+    queryFn: () => fetchPacketSales(p.packet_id),
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  const sold = sales.reduce((s, r) => s + r.qty, 0);
+  const due = sales.reduce((s, r) => s + Number(r.due_amount), 0);
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center lg:items-center">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="card relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-b-none p-5 lg:rounded-b-[24px]" role="dialog" aria-modal="true" aria-label={`প্যাকেট ${p.packet_code} বিস্তারিত`}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="p-title">
+              {p.chalan_code}/{p.packet_code}
+            </p>
+            <p className="p-caption">মালিক: {p.owner_name}</p>
+          </div>
+          <Btn variant="ghost" onClick={onClose}>
+            বন্ধ
+          </Btn>
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-xl bg-canvas px-2 py-3">
+            <p className="p-caption text-ink-mute">মোট পিস</p>
+            <p className="text-base font-bold">{toBnDigits(p.total_pcs)}</p>
+          </div>
+          <div className="rounded-xl bg-canvas px-2 py-3">
+            <p className="p-caption text-ink-mute">বিক্রি</p>
+            <p className="text-base font-bold">{toBnDigits(sold)}</p>
+          </div>
+          <div className="rounded-xl bg-canvas px-2 py-3">
+            <p className="p-caption text-ink-mute">বাকি পিস</p>
+            <p className="text-base font-bold">{toBnDigits(p.remaining)}</p>
+          </div>
+        </div>
+        {isPending ? (
+          <div className="skeleton mt-4 h-16 w-full" />
+        ) : (
+          <>
+            <p className="p-label mt-5">কে কিনেছে</p>
+            {sales.length === 0 ? (
+              <p className="p-caption mt-2 text-ink-mute">এখনো কোনো বিক্রি হয়নি।</p>
+            ) : (
+              <ul className="mt-2 flex flex-col">
+                {sales.map((s, i) => (
+                  <li key={i} className="flex items-center gap-3 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">
+                        {s.customer_name || 'ক্রেতা'}
+                        {s.customer_phone ? ` · ${s.customer_phone}` : ''}
+                      </p>
+                      <p className="p-caption text-ink-mute">
+                        {formatDhakaDate(s.sold_at)} · {toBnDigits(s.qty)} পিস
+                      </p>
+                    </div>
+                    <p className={`text-sm font-semibold ${Number(s.due_amount) > 0 ? 'text-bad' : 'text-good'}`}>
+                      {Number(s.due_amount) > 0 ? `বাকি ${formatMoney(s.due_amount)}` : 'পরিশোধিত'}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex items-center justify-between rounded-xl bg-canvas px-4 py-3">
+              <p className="text-sm font-semibold">মোট বাকি</p>
+              <p className={`text-sm font-bold ${due > 0 ? 'text-bad' : 'text-good'}`}>{formatMoney(due)}</p>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

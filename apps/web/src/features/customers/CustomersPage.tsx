@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createCustomer, createPayment, deleteCustomer, fetchCustomerBalances, fetchCustomers, fetchPayments, fetchWallets, updateCustomer, type CustomerRow } from './api';
+import { createCustomer, createPayment, deleteCustomer, fetchCustomerBalances, fetchCustomerDetails, fetchCustomers, fetchPayments, fetchWallets, updateCustomer, type CustomerRow, type WalletRow } from './api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { mapError } from 'lib/errors';
 import { walletDisplay } from 'lib/wallet';
 import { Plus } from '@phosphor-icons/react';
 import NumberInput from 'components/forms/NumberInput';
-import { formatDhakaDate, formatMoney } from '@patabin/shared';
+import { formatDhakaDate, formatMoney, toBnDigits } from '@patabin/shared';
 import emptySearch from 'assets/images/empty/empty-search.png';
 
 type Line = { wallet: string; amount: string };
@@ -18,6 +18,7 @@ export default function CustomersPage() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [editing, setEditing] = useState<CustomerRow | null>(null);
+  const [detail, setDetail] = useState<CustomerRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
@@ -146,7 +147,11 @@ export default function CustomersPage() {
             <tbody>
               {rows.map((c) => (
                 <tr key={c.id} className="border-b border-hairline last:border-0">
-                  <td className="p-3">{c.name}</td>
+                  <td className="p-3">
+                    <button type="button" className="font-semibold hover:underline" onClick={() => setDetail(c)}>
+                      {c.name}
+                    </button>
+                  </td>
                   <td className="p-3">{c.phone ?? '-'}</td>
                   <td className={`p-3 font-semibold ${Number(balances.find((b) => b.customer_id === c.id)?.balance ?? 0) > 0 ? 'text-bad' : 'text-ink'}`}>
                     {formatMoney(Number(balances.find((b) => b.customer_id === c.id)?.balance ?? 0))}
@@ -169,6 +174,15 @@ export default function CustomersPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {detail && (
+        <CustomerDetailSheet
+          c={detail}
+          wallets={wallets}
+          due={Number(balances.find((b) => b.customer_id === detail.id)?.balance ?? 0)}
+          onClose={() => setDetail(null)}
+        />
       )}
 
       {payOpen && (
@@ -267,6 +281,111 @@ export default function CustomersPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function CustomerDetailSheet({ c, wallets, due, onClose }: { c: CustomerRow; wallets: WalletRow[]; due: number; onClose: () => void }) {
+  const { data, isPending, error } = useQuery({
+    queryKey: ['customer-detail', c.id, wallets.map((w) => w.id).join(',')],
+    queryFn: () => fetchCustomerDetails(c.id, wallets),
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center lg:items-center">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="card relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-b-none p-5 lg:rounded-b-[24px]" role="dialog" aria-modal="true" aria-label={`${c.name} বিস্তারিত`}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="p-title">{c.name}</p>
+            <p className="p-caption">{c.phone || 'ফোন নেই'}</p>
+          </div>
+          <Btn variant="ghost" onClick={onClose}>
+            বন্ধ
+          </Btn>
+        </div>
+        {isPending ? <Skeleton className="mt-4 h-40 w-full" /> : error ? <Notice tone="error">{mapError(error)}</Notice> : (
+          <div className="mt-4 flex flex-col gap-4">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-xl bg-canvas px-2 py-3">
+                <p className="p-caption text-ink-mute">মোট নেওয়া</p>
+                <p className="text-base font-bold">{toBnDigits(data?.totalPcs ?? 0)} পিস</p>
+              </div>
+              <div className="rounded-xl bg-canvas px-2 py-3">
+                <p className="p-caption text-ink-mute">মোট দিয়েছে</p>
+                <p className="text-base font-bold">{formatMoney(data?.totalPaid ?? 0)}</p>
+              </div>
+              <div className="rounded-xl bg-canvas px-2 py-3">
+                <p className="p-caption text-ink-mute">বাকি</p>
+                <p className={`text-base font-bold ${due > 0 ? 'text-bad' : 'text-good'}`}>{formatMoney(due)}</p>
+              </div>
+            </div>
+
+            <div>
+              <p className="p-label">চালান অনুসারে</p>
+              {(data?.byChalan ?? []).length === 0 ? (
+                <p className="p-caption mt-2 text-ink-mute">এখনো কিছু নেয়নি।</p>
+              ) : (
+                <div className="mt-2 flex flex-col divide-y divide-hairline">
+                  {(data?.byChalan ?? []).map((x) => (
+                    <div key={x.code} className="flex items-center justify-between py-2 text-sm">
+                      <span className="font-semibold">{x.code}</span>
+                      <span className="text-right">
+                        {toBnDigits(x.pcs)} পিস · <b>{formatMoney(x.paid)}</b> দিয়েছে
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="p-label">পেমেন্ট মাধ্যম অনুসারে</p>
+              {(data?.byMethod ?? []).length === 0 ? (
+                <p className="p-caption mt-2 text-ink-mute">এখনো টাকা দেয়নি।</p>
+              ) : (
+                <div className="mt-2 flex flex-col divide-y divide-hairline">
+                  {(data?.byMethod ?? []).map((x) => (
+                    <div key={x.type} className="flex items-center justify-between py-2 text-sm">
+                      <span className="font-semibold capitalize">{x.type}</span>
+                      <span>{formatMoney(x.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="p-label">বিক্রির তালিকা</p>
+              {(data?.sales ?? []).length === 0 ? (
+                <p className="p-caption mt-2 text-ink-mute">কোনো বিক্রি নেই।</p>
+              ) : (
+                <div className="mt-2 flex flex-col divide-y divide-hairline">
+                  {(data?.sales ?? []).map((s, i) => (
+                    <div key={i} className="py-2 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold">
+                          {formatDhakaDate(s.sold_at)} · {toBnDigits(s.qty)} পিস
+                        </span>
+                        <span className={s.due_amount > 0 ? 'font-semibold text-bad' : ''}>
+                          {s.due_amount > 0 ? `বাকি ${formatMoney(s.due_amount)}` : formatMoney(s.amount_received)}
+                        </span>
+                      </div>
+                      {s.chalan_codes.length > 0 && <p className="p-caption text-ink-mute">চালান: {s.chalan_codes.join(', ')}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

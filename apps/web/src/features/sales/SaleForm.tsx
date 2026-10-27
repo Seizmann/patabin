@@ -41,7 +41,7 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
 
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
   const { data: wallets = [] } = useQuery({ queryKey: ['wallets'], queryFn: fetchWallets });
-  const { data: packets = [] } = useQuery({ queryKey: ['packets'], queryFn: fetchPacketsPreview });
+  const { data: packets = [] } = useQuery({ queryKey: ['packets-preview'], queryFn: fetchPacketsPreview });
   const { data: customers } = useQuery({ queryKey: ['customers'], queryFn: fetchCustomers });
   const list = customers ?? [];
 
@@ -136,7 +136,7 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
       <PageTitle tag="PataBin" title={title} />
       <form onSubmit={submit} className="flex flex-col gap-5" noValidate>
         <Field label="তালিকা মূল্য (প্রতি পিস)">
-          <NumberInput value={price} onChange={setPrice} placeholder={String(settings?.default_sell_price ?? 300)} />
+          <NumberInput value={price || String(settings?.default_sell_price ?? 300)} onChange={setPrice} />
         </Field>
         <Field label="পরিমাণ (পিস)">
           <div className="flex gap-2">
