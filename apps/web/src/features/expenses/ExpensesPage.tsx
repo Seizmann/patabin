@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createExpense, fetchExpenses, fetchPartners, fetchWallets, type ExpenseRow } from './api';
+import { fetchChalans } from 'features/chalans/api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { supabase } from 'lib/supabase';
 import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
@@ -19,6 +20,7 @@ export default function ExpensesPage() {
   const [paidBy, setPaidBy] = useState('');
   const [attributedTo, setAttributedTo] = useState('');
   const [wallet, setWallet] = useState('');
+  const [chalan, setChalan] = useState('');
   const [note, setNote] = useState('');
   const [spentAt, setSpentAt] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
@@ -28,6 +30,10 @@ export default function ExpensesPage() {
   const { data: partners = [] } = useQuery({ queryKey: ['partners'], queryFn: fetchPartners });
   const { data: wallets } = useQuery({ queryKey: ['wallets'], queryFn: fetchWallets });
   const { data: rows, isPending } = useQuery({ queryKey: ['expenses'], queryFn: fetchExpenses });
+  const { data: chalans = [] } = useQuery({
+    queryKey: ['chalans'],
+    queryFn: fetchChalans,
+  });
   const { data: categories = [] } = useQuery({
     queryKey: ['expense-categories'],
     queryFn: async () => {
@@ -56,6 +62,7 @@ export default function ExpensesPage() {
         paid_by_partner_id: paidBy,
         attributed_to_partner_id: attributedTo,
         wallet_account_id: wallet || null,
+        chalan_id: chalan || null,
         note: note || null,
         spent_at: spentAt ?? null,
       });
@@ -63,6 +70,7 @@ export default function ExpensesPage() {
       await qc.invalidateQueries({ queryKey: ['balances'] });
       await qc.invalidateQueries({ queryKey: ['wallets'] });
       await qc.invalidateQueries({ queryKey: ['dashboard'] });
+      await qc.invalidateQueries({ queryKey: ['chalan-summaries'] });
       setOk('খরচ সংরক্ষিত');
       setAmount('');
       setNote('');
@@ -130,6 +138,16 @@ export default function ExpensesPage() {
             ))}
           </select>
         </Field>
+        <Field label="কন চালানের খরচ (ঐচ্ছিক)" className="col-span-2 sm:col-span-1">
+          <select className="field" value={chalan} onChange={(e) => setChalan(e.target.value)}>
+            <option value="">-- নেই --</option>
+            {chalans.filter((c) => c.status === 'open').map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.code}
+              </option>
+            ))}
+          </select>
+        </Field>
         <Field label="সময়" className="col-span-2 sm:col-span-1">
           <TimeInput value={spentAt} onChange={setSpentAt} />
         </Field>
@@ -177,6 +195,7 @@ export default function ExpensesPage() {
                   <td className="p-3">{catOf(x.category_id)}</td>
                   <td className="p-3 text-xs">
                     {nameOf(x.paid_by_partner_id)} → {nameOf(x.attributed_to_partner_id)} এর · {x.wallet_account_id ? walletDisplay((wallets ?? []).find((w) => w.id === x.wallet_account_id) ?? { name: '', label: '', type: '' }) : 'নিজের পকেট'}
+                    {x.chalan_id ? ` · ${chalans.find((c) => c.id === x.chalan_id)?.code ?? ''}` : ''}
                   </td>
                   <td className="p-3">{formatMoney(x.amount)}</td>
                   <td className="p-3 text-right">
