@@ -41,7 +41,7 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
 
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
   const { data: wallets = [] } = useQuery({ queryKey: ['wallets'], queryFn: fetchWallets });
-  const { data: packets = [] } = useQuery({ queryKey: ['packets'], queryFn: fetchPacketsPreview });
+  const { data: packets = [] } = useQuery({ queryKey: ['packets-preview'], queryFn: fetchPacketsPreview });
   const { data: customers } = useQuery({ queryKey: ['customers'], queryFn: fetchCustomers });
   const list = customers ?? [];
 

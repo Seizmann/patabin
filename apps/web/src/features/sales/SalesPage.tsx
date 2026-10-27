@@ -102,7 +102,7 @@ export default function SalesPage() {
 }
 
 async function invalidate(qc: ReturnType<typeof useQueryClient>) {
-  await Promise.all(['sales', 'packets', 'dashboard', 'balances', 'wallets', 'customers'].map((k) => qc.invalidateQueries({ queryKey: [k] })));
+  await Promise.all(['sales', 'packets', 'packets-preview', 'dashboard', 'balances', 'wallets', 'customers'].map((k) => qc.invalidateQueries({ queryKey: [k] })));
 }
 
 function SalesTable({ rows, onEdit, onDelete }: { rows: SaleRowV[]; onEdit: (r: SaleRowV) => void; onDelete: (id: string) => void }) {

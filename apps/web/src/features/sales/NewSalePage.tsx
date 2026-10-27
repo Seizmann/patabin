@@ -19,6 +19,7 @@ export default function NewSalePage() {
           await createSale(payload);
           await qc.invalidateQueries({ queryKey: ['sales'] });
           await qc.invalidateQueries({ queryKey: ['packets'] });
+          await qc.invalidateQueries({ queryKey: ['packets-preview'] });
           await qc.invalidateQueries({ queryKey: ['balances'] });
           await qc.invalidateQueries({ queryKey: ['wallets'] });
           await qc.invalidateQueries({ queryKey: ['dashboard'] });
