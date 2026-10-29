@@ -1,10 +1,10 @@
-import { Suspense, lazy, useMemo, useState } from 'react';
+import { Suspense, lazy } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchBalances, fetchBreakdown, fetchDailyIncome, fetchStockCurrent, fetchTotals, fetchWalletBalances, type Totals } from './api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Card, Notice, PageTitle, Skeleton } from 'components/ui/base';
-import { dhakaDate, formatDhakaDate, formatMoney, periodRange, toBnDigits } from '@patabin/shared';
-import { supabase } from 'lib/supabase';
+import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
+import { formatDhakaDate, formatMoney, toBnDigits } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 import heroImg from 'assets/images/backgrounds/dashboard-hero.webp';
 import offlineImg from 'assets/images/empty/offline.png';
@@ -13,50 +13,9 @@ import emptySales from 'assets/images/empty/empty-sales.png';
 const Donut = lazy(() => import('components/ui/Donut'));
 const IncomeBar = lazy(() => import('components/ui/IncomeBar'));
 
-type PeriodId = 'chalan' | 'today' | 'yesterday' | 'week' | 'month' | 'lastMonth' | 'custom';
-
-const periods: { id: PeriodId; label: string }[] = [
-  { id: 'chalan', label: 'এই চালান' },
-  { id: 'today', label: 'আজ' },
-  { id: 'yesterday', label: 'গতকাল' },
-  { id: 'week', label: 'এই সপ্তাহ' },
-  { id: 'month', label: 'এই মাস' },
-  { id: 'lastMonth', label: 'গত মাস' },
-];
-
 export default function DashboardPage() {
   usePageTitle('হোম', 'পাতাবিন হোম পাতা: আয়, খরচ, লাভ, স্টক ও হিসাবের সারসংক্ষেপ।');
-  const [period, setPeriod] = useState<PeriodId>('chalan');
-  const [customFrom, setCustomFrom] = useState('');
-  const [customTo, setCustomTo] = useState('');
-
-  const { data: openChalan } = useQuery({
-    queryKey: ['dashboard', 'open-chalan'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('chalans')
-        .select('code, purchase_date')
-        .eq('status', 'open')
-        .is('deleted_at', null)
-        .order('code', { ascending: false })
-        .limit(1);
-      if (error) throw error;
-      return (data ?? [])[0] as { code: string; purchase_date: string } | undefined;
-    },
-  });
-
-  const [start, end] = useMemo(() => {
-    if (period === 'chalan') {
-      const nowIso = new Date().toISOString();
-      return openChalan?.purchase_date ? [openChalan.purchase_date, nowIso] : periodRange('today', nowIso);
-    }
-    if (period === 'custom') {
-      const now = dhakaDate(new Date().toISOString());
-      const endIso = customTo ? `${customTo}T23:59:59+06:00` : new Date().toISOString();
-      return [customFrom ? `${customFrom}T00:00:00+06:00` : `${now}T00:00:00+06:00`, endIso];
-    }
-    return periodRange(period, new Date().toISOString());
-  }, [period, customFrom, customTo, openChalan?.purchase_date]);
+  const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('chalan');
 
   const totals = useQuery({ queryKey: ['dashboard', 'totals', start, end], queryFn: () => fetchTotals(start, end) });
   const stock = useQuery({ queryKey: ['stock'], queryFn: fetchStockCurrent, staleTime: 30_000 });
@@ -122,34 +81,6 @@ export default function DashboardPage() {
         হালনাগাদ: {formatDhakaDate(new Date().toISOString())} ({toBnDigits(start.slice(0, 10))} থেকে {toBnDigits(end.slice(0, 10))})
         <img src={emptySales} alt="" className="hidden" aria-hidden />
       </p>
-    </div>
-  );
-}
-
-function PeriodSelect({ period, setPeriod, customFrom, customTo, setCustomFrom, setCustomTo }: {
-  period: PeriodId;
-  setPeriod: (p: PeriodId) => void;
-  customFrom: string;
-  customTo: string;
-  setCustomFrom: (v: string) => void;
-  setCustomTo: (v: string) => void;
-}) {
-  return (
-    <div className="flex flex-col items-end gap-2">
-      <select aria-label="সময়কাল" className="field min-h-[44px] w-auto py-1.5" value={period} onChange={(e) => setPeriod(e.target.value as PeriodId)}>
-        {periods.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.label}
-          </option>
-        ))}
-        <option value="custom">নিজের সময়</option>
-      </select>
-      {period === 'custom' && (
-        <div className="flex items-end gap-2">
-          <input type="date" aria-label="থেকে" className="field w-36 min-h-[44px] py-1.5" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
-          <input type="date" aria-label="পর্যন্ত" className="field w-36 min-h-[44px] py-1.5" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
-        </div>
-      )}
     </div>
   );
 }

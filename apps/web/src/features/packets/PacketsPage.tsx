@@ -4,7 +4,7 @@ import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSe
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { DotsSixVertical } from '@phosphor-icons/react';
-import { createPackets, fetchPacketSales, fetchPackets, savePriority, type PacketRow } from './api';
+import { createPackets, fetchPacketDetail, fetchPackets, savePriority, type PacketDetail, type PacketRow } from './api';
 import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Card, Field, Notice, PageTitle } from 'components/ui/base';
@@ -12,6 +12,7 @@ import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
 import { mapError } from 'lib/errors';
 import { formatDhakaDate, formatMoney, toBnDigits } from '@patabin/shared';
+import { walletDisplay } from 'lib/wallet';
 
 export default function PacketsPage() {
   usePageTitle('প্যাকেট');
@@ -140,10 +141,18 @@ function PacketCard({ p, busy, onOpen }: { p: PacketRow; busy: boolean; onOpen: 
   );
 }
 
+const ADJ_REASON_BN: Record<string, string> = {
+  damage: 'নষ্ট',
+  loss: 'হারানো',
+  gift: 'ফ্রি',
+  sample: 'স্যাম্পল',
+  other: 'অন্য',
+};
+
 function PacketDetailSheet({ p, onClose }: { p: PacketRow; onClose: () => void }) {
-  const { data: sales = [], isPending } = useQuery({
-    queryKey: ['packet-sales', p.packet_id],
-    queryFn: () => fetchPacketSales(p.packet_id),
+  const { data, isPending, error } = useQuery({
+    queryKey: ['packet-detail', p.packet_id],
+    queryFn: () => fetchPacketDetail(p.packet_id),
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -152,8 +161,10 @@ function PacketDetailSheet({ p, onClose }: { p: PacketRow; onClose: () => void }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
-  const sold = sales.reduce((s, r) => s + r.qty, 0);
-  const due = sales.reduce((s, r) => s + Number(r.due_amount), 0);
+  const d: PacketDetail | undefined = data;
+  const sold = d?.totals.sold ?? 0;
+  const due = d?.totals.due ?? 0;
+  const received = d?.totals.received ?? 0;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center lg:items-center">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
@@ -183,38 +194,118 @@ function PacketDetailSheet({ p, onClose }: { p: PacketRow; onClose: () => void }
             <p className="text-base font-bold">{toBnDigits(p.remaining)}</p>
           </div>
         </div>
-        {isPending ? (
+        <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-xl bg-canvas px-2 py-3">
+            <p className="p-caption text-ink-mute">নেওয়া টাকা</p>
+            <p className="text-sm font-bold text-good">{formatMoney(received)}</p>
+          </div>
+          <div className="rounded-xl bg-canvas px-2 py-3">
+            <p className="p-caption text-ink-mute">বাকি টাকা</p>
+            <p className={`text-sm font-bold ${due > 0 ? 'text-bad' : 'text-good'}`}>{formatMoney(due)}</p>
+          </div>
+          <div className="rounded-xl bg-canvas px-2 py-3">
+            <p className="p-caption text-ink-mute">নষ্ট+খাওয়া</p>
+            <p className="text-base font-bold">{toBnDigits((d?.totals.adjusted ?? 0) + (d?.totals.personal ?? 0))}</p>
+          </div>
+        </div>
+        {error ? (
+          <Notice tone="error">{mapError(error)}</Notice>
+        ) : isPending ? (
           <div className="skeleton mt-4 h-16 w-full" />
         ) : (
-          <>
-            <p className="p-label mt-5">কে কিনেছে</p>
-            {sales.length === 0 ? (
-              <p className="p-caption mt-2 text-ink-mute">এখনো কোনো বিক্রি হয়নি।</p>
-            ) : (
-              <ul className="mt-2 flex flex-col">
-                {sales.map((s, i) => (
-                  <li key={i} className="flex items-center gap-3 py-2.5">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">
-                        {s.customer_name || 'ক্রেতা'}
-                        {s.customer_phone ? ` · ${s.customer_phone}` : ''}
-                      </p>
-                      <p className="p-caption text-ink-mute">
-                        {formatDhakaDate(s.sold_at)} · {toBnDigits(s.qty)} পিস
-                      </p>
+          d && (
+            <>
+              <p className="p-label mt-5">কে কিনেছে</p>
+              {d.byCustomer.length === 0 ? (
+                <p className="p-caption mt-2 text-ink-mute">এখনো কোনো বিক্রি হয়নি।</p>
+              ) : (
+                <ul className="mt-2 flex flex-col">
+                  {d.byCustomer.map((c) => (
+                    <li key={c.key} className="flex items-start gap-3 border-b border-hairline py-2.5 last:border-none">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">
+                          {c.customer_name || 'ক্রেতা'}
+                          {c.customer_phone ? ` · ${c.customer_phone}` : ''}
+                        </p>
+                        <p className="p-caption text-ink-mute">{toBnDigits(c.pcs)} পিস</p>
+                        {c.methods.length > 0 && (
+                          <p className="p-caption mt-1 flex flex-wrap gap-x-2 gap-y-1">
+                            {c.methods.map((m, i) => (
+                              <span key={i} className="rounded-full bg-canvas px-2 py-0.5 text-ink-mute">
+                                {walletDisplay({ type: m.type, label: m.label })} {formatMoney(m.amount)}
+                              </span>
+                            ))}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-good">{formatMoney(c.received)}</p>
+                        {c.due > 0 && <p className="p-caption text-bad">বাকি {formatMoney(c.due)}</p>}
+                        {c.due <= 0 && <p className="p-caption text-good">পরিশোধিত</p>}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {d.byMethod.length > 0 && (
+                <>
+                  <p className="p-label mt-5">টাকা কীভাবে এসেছে</p>
+                  <div className="mt-2 flex flex-col divide-y divide-hairline">
+                    {d.byMethod.map((m, i) => (
+                      <div key={i} className="flex items-center justify-between py-2 text-sm">
+                        <span>{walletDisplay({ type: m.type, label: m.label })}</span>
+                        <span>{formatMoney(m.amount)}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between py-2 text-sm font-bold">
+                      <span>মোট</span>
+                      <span>{formatMoney(received)}</span>
                     </div>
-                    <p className={`text-sm font-semibold ${Number(s.due_amount) > 0 ? 'text-bad' : 'text-good'}`}>
-                      {Number(s.due_amount) > 0 ? `বাকি ${formatMoney(s.due_amount)}` : 'পরিশোধিত'}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="flex items-center justify-between rounded-xl bg-canvas px-4 py-3">
-              <p className="text-sm font-semibold">মোট বাকি</p>
-              <p className={`text-sm font-bold ${due > 0 ? 'text-bad' : 'text-good'}`}>{formatMoney(due)}</p>
-            </div>
-          </>
+                  </div>
+                </>
+              )}
+              {d.adjustments.length > 0 && (
+                <>
+                  <p className="p-label mt-5">নষ্ট / ফ্রি</p>
+                  <div className="mt-2 flex flex-col divide-y divide-hairline">
+                    {d.adjustments.map((a, i) => (
+                      <div key={i} className="flex items-center justify-between gap-3 py-2 text-sm">
+                        <div className="min-w-0">
+                          <p className="font-semibold">
+                            {ADJ_REASON_BN[a.reason] ?? a.reason} · {toBnDigits(a.qty)}
+                          </p>
+                          <p className="p-caption text-ink-mute">
+                            {a.person ? `${a.person} · ` : ''}
+                            {formatDhakaDate(a.at)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+              {d.personal.length > 0 && (
+                <>
+                  <p className="p-label mt-5">পার্সোনাল খাওয়া</p>
+                  <div className="mt-2 flex flex-col divide-y divide-hairline">
+                    {d.personal.map((u, i) => (
+                      <div key={i} className="flex items-center justify-between gap-3 py-2 text-sm">
+                        <div className="min-w-0">
+                          <p className="font-semibold">{u.eater_name || 'পার্টনার'}</p>
+                          <p className="p-caption text-ink-mute">{formatDhakaDate(u.at)}</p>
+                        </div>
+                        <p className="text-sm font-semibold">{toBnDigits(u.qty)} পিস</p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+              <div className="mt-4 flex items-center justify-between rounded-xl bg-canvas px-4 py-3">
+                <p className="text-sm font-semibold">মোট বাকি</p>
+                <p className={`text-sm font-bold ${due > 0 ? 'text-bad' : 'text-good'}`}>{formatMoney(due)}</p>
+              </div>
+            </>
+          )
         )}
       </div>
     </div>

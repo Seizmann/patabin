@@ -24,6 +24,8 @@ export type SaleRowV = {
 
 export type ReceiveInput = { wallet_account_id: string; amount: number };
 
+export type AllocationInput = { packet_id: string; qty: number };
+
 export type SaleInput = {
   qty: number;
   list_unit_price: number;
@@ -34,6 +36,7 @@ export type SaleInput = {
   customer_phone?: string | null;
   wallet_account_id: string;
   receives?: ReceiveInput[];
+  allocations?: AllocationInput[];
   note?: string | null;
   sold_at?: string | null;
 };
