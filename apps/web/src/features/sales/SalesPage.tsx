@@ -4,9 +4,10 @@ import { supabase } from 'lib/supabase';
 import { fetchSaleDetails, createSale, deleteSale, fetchSales, updateSale, type SaleInput, type SaleRowV } from './api';
 import SaleForm from './SaleForm';
 import { usePageTitle } from 'hooks/usePageTitle';
-import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { Btn, Empty, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import { Plus, X } from '@phosphor-icons/react';
-import { formatDhakaDate, formatMoney, isoAtDhaka, dhakaDate, toBnDigits } from '@patabin/shared';
+import { formatDhakaDate, formatMoney, toBnDigits } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 import { mapError } from 'lib/errors';
 import emptySales from 'assets/images/empty/empty-sales.png';
@@ -14,15 +15,11 @@ import emptySales from 'assets/images/empty/empty-sales.png';
 export default function SalesPage() {
   usePageTitle('বিক্রির তালিকা');
   const qc = useQueryClient();
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('all');
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<SaleRowV | null>(null);
   const [detail, setDetail] = useState<SaleRowV | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-
-  const start = from ? isoAtDhaka(from) : '2000-01-01T00:00:00+06:00';
-  const end = to ? isoAtDhaka(to, '23:59:59') : '2100-01-01T00:00:00+06:00';
 
   const { data: rows, isPending, isError, refetch } = useQuery({
     queryKey: ['sales', start, end],
@@ -47,23 +44,13 @@ export default function SalesPage() {
         title="বিক্রির তালিকা"
         right={
           <div className="flex items-center gap-2">
-            <Btn variant="ghost" onClick={() => { const t = dhakaDate(new Date().toISOString()); setFrom(t); setTo(t); }}>
-              আজ
-            </Btn>
+            <PeriodSelect period={period} setPeriod={setPeriod} customFrom={customFrom} customTo={customTo} setCustomFrom={setCustomFrom} setCustomTo={setCustomTo} showAll />
             <button type="button" aria-label="নতুন বিক্রি" className="btn grid h-11 w-11 place-items-center p-0" onClick={() => setSheetOpen(true)}>
               <Plus weight="bold" size={20} />
             </button>
           </div>
         }
       />
-      <div className="card flex flex-wrap items-end gap-3 p-4">
-        <Field label="থেকে" className="w-40">
-          <input className="field" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-        </Field>
-        <Field label="পর্যন্ত" className="w-40">
-          <input className="field" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-        </Field>
-      </div>
       {error && <Notice tone="error">{error}</Notice>}
       {isPending && <TableSkeleton />}
       {isError && <Notice tone="error">ডেটা আনতে সমস্যা হয়েছে</Notice>}
@@ -164,9 +151,9 @@ function EditSheet({ sale, onClose, onSaved }: { sale: SaleRowV; onClose: () => 
   const { data: raw, error: rawError } = useQuery({
     queryKey: ['sale-raw', sale.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('sales').select('wallet_account_id, customer_id, due_amount').eq('id', sale.id).single();
+      const { data, error } = await supabase.from('sales').select('wallet_account_id, customer_id, due_amount, sale_allocations(packet_id, qty)').eq('id', sale.id).single();
       if (error) throw error;
-      return data as { wallet_account_id: string; customer_id: string | null; due_amount: number } | null;
+      return data as { wallet_account_id: string; customer_id: string | null; due_amount: number; sale_allocations: { packet_id: string; qty: number }[] | null } | null;
     },
   });
 
@@ -187,6 +174,7 @@ function EditSheet({ sale, onClose, onSaved }: { sale: SaleRowV; onClose: () => 
             note: sale.note ?? '',
             due_amount: Number(raw.due_amount ?? 0),
             customerId: raw.customer_id ?? undefined,
+            allocations: raw.sale_allocations ?? undefined,
           }}
           onSubmit={async (payload: SaleInput) => {
             try {

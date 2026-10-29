@@ -2,14 +2,38 @@ import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
-import { Btn, Card, Field, Notice, PageTitle } from 'components/ui/base';
+import { Btn, Card, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
 import { fetchPartners, fetchSettings, myPartnerId } from 'lib/api';
 import { mapError } from 'lib/errors';
-import { formatMoney, toBnDigits } from '@patabin/shared';
+import { formatDhakaDate, formatMoney, toBnDigits } from '@patabin/shared';
+import offline from 'assets/images/empty/offline.png';
 
 type PacketRow = { packet_id: string; packet_code: string; owner_partner_id: string; owner_name: string; remaining: number };
+
+type PersonalUseRow = {
+  id: string;
+  at: string;
+  qty: number;
+  unit_value: number;
+  note: string | null;
+  packet_id: string | null;
+  chalan_id: string | null;
+  partners: { name: string } | null;
+  packets: { code: string; partners: { name: string } | null } | null;
+  chalans: { code: string } | null;
+};
+
+async function fetchPersonalUses(): Promise<PersonalUseRow[]> {
+  const { data, error } = await supabase
+    .from('personal_uses')
+    .select('id, at, qty, unit_value, note, packet_id, chalan_id, partners(name), packets(code, partners(name)), chalans(code)')
+    .is('deleted_at', null)
+    .order('at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as unknown as PersonalUseRow[];
+}
 
 export default function PersonalUsePage() {
   usePageTitle('ব্যক্তিগত ব্যবহার');
@@ -35,6 +59,7 @@ export default function PersonalUsePage() {
       return (data ?? []) as PacketRow[];
     },
   });
+  const { data: uses = [], isPending: usesPending } = useQuery({ queryKey: ['personal-uses'], queryFn: fetchPersonalUses });
 
   const chosen = packets.find((p) => p.packet_id === packetId) ?? null;
   const ownerIsOther = chosen && chosen.owner_partner_id !== (eater || myId);
@@ -63,6 +88,7 @@ export default function PersonalUsePage() {
       });
       if (rpcErr) throw rpcErr;
       await qc.invalidateQueries({ queryKey: ['packets'] });
+      await qc.invalidateQueries({ queryKey: ['personal-uses'] });
       await qc.invalidateQueries({ queryKey: ['balances'] });
       await qc.invalidateQueries({ queryKey: ['dashboard'] });
       setOk('সংরক্ষিত');
@@ -75,7 +101,7 @@ export default function PersonalUsePage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto flex max-w-4xl flex-col gap-5">
       <Card className="flex flex-col gap-5 p-6">
         <PageTitle tag="PataBin" title="ব্যক্তিগত ব্যবহার" />
         <form onSubmit={submit} className="flex flex-col gap-5" noValidate>
@@ -123,6 +149,50 @@ export default function PersonalUsePage() {
           </Btn>
         </form>
       </Card>
+
+      {usesPending && (
+        <div className="flex flex-col gap-2" aria-busy>
+          {[0, 1, 2].map((n) => (
+            <Skeleton key={n} className="h-10 w-full" />
+          ))}
+        </div>
+      )}
+      {uses.length === 0 && !usesPending && <Empty img={offline} title="কোনো ব্যক্তিগত ব্যবহার নেই" caption="খাওয়া/নিজের ব্যবহার যোগ করলে এখানে দেখা যাবে।" />}
+      {uses.length > 0 && (
+        <div className="card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-hairline text-left">
+                <th className="p-3 font-semibold">সময়</th>
+                <th className="p-3 font-semibold">কে খাচ্ছে</th>
+                <th className="p-3 font-semibold">উৎস</th>
+                <th className="p-3 font-semibold">পরিমাণ</th>
+                <th className="p-3 font-semibold">মূল্য</th>
+              </tr>
+            </thead>
+            <tbody>
+              {uses.map((u) => (
+                <tr key={u.id} className="border-b border-hairline last:border-0">
+                  <td className="whitespace-nowrap p-3">{formatDhakaDate(u.at)}</td>
+                  <td className="p-3">
+                    {u.partners?.name ?? '-'}
+                    {u.note ? <p className="p-caption text-ink-mute">{u.note}</p> : null}
+                  </td>
+                  <td className="p-3 text-xs">
+                    {u.packets
+                      ? `${u.packets.code}${u.packets.partners?.name ? ` (${u.packets.partners.name})` : ''}`
+                      : u.chalans
+                        ? `${u.chalans.code} · মজুদ`
+                        : 'মজুদ'}
+                  </td>
+                  <td className="p-3">{toBnDigits(u.qty)}</td>
+                  <td className="p-3">{formatMoney(Number(u.qty) * Number(u.unit_value))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
