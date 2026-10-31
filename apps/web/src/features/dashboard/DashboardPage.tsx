@@ -20,7 +20,7 @@ export default function DashboardPage() {
   const totals = useQuery({ queryKey: ['dashboard', 'totals', start, end], queryFn: () => fetchTotals(start, end) });
   const stock = useQuery({ queryKey: ['stock'], queryFn: fetchStockCurrent, staleTime: 30_000 });
   const balances = useQuery({ queryKey: ['balances'], queryFn: fetchBalances });
-  const walletBalances = useQuery({ queryKey: ['wallets-all'], queryFn: fetchWalletBalances });
+  const walletBalances = useQuery({ queryKey: ['dashboard', 'wallet-flows', start, end], queryFn: () => fetchWalletBalances(start, end) });
   const breakdown = useQuery({ queryKey: ['dashboard', 'breakdown', start, end], queryFn: () => fetchBreakdown(start, end) });
   const daily = useQuery({ queryKey: ['dashboard', 'daily', start, end], queryFn: () => fetchDailyIncome(start, end) });
 
@@ -49,7 +49,7 @@ export default function DashboardPage() {
       {walletBalances.data && walletBalances.data.length > 0 && (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {walletBalances.data.map((w) => (
-            <Stat key={w.wallet_id} label={walletDisplay(w)} value={formatMoney(w.balance)} />
+            <Stat key={w.wallet_id} label={walletDisplay(w)} value={formatMoney(w.balance)} sub="এই সময়ের প্রবাহ" />
           ))}
         </div>
       )}

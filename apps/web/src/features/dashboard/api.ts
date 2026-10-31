@@ -13,7 +13,7 @@ export type Totals = {
 
 export type Slice = { slice: string; amount: number };
 export type BalanceRow = { partner_id: string; partner_name: string; balance: string | number };
-export type WalletBalance = { wallet_id: string; type: string; label: string; balance: string | number };
+export type WalletBalance = { wallet_id: string; type: string; name?: string; label: string; balance: string | number };
 export type DayRow = { day: string; income: string | number };
 
 export async function fetchTotals(start: string, end: string): Promise<Totals> {
@@ -58,10 +58,16 @@ export async function fetchBalances(): Promise<BalanceRow[]> {
   return (data ?? []) as BalanceRow[];
 }
 
-export async function fetchWalletBalances(): Promise<WalletBalance[]> {
-  const { data, error } = await supabase.from('v_wallet_balance').select('*').order('type');
+export async function fetchWalletBalances(start: string, end: string): Promise<WalletBalance[]> {
+  const { data, error } = await supabase.rpc('wallet_flows', { p_start: start, p_end: end });
   if (error) throw error;
-  return (data ?? []) as WalletBalance[];
+  return ((data ?? []) as { wallet_id: string; type: string; name: string; label: string; amount: number | string }[]).map((w) => ({
+    wallet_id: w.wallet_id,
+    type: w.type,
+    name: w.name,
+    label: w.label,
+    balance: Number(w.amount),
+  }));
 }
 
 export async function fetchDailyIncome(start: string, end: string): Promise<DayRow[]> {
