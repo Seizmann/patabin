@@ -237,6 +237,7 @@ function PacketDetailSheet({ p, onClose }: { p: PacketRow; onClose: () => void }
                             ))}
                           </p>
                         )}
+                        {c.paid_due > 0 && <p className="p-caption mt-1 text-good">বাকি থেকে জমা {formatMoney(c.paid_due)}</p>}
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold text-good">{formatMoney(c.received)}</p>
@@ -261,6 +262,24 @@ function PacketDetailSheet({ p, onClose }: { p: PacketRow; onClose: () => void }
                       <span>মোট</span>
                       <span>{formatMoney(received)}</span>
                     </div>
+                  </div>
+                </>
+              )}
+              {d.duePayments.length > 0 && (
+                <>
+                  <p className="p-label mt-5">বাকি পরিশোধ</p>
+                  <div className="mt-2 flex flex-col divide-y divide-hairline">
+                    {d.duePayments.map((x, i) => (
+                      <div key={i} className="flex items-center justify-between gap-3 py-2 text-sm">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold">{x.customer_name || 'ক্রেতা'}</p>
+                          <p className="p-caption text-ink-mute">
+                            {walletDisplay({ type: x.type, label: x.label })} · {formatDhakaDate(x.at)}
+                          </p>
+                        </div>
+                        <p className="font-semibold text-good">{formatMoney(x.amount)}</p>
+                      </div>
+                    ))}
                   </div>
                 </>
               )}

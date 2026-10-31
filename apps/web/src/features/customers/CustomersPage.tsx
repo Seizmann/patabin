@@ -84,6 +84,7 @@ export default function CustomersPage() {
       await qc.invalidateQueries({ queryKey: ['customer-balances'] });
       await qc.invalidateQueries({ queryKey: ['customer-payments'] });
       await qc.invalidateQueries({ queryKey: ['wallets-all'] });
+      await qc.invalidateQueries({ queryKey: ['packet-detail'] });
       await qc.invalidateQueries({ queryKey: ['dashboard'] });
       setPayOpen(null);
       setPayLines([]);
