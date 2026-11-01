@@ -15,7 +15,7 @@ import emptySales from 'assets/images/empty/empty-sales.png';
 export default function SalesPage() {
   usePageTitle('বিক্রির তালিকা');
   const qc = useQueryClient();
-  const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('all');
+  const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('chalan');
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<SaleRowV | null>(null);
   const [detail, setDetail] = useState<SaleRowV | null>(null);
