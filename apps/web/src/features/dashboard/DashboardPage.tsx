@@ -1,6 +1,6 @@
 import { Suspense, lazy } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchBalances, fetchBreakdown, fetchDailyIncome, fetchStockCurrent, fetchTotals, fetchWalletBalances, type Totals } from './api';
+import { fetchBreakdown, fetchDailyIncome, fetchStockCurrent, fetchTotals, fetchWalletBalances, type Totals } from './api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Card, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
@@ -19,7 +19,6 @@ export default function DashboardPage() {
 
   const totals = useQuery({ queryKey: ['dashboard', 'totals', start, end], queryFn: () => fetchTotals(start, end) });
   const stock = useQuery({ queryKey: ['stock'], queryFn: fetchStockCurrent, staleTime: 30_000 });
-  const balances = useQuery({ queryKey: ['balances'], queryFn: fetchBalances });
   const walletBalances = useQuery({ queryKey: ['dashboard', 'wallet-flows', start, end], queryFn: () => fetchWalletBalances(start, end) });
   const breakdown = useQuery({ queryKey: ['dashboard', 'breakdown', start, end], queryFn: () => fetchBreakdown(start, end) });
   const daily = useQuery({ queryKey: ['dashboard', 'daily', start, end], queryFn: () => fetchDailyIncome(start, end) });
@@ -33,7 +32,7 @@ export default function DashboardPage() {
         <PeriodSelect period={period} setPeriod={setPeriod} customFrom={customFrom} customTo={customTo} setCustomFrom={setCustomFrom} setCustomTo={setCustomTo} />
       </div>
 
-      {totals.isPending || stock.isPending || balances.isPending ? (
+      {totals.isPending || stock.isPending ? (
         <StatSkeletons />
       ) : (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -52,22 +51,6 @@ export default function DashboardPage() {
             <Stat key={w.wallet_id} label={walletDisplay(w)} value={formatMoney(w.balance)} sub="এই সময়ের প্রবাহ" />
           ))}
         </div>
-      )}
-
-      {balances.data && balances.data.length > 0 && (
-        <Card className="p-5">
-          <p className="p-label mb-3">কে কাকে কত দেবে</p>
-          <div className="flex flex-col divide-y divide-hairline">
-            {balances.data.map((b) => (
-              <div key={b.partner_id} className="flex items-center justify-between py-2">
-                <span className="p-caption font-medium">{b.partner_name}</span>
-                <span className={`p-num font-semibold ${Number(b.balance) >= 0 ? 'text-good' : 'text-bad'}`}>
-                  {Number(b.balance) === 0 ? 'হিসাব মেটানো' : Number(b.balance) > 0 ? `পাবে ${formatMoney(b.balance)}` : `দেবে ${formatMoney(-Number(b.balance))}`}
-                </span>
-              </div>
-            ))}
-          </div>
-        </Card>
       )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

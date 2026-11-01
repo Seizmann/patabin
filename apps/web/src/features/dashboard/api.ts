@@ -12,7 +12,6 @@ export type Totals = {
 };
 
 export type Slice = { slice: string; amount: number };
-export type BalanceRow = { partner_id: string; partner_name: string; balance: string | number };
 export type WalletBalance = { wallet_id: string; type: string; name?: string; label: string; balance: string | number };
 export type DayRow = { day: string; income: string | number };
 
@@ -50,12 +49,6 @@ export async function fetchStockCurrent(): Promise<number> {
   const { data, error } = await supabase.from('v_packet_stock').select('remaining');
   if (error) throw error;
   return ((data ?? []) as { remaining: number | string }[]).reduce((acc, r) => acc + Number(r.remaining), 0);
-}
-
-export async function fetchBalances(): Promise<BalanceRow[]> {
-  const { data, error } = await supabase.from('v_partner_balance').select('*').order('partner_name');
-  if (error) throw error;
-  return (data ?? []) as BalanceRow[];
 }
 
 export async function fetchWalletBalances(start: string, end: string): Promise<WalletBalance[]> {
