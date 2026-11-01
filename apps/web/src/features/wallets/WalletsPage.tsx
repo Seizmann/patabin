@@ -7,20 +7,22 @@ import { Btn, Card, Empty, Field, Notice, PageTitle, Skeleton } from 'components
 import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
 import { fetchPartners, myPartnerId } from 'lib/api';
+import { usePeriodFilter } from 'components/PeriodFilter';
 import { mapError } from 'lib/errors';
 import { formatDhakaDate, formatMoney } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 import offlineImg from 'assets/images/empty/offline.png';
 
-type WalletBalance = { wallet_id: string; type: string; name: string; label: string; is_active: boolean; balance: string | number };
+type WalletBalance = { wallet_id: string; type: string; name: string; label: string; is_active: boolean; amount: string | number };
 
 export default function WalletsPage() {
   usePageTitle('ওয়ালেট');
   const { suAdmin } = useAuth();
+  const { start, end } = usePeriodFilter('chalan');
   const { data: wallets = [], isPending } = useQuery({
-    queryKey: ['wallets-all'],
+    queryKey: ['wallets-all', start, end],
     queryFn: async () => {
-      const { data, error } = await supabase.from('v_wallet_balance').select('*');
+      const { data, error } = await supabase.rpc('wallet_flows', { p_start: start, p_end: end });
       if (error) throw error;
       return (data ?? []) as WalletBalance[];
     },
@@ -37,7 +39,8 @@ export default function WalletsPage() {
         {wallets.map((w) => (
           <Card key={w.wallet_id} className="p-5">
             <p className="p-label">{walletDisplay(w)}</p>
-            <p className="p-display">{formatMoney(w.balance)}</p>
+            <p className="p-display">{formatMoney(w.amount)}</p>
+            <p className="p-caption mt-1">চলতি চালানের হিসাব</p>
           </Card>
         ))}
       </div>
