@@ -15,6 +15,7 @@ import {
 import bn from 'i18n/bn';
 import { supabase } from 'lib/supabase';
 import { useAuth } from 'lib/auth';
+import useRealtimeSync from 'hooks/useRealtimeSync';
 
 type Icon = (p: IconProps) => ReactNode;
 
@@ -31,11 +32,11 @@ const sections: Section[] = [
   { to: '/packets', label: bn.packetsNav, Icon: Package },
   { to: '/expenses', label: bn.expensesNav, Icon: Receipt },
   { to: '/settlement', label: bn.settlement, Icon: Calculator },
-  { to: '/wallets', label: bn.wallets, Icon: Wallet },
 ];
 
 const moreItems = (suAdmin: boolean): Omit<Section, 'end'>[] => [
   { to: '/chalans', label: bn.chalans, Icon: Package },
+  { to: '/wallets', label: bn.wallets, Icon: Wallet },
   { to: '/customers', label: bn.customerNav, Icon: UserCircle },
   { to: '/reports', label: bn.reports, Icon: Receipt },
   { to: '/personal-use', label: bn.personalUse, Icon: UserCircle },
@@ -52,6 +53,7 @@ const moreItems = (suAdmin: boolean): Omit<Section, 'end'>[] => [
 
 export default function AppShell() {
   const { suAdmin, profile } = useAuth();
+  useRealtimeSync();
   const [moreOpen, setMoreOpen] = useState(false);
 
   const tabCls = `flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px] text-ink-mute`;
