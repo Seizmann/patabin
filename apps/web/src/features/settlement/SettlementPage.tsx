@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Empty, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import { formatMoney } from '@patabin/shared';
 import emptySettlements from 'assets/images/empty/empty-settlements.png';
 
@@ -21,23 +22,31 @@ type SettlementRow = {
   pocket_paid: number;
   entitlement: number;
 };
-type ChalanRow = { id: string; code: string; status: string };
+type ChalanRow = { id: string; code: string; status: string; purchase_date: string };
 
 export default function SettlementPage() {
   usePageTitle('হিসাব মেটানো');
+  const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('chalan');
   const { data: balances, isPending: balancesPending } = useQuery({ queryKey: ['balances'], queryFn: fetchBalances });
   const { data: chalans = [] } = useQuery({
     queryKey: ['chalan-settlement-list'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('chalans').select('id, code, status').is('deleted_at', null).order('code', { ascending: false });
+      const { data, error } = await supabase.from('chalans').select('id, code, status, purchase_date').is('deleted_at', null).order('code', { ascending: false });
       if (error) throw error;
       return (data ?? []) as ChalanRow[];
     },
   });
+  const visibleChalans = chalans.filter((c) => c.purchase_date >= start && c.purchase_date < end);
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5">
-      <PageTitle tag="PataBin" title="হিসাব মেটানো" />
+      <PageTitle
+        tag="PataBin"
+        title="হিসাব মেটানো"
+        right={
+          <PeriodSelect period={period} setPeriod={setPeriod} customFrom={customFrom} customTo={customTo} setCustomFrom={setCustomFrom} setCustomTo={setCustomTo} showAll />
+        }
+      />
       {balancesPending && <Skeleton className="h-24 w-full" />}
       {balances?.length === 0 && <Empty img={emptySettlements} title="কেউ কাউকে দেবে না" caption="সব হিসাব মিলে আছে।" />}
       {balances && balances.length > 0 && (
@@ -63,7 +72,8 @@ export default function SettlementPage() {
       )}
 
       <Notice tone="info">নিচের হিসাব প্রতি চালানের ভাবে, চালান খোলা অবস্থায় জীবন্ত হিসাব — বন্ধ হলে তখনকার স্ন্যাপশট।</Notice>
-      {chalans.map((c) => (
+      {visibleChalans.length === 0 && <p className="p-caption text-ink-mute">এই সময়ে কোনো চালান নেই।</p>}
+      {visibleChalans.map((c) => (
         <ChalanSettlement key={c.id} chalan={c} />
       ))}
     </div>
