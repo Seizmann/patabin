@@ -1,12 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
-import { Empty, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import { formatMoney } from '@patabin/shared';
-import emptySettlements from 'assets/images/empty/empty-settlements.png';
 
-type BalanceRow = { partner_id: string; partner_name: string; balance: string | number };
 type SettlementRow = {
   chalan_id: string;
   partner_id: string;
@@ -21,49 +19,33 @@ type SettlementRow = {
   pocket_paid: number;
   entitlement: number;
 };
-type ChalanRow = { id: string; code: string; status: string };
+type ChalanRow = { id: string; code: string; status: string; purchase_date: string };
 
 export default function SettlementPage() {
   usePageTitle('হিসাব মেটানো');
-  const { data: balances, isPending: balancesPending } = useQuery({ queryKey: ['balances'], queryFn: fetchBalances });
+  const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('chalan');
   const { data: chalans = [] } = useQuery({
     queryKey: ['chalan-settlement-list'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('chalans').select('id, code, status').is('deleted_at', null).order('code', { ascending: false });
+      const { data, error } = await supabase.from('chalans').select('id, code, status, purchase_date').is('deleted_at', null).order('code', { ascending: false });
       if (error) throw error;
       return (data ?? []) as ChalanRow[];
     },
   });
+  const visibleChalans = chalans.filter((c) => c.purchase_date >= start && c.purchase_date < end);
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5">
-      <PageTitle tag="PataBin" title="হিসাব মেটানো" />
-      {balancesPending && <Skeleton className="h-24 w-full" />}
-      {balances?.length === 0 && <Empty img={emptySettlements} title="কেউ কাউকে দেবে না" caption="সব হিসাব মিলে আছে।" />}
-      {balances && balances.length > 0 && (
-        <div className="card p-5">
-          <p className="p-label mb-3">কে কাকে কত দেবে</p>
-          <div className="flex flex-col divide-y divide-hairline">
-            {balances.map((b) => (
-              <div key={b.partner_id} className="flex items-center justify-between py-2">
-                <span className="p-caption font-medium">{b.partner_name}</span>
-                <span className={`p-num font-semibold ${Number(b.balance) >= 0 ? 'text-good' : 'text-bad'}`}>
-                  {Number(b.balance) === 0 ? 'হিসাব মেটানো' : Number(b.balance) > 0 ? `পাবে ${formatMoney(b.balance)}` : `দেবে ${formatMoney(-Number(b.balance))}`}
-                </span>
-              </div>
-            ))}
-            {balances.length === 2 && numberSentence(balances) && (
-              <div className="p-caption mt-3 rounded-xl bg-canvas px-4 py-3">{numberSentence(balances)}</div>
-            )}
-          </div>
-          <Link to="/wallets" className="btn mt-4 inline-block">
-            ওয়ালেট দেখুন
-          </Link>
-        </div>
-      )}
-
+      <PageTitle
+        tag="PataBin"
+        title="হিসাব মেটানো"
+        right={
+          <PeriodSelect period={period} setPeriod={setPeriod} customFrom={customFrom} customTo={customTo} setCustomFrom={setCustomFrom} setCustomTo={setCustomTo} showAll />
+        }
+      />
       <Notice tone="info">নিচের হিসাব প্রতি চালানের ভাবে, চালান খোলা অবস্থায় জীবন্ত হিসাব — বন্ধ হলে তখনকার স্ন্যাপশট।</Notice>
-      {chalans.map((c) => (
+      {visibleChalans.length === 0 && <p className="p-caption text-ink-mute">এই সময়ে কোনো চালান নেই।</p>}
+      {visibleChalans.map((c) => (
         <ChalanSettlement key={c.id} chalan={c} />
       ))}
     </div>
@@ -122,19 +104,4 @@ function ChalanSettlement({ chalan }: { chalan: ChalanRow }) {
       )}
     </div>
   );
-}
-
-function numberSentence(balances: BalanceRow[]): string {
-  const [a] = balances.filter((b) => Number(b.balance) !== 0);
-  const b2 = balances.find((x) => x.balance !== a?.balance);
-  if (!a || !b2 || Number(a.balance) * Number(b2.balance) >= 0) return '';
-  const receiver = Number(a.balance) > 0 ? a : b2;
-  const payer = Number(a.balance) > 0 ? b2 : a;
-  return `${payer.partner_name} কে ${receiver.partner_name} ${formatMoney(Number(payer.balance) ? Number(payer.balance) : -Number(receiver.balance))} দেবে।`;
-}
-
-async function fetchBalances() {
-  const { data, error } = await supabase.from('v_partner_balance').select('*').order('partner_name');
-  if (error) throw error;
-  return (data ?? []) as BalanceRow[];
 }

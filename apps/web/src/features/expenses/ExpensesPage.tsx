@@ -5,6 +5,7 @@ import { fetchChalans } from 'features/chalans/api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { supabase } from 'lib/supabase';
 import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import TimeInput from 'components/forms/TimeInput';
 import NumberInput from 'components/forms/NumberInput';
 import { mapError } from 'lib/errors';
@@ -27,9 +28,11 @@ export default function ExpensesPage() {
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
 
+  const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('chalan');
+
   const { data: partners = [] } = useQuery({ queryKey: ['partners'], queryFn: fetchPartners });
   const { data: wallets } = useQuery({ queryKey: ['wallets'], queryFn: fetchWallets });
-  const { data: rows, isPending } = useQuery({ queryKey: ['expenses'], queryFn: fetchExpenses });
+  const { data: rows, isPending } = useQuery({ queryKey: ['expenses', start, end], queryFn: () => fetchExpenses(start, end) });
   const { data: chalans = [] } = useQuery({
     queryKey: ['chalans'],
     queryFn: fetchChalans,
@@ -93,7 +96,13 @@ export default function ExpensesPage() {
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5">
-      <PageTitle tag="PataBin" title="খরচ" />
+      <PageTitle
+        tag="PataBin"
+        title="খরচ"
+        right={
+          <PeriodSelect period={period} setPeriod={setPeriod} customFrom={customFrom} customTo={customTo} setCustomFrom={setCustomFrom} setCustomTo={setCustomTo} showAll />
+        }
+      />
       <form onSubmit={submit} noValidate className="card grid grid-cols-2 gap-4 p-6">
         <Field label="ক্যাটাগরি">
           <select className="field" value={category} onChange={(e) => setCategory(e.target.value)}>
