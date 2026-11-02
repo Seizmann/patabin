@@ -7,7 +7,7 @@ import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import TimeInput from 'components/forms/TimeInput';
 import NumberInput from 'components/forms/NumberInput';
 import { mapError } from 'lib/errors';
-import { formatDhakaDate, toBnDigits } from '@patabin/shared';
+import { formatDhakaDateTime, toBnDigits } from '@patabin/shared';
 import offline from 'assets/images/empty/offline.png';
 
 type PacketRow = { packet_id: string; packet_code: string; owner_name: string; remaining: number };
@@ -156,7 +156,7 @@ export default function AdjustmentsPage() {
             <tbody>
               {rows.map((x) => (
                 <tr key={x.id} className="border-b border-hairline last:border-0">
-                  <td className="whitespace-nowrap p-3">{formatDhakaDate(x.at)}</td>
+                  <td className="whitespace-nowrap p-3">{formatDhakaDateTime(x.at)}</td>
                   <td className="p-3 text-xs">{
                     (() => {
                       const p = packetOf(x.packet_id);

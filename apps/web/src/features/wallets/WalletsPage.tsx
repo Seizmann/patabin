@@ -9,7 +9,7 @@ import TimeInput from 'components/forms/TimeInput';
 import { fetchPartners, myPartnerId } from 'lib/api';
 import { usePeriodFilter } from 'components/PeriodFilter';
 import { mapError } from 'lib/errors';
-import { formatDhakaDate, formatMoney } from '@patabin/shared';
+import { formatDhakaDateTime, formatMoney } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 import offlineImg from 'assets/images/empty/offline.png';
 
@@ -207,7 +207,7 @@ function TransfersTable() {
         <tbody>
           {rows.map((t) => (
             <tr key={t.id} className="border-b border-hairline last:border-0">
-              <td className="whitespace-nowrap p-2">{formatDhakaDate(t.at)}</td>
+              <td className="whitespace-nowrap p-2">{formatDhakaDateTime(t.at)}</td>
               <td className="p-2">{walletName(t.from_wallet_id)} → {walletName(t.to_wallet_id)}</td>
               <td className="p-2">{formatMoney(t.amount)}</td>
               <td className="p-2">{Number(t.charge) ? `${formatMoney(t.charge)} (${partnerName(t.attributed_to_partner_id)})` : '-'}</td>

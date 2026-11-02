@@ -7,7 +7,7 @@ import { mapError } from 'lib/errors';
 import { walletDisplay } from 'lib/wallet';
 import { Plus } from '@phosphor-icons/react';
 import NumberInput from 'components/forms/NumberInput';
-import { formatDhakaDate, formatMoney, toBnDigits } from '@patabin/shared';
+import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import emptySearch from 'assets/images/empty/empty-search.png';
 
 type Line = { wallet: string; amount: string };
@@ -248,7 +248,7 @@ export default function CustomersPage() {
             <tbody>
               {payments.map((p) => (
                 <tr key={p.id} className="border-b border-hairline last:border-0">
-                  <td className="whitespace-nowrap p-3">{formatDhakaDate(p.at)}</td>
+                  <td className="whitespace-nowrap p-3">{formatDhakaDateTime(p.at)}</td>
                   <td className="p-3">{(rows ?? []).find((c) => c.id === p.customer_id)?.name ?? '-'}</td>
                   <td className="p-3">{formatMoney(p.amount)}</td>
                   <td className="p-3 text-xs">{walletDisplay(wallets.find((w) => w.id === p.wallet_account_id) ?? { name: '', label: '', type: '' })}</td>
@@ -372,7 +372,7 @@ function CustomerDetailSheet({ c, wallets, due, onClose }: { c: CustomerRow; wal
                     <div key={i} className="py-2 text-sm">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-semibold">
-                          {formatDhakaDate(s.sold_at)} · {toBnDigits(s.qty)} পিস
+                          {formatDhakaDateTime(s.sold_at)} · {toBnDigits(s.qty)} পিস
                         </span>
                         <span className={s.due_amount > 0 ? 'font-semibold text-bad' : ''}>
                           {s.due_amount > 0 ? `বাকি ${formatMoney(s.due_amount)}` : formatMoney(s.amount_received)}

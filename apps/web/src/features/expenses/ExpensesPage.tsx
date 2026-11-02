@@ -9,7 +9,7 @@ import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import TimeInput from 'components/forms/TimeInput';
 import NumberInput from 'components/forms/NumberInput';
 import { mapError } from 'lib/errors';
-import { formatDhakaDate, formatMoney } from '@patabin/shared';
+import { formatDhakaDateTime, formatMoney } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 import emptyExpenses from 'assets/images/empty/empty-expenses.png';
 
@@ -200,7 +200,7 @@ export default function ExpensesPage() {
             <tbody>
               {rows.map((x: ExpenseRow) => (
                 <tr key={x.id} className="border-b border-hairline last:border-0">
-                  <td className="whitespace-nowrap p-3">{formatDhakaDate(x.spent_at)}</td>
+                  <td className="whitespace-nowrap p-3">{formatDhakaDateTime(x.spent_at)}</td>
                   <td className="p-3">{catOf(x.category_id)}</td>
                   <td className="p-3 text-xs">
                     {nameOf(x.paid_by_partner_id)} → {nameOf(x.attributed_to_partner_id)} এর · {x.wallet_account_id ? walletDisplay((wallets ?? []).find((w) => w.id === x.wallet_account_id) ?? { name: '', label: '', type: '' }) : 'নিজের পকেট'}

@@ -8,7 +8,7 @@ import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
 import { fetchPartners, fetchSettings, myPartnerId } from 'lib/api';
 import { mapError } from 'lib/errors';
-import { formatDhakaDate, formatMoney, toBnDigits } from '@patabin/shared';
+import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import offline from 'assets/images/empty/offline.png';
 
 type PacketRow = { packet_id: string; packet_code: string; owner_partner_id: string; owner_name: string; remaining: number };
@@ -181,7 +181,7 @@ export default function PersonalUsePage() {
             <tbody>
               {uses.map((u) => (
                 <tr key={u.id} className="border-b border-hairline last:border-0">
-                  <td className="whitespace-nowrap p-3">{formatDhakaDate(u.at)}</td>
+                  <td className="whitespace-nowrap p-3">{formatDhakaDateTime(u.at)}</td>
                   <td className="p-3">
                     {u.partners?.name ?? '-'}
                     {u.note ? <p className="p-caption text-ink-mute">{u.note}</p> : null}
