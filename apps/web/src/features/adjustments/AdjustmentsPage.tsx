@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import TimeInput from 'components/forms/TimeInput';
 import NumberInput from 'components/forms/NumberInput';
 import { mapError } from 'lib/errors';
@@ -23,6 +24,7 @@ export default function AdjustmentsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
+  const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('chalan');
 
   const { data: packets = [] } = useQuery({
     queryKey: ['packets'],
@@ -33,9 +35,9 @@ export default function AdjustmentsPage() {
     },
   });
   const { data: rows, isPending } = useQuery({
-    queryKey: ['adjustments'],
+    queryKey: ['adjustments', start, end],
     queryFn: async () => {
-      const { data, error } = await supabase.from('stock_adjustments').select('*').is('deleted_at', null).order('at', { ascending: false });
+      const { data, error } = await supabase.from('stock_adjustments').select('*').is('deleted_at', null).gte('at', start).lt('at', end).order('at', { ascending: false });
       if (error) throw error;
       return (data ?? []) as { id: string; packet_id: string; at: string; qty: number; reason: string; person: string | null; note: string | null }[];
     },
@@ -85,7 +87,11 @@ export default function AdjustmentsPage() {
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5">
-      <PageTitle tag="PataBin" title="নষ্ট/ফ্রি" />
+      <PageTitle
+        tag="PataBin"
+        title="নষ্ট/ফ্রি"
+        right={<PeriodSelect period={period} setPeriod={setPeriod} customFrom={customFrom} customTo={customTo} setCustomFrom={setCustomFrom} setCustomTo={setCustomTo} />}
+      />
       <form onSubmit={submit} noValidate className="card grid grid-cols-2 gap-4 p-6">
         <Field label="প্যাকেট, যারটা থেকে" className="col-span-2">
           <select className="field" value={packetId} onChange={(e) => setPacketId(e.target.value)}>

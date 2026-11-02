@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Card, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
 import { fetchPartners, fetchSettings, myPartnerId } from 'lib/api';
@@ -25,11 +26,13 @@ type PersonalUseRow = {
   chalans: { code: string } | null;
 };
 
-async function fetchPersonalUses(): Promise<PersonalUseRow[]> {
+async function fetchPersonalUses(start: string, end: string): Promise<PersonalUseRow[]> {
   const { data, error } = await supabase
     .from('personal_uses')
     .select('id, at, qty, unit_value, note, packet_id, chalan_id, partners(name), packets(code, partners(name)), chalans(code)')
     .is('deleted_at', null)
+    .gte('at', start)
+    .lt('at', end)
     .order('at', { ascending: false });
   if (error) throw error;
   return (data ?? []) as unknown as PersonalUseRow[];
@@ -47,6 +50,7 @@ export default function PersonalUsePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
+  const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('chalan');
 
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
   const { data: partners = [] } = useQuery({ queryKey: ['partners'], queryFn: fetchPartners });
@@ -59,7 +63,7 @@ export default function PersonalUsePage() {
       return (data ?? []) as PacketRow[];
     },
   });
-  const { data: uses = [], isPending: usesPending } = useQuery({ queryKey: ['personal-uses'], queryFn: fetchPersonalUses });
+  const { data: uses = [], isPending: usesPending } = useQuery({ queryKey: ['personal-uses', start, end], queryFn: () => fetchPersonalUses(start, end) });
 
   const chosen = packets.find((p) => p.packet_id === packetId) ?? null;
   const ownerIsOther = chosen && chosen.owner_partner_id !== (eater || myId);
@@ -103,7 +107,11 @@ export default function PersonalUsePage() {
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5">
       <Card className="flex flex-col gap-5 p-6">
-        <PageTitle tag="PataBin" title="ব্যক্তিগত ব্যবহার" />
+        <PageTitle
+          tag="PataBin"
+          title="ব্যক্তিগত ব্যবহার"
+          right={<PeriodSelect period={period} setPeriod={setPeriod} customFrom={customFrom} customTo={customTo} setCustomFrom={setCustomFrom} setCustomTo={setCustomTo} />}
+        />
         <form onSubmit={submit} className="flex flex-col gap-5" noValidate>
           <Field label="কে খাচ্ছে">
             <select className="field" value={eater} onChange={(e) => setEater(e.target.value)}>
