@@ -10,7 +10,7 @@
 
 <br />
 
-[![License: MIT — Mohammad Sijan · SpriteAI](https://img.shields.io/badge/License-MIT%20%7C%20Mohammad%20Sijan%20%C2%B7%20SpriteAI-8b5a2b?style=for-the-badge&logo=openaccessinitiative&logoColor=white&labelColor=4a2c12)](./LICENSE)
+[![License: MIT — Mohammad Sijan · SpritexAI](https://img.shields.io/badge/License-MIT%20%7C%20Mohammad%20Sijan%20%C2%B7%20SpritexAI-8b5a2b?style=for-the-badge&logo=openaccessinitiative&logoColor=white&labelColor=4a2c12)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=white)](https://react.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
@@ -149,10 +149,10 @@ The full product spec — domain model, accounting rules, agent workflow, and de
 
 Released under the **MIT License** — free to use, modify, and distribute.
 
-Copyright © 2026 **Mohammad Sijan** ([sijan.pro.bd](https://sijan.pro.bd)) · **SpriteAI** ([spritexai.pro.bd](https://spritexai.pro.bd))
+Copyright © 2026 **Mohammad Sijan** ([sijan.pro.bd](https://sijan.pro.bd)) · **SpritexAI** ([spritexai.pro.bd](https://spritexai.pro.bd))
 
 See [LICENSE](./LICENSE) for the full text.
 
 ---
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:d2a679,50:8b5a2b,100:4a2c12&height=120&section=footer&text=Mohammad%20Sijan%20%C2%B7%20SpriteAI&fontSize=22&fontColor=fff8f0&fontAlignY=65&desc=sijan.pro.bd%20%C2%B7%20spritexai.pro.bd&descSize=13&descAlignY=85&descColor=f3e3cf&animation=fadeIn" width="100%" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:d2a679,50:8b5a2b,100:4a2c12&height=120&section=footer&text=Mohammad%20Sijan%20%C2%B7%20SpritexAI&fontSize=22&fontColor=fff8f0&fontAlignY=65&desc=sijan.pro.bd%20%C2%B7%20spritexai.pro.bd&descSize=13&descAlignY=85&descColor=f3e3cf&animation=fadeIn" width="100%" />
