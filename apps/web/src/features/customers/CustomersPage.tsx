@@ -17,6 +17,7 @@ export default function CustomersPage() {
   const qc = useQueryClient();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<CustomerRow | null>(null);
   const [detail, setDetail] = useState<CustomerRow | null>(null);
   const [busy, setBusy] = useState(false);
@@ -106,6 +107,9 @@ export default function CustomersPage() {
     }
   };
 
+  const q = search.trim().toLowerCase();
+  const visibleRows = q ? (rows ?? []).filter((c) => c.name.toLowerCase().includes(q) || (c.phone ?? '').toLowerCase().includes(q)) : rows ?? [];
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-5">
       <PageTitle tag="PataBin" title="কাস্টমার" />
@@ -136,7 +140,16 @@ export default function CustomersPage() {
       {rows?.length === 0 && <Empty img={emptySearch} title="কোনো কাস্টমার নেই" caption="বিক্রির সময় কাস্টমার বেছে নিতে আগে যোগ করুন।" />}
       {rows && rows.length > 0 && (
         <div className="card overflow-x-auto">
-          <table className="w-full text-sm">
+          <div className="p-4 pb-0">
+            <input
+              className="field"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="নাম বা ফোন নাম্বার দিয়ে খুঁজুন"
+              aria-label="কাস্টমার খুঁজুন"
+            />
+          </div>
+          <table className="mt-3 w-full text-sm">
             <thead>
               <tr className="border-b border-hairline text-left">
                 <th className="p-3 font-semibold">নাম</th>
@@ -146,7 +159,7 @@ export default function CustomersPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((c) => (
+              {visibleRows.map((c) => (
                 <tr key={c.id} className="border-b border-hairline last:border-0">
                   <td className="p-3">
                     <button type="button" className="font-semibold hover:underline" onClick={() => setDetail(c)}>
