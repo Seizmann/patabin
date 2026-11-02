@@ -416,7 +416,7 @@ function CustomerDetailSheet({ c, wallets, due, onClose }: { c: CustomerRow; wal
                           {formatDhakaDateTime(s.sold_at)} · {toBnDigits(s.qty)} পিস
                         </span>
                         <span className={s.due_amount > 0 ? 'font-semibold text-bad' : ''}>
-                          {s.due_amount > 0 ? `বাকি ${formatMoney(s.due_amount)}` : formatMoney(s.amount_received)}
+                          {s.due_amount > 0 ? `বাকি ${formatMoney(s.due_amount)}` : `${formatMoney(s.paid_total)} দিয়েছে`}
                         </span>
                       </div>
                       {s.chalan_codes.length > 0 && <p className="p-caption text-ink-mute">চালান: {s.chalan_codes.join(', ')}</p>}

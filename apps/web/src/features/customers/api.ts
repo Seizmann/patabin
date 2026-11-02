@@ -50,7 +50,7 @@ export async function deleteCustomer(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export type CustomerSaleRow = { sold_at: string; qty: number; amount_received: number; due_amount: number; chalan_codes: string[] };
+export type CustomerSaleRow = { sold_at: string; qty: number; amount_received: number; due_amount: number; paid_total: number; chalan_codes: string[] };
 export type CustomerDetail = {
   sales: CustomerSaleRow[];
   byChalan: { code: string; pcs: number; paid: number }[];
@@ -103,7 +103,7 @@ export async function fetchCustomerDetails(customerId: string, wallets: WalletRo
     if (!(s.sale_receives ?? []).length && s.wallet_account_id) addMethod(methodOf(s.wallet_account_id), received);
     for (const r of s.sale_receives ?? []) addMethod(methodOf(r.wallet_account_id), Number(r.amount));
     codes.sort();
-    return { sold_at: s.sold_at, qty: s.qty, amount_received: received, due_amount: Math.max(Number(s.due_amount) - (allocatedBySale.get(s.id) ?? 0), 0), chalan_codes: codes };
+    return { sold_at: s.sold_at, qty: s.qty, amount_received: received, due_amount: Math.max(Number(s.due_amount) - (allocatedBySale.get(s.id) ?? 0), 0), paid_total: received + (allocatedBySale.get(s.id) ?? 0), chalan_codes: codes };
   });
   let paymentsTotal = 0;
   for (const p of pays) {
