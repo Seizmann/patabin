@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createCustomer, createPayment, deleteCustomer, fetchCustomerBalances, fetchCustomerDetails, fetchCustomers, fetchPayments, fetchWallets, updateCustomer, type CustomerRow, type WalletRow } from './api';
+import { createCustomer, createPayment, deleteCustomer, fetchCustomerBalances, fetchCustomerDetails, fetchCustomers, fetchPayments, fetchSaleReceivedByCustomer, fetchWallets, updateCustomer, type CustomerRow, type WalletRow } from './api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { mapError } from 'lib/errors';
@@ -28,6 +28,7 @@ export default function CustomersPage() {
   const { data: rows, isPending } = useQuery({ queryKey: ['customers'], queryFn: fetchCustomers });
   const { data: balances = [] } = useQuery({ queryKey: ['customer-balances'], queryFn: fetchCustomerBalances });
   const { data: payments = [] } = useQuery({ queryKey: ['customer-payments'], queryFn: fetchPayments });
+  const { data: saleReceived = [] } = useQuery({ queryKey: ['customer-sale-received'], queryFn: fetchSaleReceivedByCustomer });
   const { data: wallets = [] } = useQuery({ queryKey: ['wallets'], queryFn: fetchWallets });
 
   const { data: payWallets = [] } = useQuery({ queryKey: ['wallets'], queryFn: fetchWallets });
@@ -111,6 +112,7 @@ export default function CustomersPage() {
   const q = search.trim().toLowerCase();
   const filtered = q ? (rows ?? []).filter((c) => c.name.toLowerCase().includes(q) || (c.phone ?? '').toLowerCase().includes(q)) : rows ?? [];
   const paidBy = new Map<string, number>();
+  for (const s of saleReceived) paidBy.set(s.customer_id, (paidBy.get(s.customer_id) ?? 0) + s.received);
   for (const p of payments) paidBy.set(p.customer_id, (paidBy.get(p.customer_id) ?? 0) + Number(p.amount));
   const dueBy = new Map(balances.map((b) => [b.customer_id, Number(b.balance)]));
   const visibleRows = [...filtered].sort((a, b) => {

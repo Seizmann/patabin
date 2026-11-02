@@ -23,6 +23,12 @@ export async function fetchPayments(): Promise<PaymentRow[]> {
   return (data ?? []) as PaymentRow[];
 }
 
+export async function fetchSaleReceivedByCustomer(): Promise<{ customer_id: string; received: number }[]> {
+  const { data, error } = await supabase.from('sales').select('customer_id, amount_received').is('deleted_at', null).not('customer_id', 'is', null);
+  if (error) throw error;
+  return ((data ?? []) as { customer_id: string; amount_received: string | number }[]).map((s) => ({ customer_id: s.customer_id, received: Number(s.amount_received) }));
+}
+
 export async function createPayment(input: { customer_id: string; amount: number; wallet_account_id: string; note?: string | null; at?: string | null }): Promise<void> {
   const { error } = await supabase.rpc('create_customer_payment', { p_pay: input });
   if (error) throw error;
