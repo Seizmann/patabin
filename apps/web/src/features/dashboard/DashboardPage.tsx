@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchBreakdown, fetchDailyIncome, fetchPartnerBalances, fetchStockCurrent, fetchTotals, fetchWalletBalances, type Totals } from './api';
+import { Crown, Medal, Trophy } from '@phosphor-icons/react';
+import { fetchBreakdown, fetchCustomerLeaderboard, fetchDailyIncome, fetchPartnerBalances, fetchStockCurrent, fetchTotals, fetchWalletBalances, type Totals } from './api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Card, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
@@ -23,6 +24,7 @@ export default function DashboardPage() {
   const breakdown = useQuery({ queryKey: ['dashboard', 'breakdown', start, end], queryFn: () => fetchBreakdown(start, end) });
   const daily = useQuery({ queryKey: ['dashboard', 'daily', start, end], queryFn: () => fetchDailyIncome(start, end) });
   const partnerBalances = useQuery({ queryKey: ['dashboard', 'partner-balances', start, end], queryFn: () => fetchPartnerBalances(start, end) });
+  const leaderboard = useQuery({ queryKey: ['dashboard', 'leaderboard'], queryFn: fetchCustomerLeaderboard, staleTime: 30_000 });
 
   const donutData = (breakdown.data ?? []).map((s) => ({ name: s.slice, value: s.amount })).filter((d) => d.value !== 0);
   const partnerDonutData = (partnerBalances.data ?? []).map((p) => ({ name: p.partner_name, value: p.balance })).filter((d) => d.value !== 0);
@@ -67,6 +69,28 @@ export default function DashboardPage() {
           </Suspense>
         ) : null}
       </div>
+
+      {leaderboard.isPending ? (
+        <ChartSkeleton />
+      ) : (leaderboard.data ?? []).length > 0 ? (
+        <Card className="p-5">
+          <p className="p-label mb-3 text-center">সেরা কাস্টমার (টপ ৫)</p>
+          <div className="flex flex-col divide-y divide-hairline">
+            {leaderboard.data!.map((r, i) => {
+              const { Icon, color } = RANK_STYLES[Math.min(i, RANK_STYLES.length - 1)]!;
+              return (
+                <div key={r.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <span className="flex items-center gap-3">
+                    <Icon weight="fill" size={22} style={{ color }} aria-hidden />
+                    <span className="font-semibold">{r.name}</span>
+                  </span>
+                  <span className="font-semibold">{formatMoney(r.paid)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      ) : null}
 
       {totals.isError && <Notice tone="error">ডেটা আনতে সমস্যা হয়েছে।</Notice>}
       <p className="p-caption flex items-center gap-2">
@@ -132,3 +156,11 @@ function ChartSkeleton() {
     </div>
   );
 }
+
+const RANK_STYLES = [
+  { Icon: Crown, color: '#D4AF37' },
+  { Icon: Trophy, color: '#9CA3AF' },
+  { Icon: Medal, color: '#B87333' },
+  { Icon: Medal, color: '#8A6D5C' },
+  { Icon: Medal, color: '#C8B79B' },
+];
