@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
@@ -229,23 +229,58 @@ function WithdrawCard({ wallets, partners, myId }: { wallets: WalletBalance[]; p
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
+  const [detail, setDetail] = useState<WithdrawalRow | null>(null);
+
+  const { data: openChalans = [] } = useQuery({
+    queryKey: ['open-chalan-guard'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('chalans').select('id').eq('status', 'open').is('deleted_at', null);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const hasOpenChalan = openChalans.length > 0;
+
+  const { data: partnerBalances = [] } = useQuery({
+    queryKey: ['partner-balances'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('v_partner_balance').select('partner_id, balance');
+      if (error) throw error;
+      return (data ?? []) as { partner_id: string; balance: string | number }[];
+    },
+  });
+
+  const effectivePartner = partnerId || myId;
+  const partnerBalance = Number(partnerBalances.find((b) => b.partner_id === effectivePartner)?.balance ?? 0);
+  const amountNum = Number(amount);
+  const exceeds = !!effectivePartner && !!amountNum && amountNum > partnerBalance;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     setOk('');
-    if (!wallet || !Number(amount) || !(partnerId || myId)) {
+    if (hasOpenChalan) {
+      setError('চালান এখনো খোলা আছে; চালান বন্ধ হলে টাকা তোলা যাবে।');
+      return;
+    }
+    if (!wallet || !Number(amount) || !effectivePartner) {
       setError('ওয়ালেট ও পরিমাণ দিন।');
+      return;
+    }
+    if (Number(amount) > partnerBalance) {
+      setError('ব্যালেন্সের চেয়ে বেশি টাকা তোলা যাবে না।');
       return;
     }
     setBusy(true);
     try {
       const { error: rpcErr } = await supabase.rpc('create_withdrawal', {
-        p_w: { partner_id: partnerId || myId, wallet_account_id: wallet, amount: Number(amount), note: note || null, at: at ?? null },
+        p_w: { partner_id: effectivePartner, wallet_account_id: wallet, amount: Number(amount), note: note || null, at: at ?? null },
       });
       if (rpcErr) throw rpcErr;
       await qc.invalidateQueries({ queryKey: ['wallets-all'] });
       await qc.invalidateQueries({ queryKey: ['balances'] });
+      await qc.invalidateQueries({ queryKey: ['partner-balances'] });
+      await qc.invalidateQueries({ queryKey: ['withdrawals'] });
       setOk('উত্তোলন সংরক্ষিত');
       setAmount('');
       setNote('');
@@ -258,6 +293,7 @@ function WithdrawCard({ wallets, partners, myId }: { wallets: WalletBalance[]; p
   return (
     <Card className="p-6">
       <p className="p-label mb-4">নিজের টাকা তুলুন</p>
+      {hasOpenChalan && <Notice tone="error">চালান খোলা আছে; চালান বন্ধ হলে টাকা তোলা যাবে।</Notice>}
       <form onSubmit={submit} noValidate className="grid grid-cols-2 gap-4">
         <Field label="শূন্য ধরার পার্টনার">
           <select className="field" value={partnerId} onChange={(e) => setPartnerId(e.target.value)}>
@@ -289,14 +325,123 @@ function WithdrawCard({ wallets, partners, myId }: { wallets: WalletBalance[]; p
           <input className="field" value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
         <div className="col-span-2 flex items-center gap-3">
-          <Btn type="submit" busy={busy}>
+          <Btn type="submit" busy={busy} disabled={hasOpenChalan || exceeds}>
             উত্তোলন করুন
           </Btn>
           {ok && <Notice tone="ok">{ok}</Notice>}
           {error && <Notice tone="error">{error}</Notice>}
         </div>
       </form>
+      {effectivePartner && !hasOpenChalan && (
+        <p className={`p-caption mt-3 ${exceeds ? 'text-bad' : 'text-ink-mute'}`}>
+          {effectivePartner && partners.find((p) => p.id === effectivePartner)?.name ? `${partners.find((p) => p.id === effectivePartner)?.name} — ` : 'আপনার — '}ব্যালেন্স: {formatMoney(partnerBalance)}
+          {exceeds ? ' (তোলার চেয়ে বেশি টাকা নেই)' : ''}
+        </p>
+      )}
+      <WithdrawalsTable onOpen={setDetail} />
+      {detail && <WithdrawalDetailSheet w={detail} partners={partners} onClose={() => setDetail(null)} />}
     </Card>
+  );
+}
+
+type WithdrawalRow = { id: string; at: string; partner_id: string; wallet_account_id: string; amount: number; note: string | null; created_by: string | null };
+
+function WithdrawalsTable({ onOpen }: { onOpen: (w: WithdrawalRow) => void }) {
+  const { data: partners = [] } = useQuery({ queryKey: ['partners'], queryFn: fetchPartners });
+  const { data: rows } = useQuery({
+    queryKey: ['withdrawals'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('withdrawals').select('*').is('deleted_at', null).order('at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as WithdrawalRow[];
+    },
+  });
+  const { data: walletsAll = [] } = useQuery({
+    queryKey: ['wallets-names'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('wallets').select('id, type, name, label');
+      if (error) throw error;
+      return (data ?? []) as { id: string; type: string; name: string; label: string }[];
+    },
+  });
+  const walletName = (id: string) => {
+    const w = walletsAll.find((x) => x.id === id);
+    return w ? walletDisplay(w) : id;
+  };
+  const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? '';
+
+  if (!rows?.length) return null;
+  return (
+    <div className="mt-6">
+      <p className="p-label mb-2">পেআউট / উত্তোলনের হিসাব</p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-hairline text-left">
+              <th className="p-2 font-semibold">সময়</th>
+              <th className="p-2 font-semibold">পার্টনার</th>
+              <th className="p-2 font-semibold">ওয়ালেট</th>
+              <th className="p-2 font-semibold text-right">টাকা</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((w) => (
+              <tr key={w.id} className="cursor-pointer border-b border-hairline last:border-0 hover:bg-canvas" onClick={() => onOpen(w)}>
+                <td className="whitespace-nowrap p-2">{formatDhakaDate(w.at)}</td>
+                <td className="p-2">{partnerName(w.partner_id)}</td>
+                <td className="p-2">{walletName(w.wallet_account_id)}</td>
+                <td className="p-2 text-right font-semibold">{formatMoney(w.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function WithdrawalDetailSheet({ w, partners, onClose }: { w: WithdrawalRow; partners: { id: string; name: string }[]; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  const partnerName = partners.find((p) => p.id === w.partner_id)?.name ?? '—';
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center lg:items-center">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="card relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-b-none p-5 lg:rounded-b-[24px]" role="dialog" aria-modal="true" aria-label="উত্তোলনের বিস্তারিত">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="p-title">উত্তোলনের বিস্তারিত</p>
+            <p className="p-caption">{formatDhakaDate(w.at)}</p>
+          </div>
+          <Btn variant="ghost" onClick={onClose}>
+            বন্ধ
+          </Btn>
+        </div>
+        <div className="mt-4 flex flex-col divide-y divide-hairline text-sm">
+          <div className="flex items-center justify-between py-2">
+            <span className="text-ink-mute">পার্টনার</span>
+            <span className="font-semibold">{partnerName}</span>
+          </div>
+          <div className="flex items-center justify-between py-2">
+            <span className="text-ink-mute">টাকা</span>
+            <span className="font-semibold">{formatMoney(w.amount)}</span>
+          </div>
+          <div className="flex items-center justify-between py-2">
+            <span className="text-ink-mute">সময়</span>
+            <span>{formatDhakaDate(w.at)}</span>
+          </div>
+          <div className="flex items-start justify-between gap-4 py-2">
+            <span className="text-ink-mute">নোট</span>
+            <span className="text-right">{w.note || '—'}</span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
