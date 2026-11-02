@@ -38,6 +38,18 @@ export async function fetchBreakdown(start: string, end: string): Promise<Slice[
   return ((data ?? []) as { slice: string; amount: number }[]).map((r) => ({ slice: sliceLabel(r.slice), amount: Number(r.amount) }));
 }
 
+export type PartnerBalance = { partner_id: string; partner_name: string; balance: number };
+
+export async function fetchPartnerBalances(start: string, end: string): Promise<PartnerBalance[]> {
+  const { data, error } = await supabase.rpc('partner_balance_flows', { p_start: start, p_end: end });
+  if (error) throw error;
+  return ((data ?? []) as { partner_id: string; partner_name: string; balance: number | string }[]).map((p) => ({
+    partner_id: p.partner_id,
+    partner_name: p.partner_name,
+    balance: Number(p.balance),
+  }));
+}
+
 function sliceLabel(s: string): string {
   const [type = '', name = ''] = s.split('|');
   if (type === 'personal') return 'ব্যক্তিগত ব্যবহার';

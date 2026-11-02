@@ -1,6 +1,6 @@
 import { Suspense, lazy } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchBreakdown, fetchDailyIncome, fetchStockCurrent, fetchTotals, fetchWalletBalances, type Totals } from './api';
+import { fetchBreakdown, fetchDailyIncome, fetchPartnerBalances, fetchStockCurrent, fetchTotals, fetchWalletBalances, type Totals } from './api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Card, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
@@ -22,8 +22,11 @@ export default function DashboardPage() {
   const walletBalances = useQuery({ queryKey: ['dashboard', 'wallet-flows', start, end], queryFn: () => fetchWalletBalances(start, end) });
   const breakdown = useQuery({ queryKey: ['dashboard', 'breakdown', start, end], queryFn: () => fetchBreakdown(start, end) });
   const daily = useQuery({ queryKey: ['dashboard', 'daily', start, end], queryFn: () => fetchDailyIncome(start, end) });
+  const partnerBalances = useQuery({ queryKey: ['dashboard', 'partner-balances', start, end], queryFn: () => fetchPartnerBalances(start, end) });
 
   const donutData = (breakdown.data ?? []).map((s) => ({ name: s.slice, value: s.amount })).filter((d) => d.value !== 0);
+  const partnerDonutData = (partnerBalances.data ?? []).map((p) => ({ name: p.partner_name, value: p.balance })).filter((d) => d.value !== 0);
+  const partnerDonutTotal = partnerDonutData.reduce((s, d) => s + d.value, 0);
 
   return (
     <div className="flex flex-col gap-5">
@@ -56,6 +59,13 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {breakdown.isPending ? <ChartSkeleton /> : <Suspense fallback={<ChartSkeleton />}><Donut title="পেমেন্ট মাধ্যম অনুসারে আয়" data={donutData} centerLabel="আয়" centerValue={formatMoney(totals.data?.income ?? 0)} /></Suspense>}
         {daily.isPending ? <ChartSkeleton /> : <Suspense fallback={<ChartSkeleton />}><IncomeBar data={(daily.data ?? []).map((d) => ({ day: d.day, income: Number(d.income) }))} /></Suspense>}
+        {partnerBalances.isPending ? (
+          <ChartSkeleton />
+        ) : partnerDonutData.length > 0 ? (
+          <Suspense fallback={<ChartSkeleton />}>
+            <Donut title="পার্টনার অনুযায়ী ব্যালেন্স" data={partnerDonutData} centerLabel="ব্যালেন্স" centerValue={formatMoney(partnerDonutTotal)} />
+          </Suspense>
+        ) : null}
       </div>
 
       {totals.isError && <Notice tone="error">ডেটা আনতে সমস্যা হয়েছে।</Notice>}
