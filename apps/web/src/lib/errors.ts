@@ -6,6 +6,8 @@ const ERRORS: Record<string, string> = {
   PACKET_NOT_FOUND: 'প্যাকেট পাওয়া যায়নি।',
   TRANSFER_CASH_SOURCE_FREE: 'ক্যাশ থেকে এমএফএসে স্থানান্তরে চার্জ হয় না।',
   WITHDRAWAL_INVALID: 'উত্তোলনের তথ্য মিলছে না।',
+  WITHDRAWAL_CHALAN_OPEN: 'চালান এখনো খোলা আছে; চালান বন্ধ হলে টাকা তোলা যাবে।',
+  WITHDRAWAL_EXCEEDS_BALANCE: 'ব্যালেন্সের চেয়ে বেশি টাকা তোলা যাবে না।',
   TRANSFER_INVALID: 'স্থানান্তরের তথ্য মিলছে না।',
   EXPENSE_INVALID: 'খরচের তথ্য মিলছে না।',
   SALE_INVALID: 'বিক্রির তথ্য মিলছে না; আবার দেখুন।',
