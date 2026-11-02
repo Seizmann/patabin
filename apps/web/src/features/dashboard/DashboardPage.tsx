@@ -8,8 +8,6 @@ import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 import heroImg from 'assets/images/backgrounds/dashboard-hero.webp';
-import offlineImg from 'assets/images/empty/offline.png';
-import emptySales from 'assets/images/empty/empty-sales.png';
 
 const Donut = lazy(() => import('components/ui/Donut'));
 const IncomeBar = lazy(() => import('components/ui/IncomeBar'));
@@ -93,11 +91,6 @@ export default function DashboardPage() {
       ) : null}
 
       {totals.isError && <Notice tone="error">ডেটা আনতে সমস্যা হয়েছে।</Notice>}
-      <p className="p-caption flex items-center gap-2">
-        <img src={offlineImg} alt="" className="hidden" aria-hidden />
-        হালনাগাদ: {formatDhakaDateTime(new Date().toISOString())} ({toBnDigits(start.slice(0, 10))} থেকে {toBnDigits(end.slice(0, 10))})
-        <img src={emptySales} alt="" className="hidden" aria-hidden />
-      </p>
     </div>
   );
 }
