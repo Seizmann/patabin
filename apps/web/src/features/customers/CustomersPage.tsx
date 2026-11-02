@@ -18,6 +18,7 @@ export default function CustomersPage() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [search, setSearch] = useState('');
+  const [sort, setSort] = useState('name-asc');
   const [editing, setEditing] = useState<CustomerRow | null>(null);
   const [detail, setDetail] = useState<CustomerRow | null>(null);
   const [busy, setBusy] = useState(false);
@@ -108,7 +109,26 @@ export default function CustomersPage() {
   };
 
   const q = search.trim().toLowerCase();
-  const visibleRows = q ? (rows ?? []).filter((c) => c.name.toLowerCase().includes(q) || (c.phone ?? '').toLowerCase().includes(q)) : rows ?? [];
+  const filtered = q ? (rows ?? []).filter((c) => c.name.toLowerCase().includes(q) || (c.phone ?? '').toLowerCase().includes(q)) : rows ?? [];
+  const paidBy = new Map<string, number>();
+  for (const p of payments) paidBy.set(p.customer_id, (paidBy.get(p.customer_id) ?? 0) + Number(p.amount));
+  const dueBy = new Map(balances.map((b) => [b.customer_id, Number(b.balance)]));
+  const visibleRows = [...filtered].sort((a, b) => {
+    switch (sort) {
+      case 'name-desc':
+        return b.name.localeCompare(a.name, 'bn');
+      case 'paid-desc':
+        return (paidBy.get(b.id) ?? 0) - (paidBy.get(a.id) ?? 0);
+      case 'paid-asc':
+        return (paidBy.get(a.id) ?? 0) - (paidBy.get(b.id) ?? 0);
+      case 'due-desc':
+        return (dueBy.get(b.id) ?? 0) - (dueBy.get(a.id) ?? 0);
+      case 'due-asc':
+        return (dueBy.get(a.id) ?? 0) - (dueBy.get(b.id) ?? 0);
+      default:
+        return a.name.localeCompare(b.name, 'bn');
+    }
+  });
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-5">
@@ -140,7 +160,7 @@ export default function CustomersPage() {
       {rows?.length === 0 && <Empty img={emptySearch} title="কোনো কাস্টমার নেই" caption="বিক্রির সময় কাস্টমার বেছে নিতে আগে যোগ করুন।" />}
       {rows && rows.length > 0 && (
         <div className="card overflow-x-auto">
-          <div className="p-4 pb-0">
+          <div className="flex flex-col gap-2 p-4 pb-0 sm:flex-row">
             <input
               className="field"
               value={search}
@@ -148,6 +168,14 @@ export default function CustomersPage() {
               placeholder="নাম বা ফোন নাম্বার দিয়ে খুঁজুন"
               aria-label="কাস্টমার খুঁজুন"
             />
+            <select className="field min-h-[44px] w-auto py-1.5" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="সাজানোর নিয়ম">
+              <option value="name-asc">নাম (ক-অ)</option>
+              <option value="name-desc">নাম (অ-ক)</option>
+              <option value="paid-desc">বেশি টাকা দিয়েছে</option>
+              <option value="paid-asc">কম টাকা দিয়েছে</option>
+              <option value="due-desc">বেশি বাকি</option>
+              <option value="due-asc">কম বাকি</option>
+            </select>
           </div>
           <table className="mt-3 w-full text-sm">
             <thead>
