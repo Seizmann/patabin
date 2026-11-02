@@ -63,17 +63,23 @@ export async function fetchCustomerDetails(customerId: string, wallets: WalletRo
   const [salesRes, payRes] = await Promise.all([
     supabase
       .from('sales')
-      .select('sold_at, qty, amount_received, due_amount, wallet_account_id, sale_allocations(qty, packets(chalan_id, chalans(code))), sale_receives(wallet_account_id, amount)')
+      .select('id, sold_at, qty, amount_received, due_amount, wallet_account_id, sale_allocations(qty, packets(chalan_id, chalans(code))), sale_receives(wallet_account_id, amount)')
       .eq('customer_id', customerId)
       .is('deleted_at', null)
       .order('sold_at', { ascending: false }),
-    supabase.from('customer_payments').select('amount, wallet_account_id').eq('customer_id', customerId).is('deleted_at', null),
+    supabase.from('customer_payments').select('amount, wallet_account_id, customer_payment_allocations(sale_id, amount)').eq('customer_id', customerId).is('deleted_at', null),
   ]);
   if (salesRes.error) throw salesRes.error;
-  type RawSale = { sold_at: string; qty: number; amount_received: string | number; due_amount: string | number; wallet_account_id: string; sale_allocations: { qty: number; packets: { chalan_id: string; chalans: { code: string } | null } | null }[] | null; sale_receives: { wallet_account_id: string; amount: string | number }[] | null };
-  type RawPay = { amount: string | number; wallet_account_id: string };
+  type RawSale = { id: string; sold_at: string; qty: number; amount_received: string | number; due_amount: string | number; wallet_account_id: string; sale_allocations: { qty: number; packets: { chalan_id: string; chalans: { code: string } | null } | null }[] | null; sale_receives: { wallet_account_id: string; amount: string | number }[] | null };
+  type RawPay = { amount: string | number; wallet_account_id: string; customer_payment_allocations: { sale_id: string; amount: string | number }[] | null };
   const raw = (salesRes.data ?? []) as unknown as RawSale[];
   const pays = (payRes.data ?? []) as unknown as RawPay[];
+  const allocatedBySale = new Map<string, number>();
+  for (const p of pays) {
+    for (const a of p.customer_payment_allocations ?? []) {
+      allocatedBySale.set(a.sale_id, (allocatedBySale.get(a.sale_id) ?? 0) + Number(a.amount));
+    }
+  }
   const methodOf = (id: string | null | undefined) => wallets.find((w) => w.id === id)?.type ?? 'other';
   const byChalan = new Map<string, { code: string; pcs: number; paid: number }>();
   const byMethod = new Map<string, number>();
@@ -97,7 +103,7 @@ export async function fetchCustomerDetails(customerId: string, wallets: WalletRo
     if (!(s.sale_receives ?? []).length && s.wallet_account_id) addMethod(methodOf(s.wallet_account_id), received);
     for (const r of s.sale_receives ?? []) addMethod(methodOf(r.wallet_account_id), Number(r.amount));
     codes.sort();
-    return { sold_at: s.sold_at, qty: s.qty, amount_received: received, due_amount: Number(s.due_amount), chalan_codes: codes };
+    return { sold_at: s.sold_at, qty: s.qty, amount_received: received, due_amount: Math.max(Number(s.due_amount) - (allocatedBySale.get(s.id) ?? 0), 0), chalan_codes: codes };
   });
   let paymentsTotal = 0;
   for (const p of pays) {
