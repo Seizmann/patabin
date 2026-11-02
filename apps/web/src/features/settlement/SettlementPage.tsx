@@ -20,7 +20,7 @@ type SettlementRow = {
   entitlement: number;
   pcs_out: number;
 };
-type ChalanRow = { id: string; code: string; status: string; purchase_date: string };
+type ChalanRow = { id: string; code: string; status: string; purchase_date: string; buy_rate: number };
 
 const ESTIMATE_SELL_RATE = 300;
 
@@ -30,7 +30,7 @@ export default function SettlementPage() {
   const { data: chalans = [] } = useQuery({
     queryKey: ['chalan-settlement-list'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('chalans').select('id, code, status, purchase_date').is('deleted_at', null).order('code', { ascending: false });
+      const { data, error } = await supabase.from('chalans').select('id, code, status, purchase_date, buy_rate').is('deleted_at', null).order('code', { ascending: false });
       if (error) throw error;
       return (data ?? []) as ChalanRow[];
     },
@@ -103,7 +103,7 @@ function ChalanSettlement({ chalan }: { chalan: ChalanRow }) {
           <tbody>
             {(rows ?? []).map((s) => {
               const remainingPcs = totalPcsBy(s.partner_id) - Number(s.pcs_out);
-              const estimated = Number(s.entitlement) + remainingPcs * ESTIMATE_SELL_RATE;
+              const estimated = Number(s.entitlement) + remainingPcs * (ESTIMATE_SELL_RATE - chalan.buy_rate);
               return (
                 <tr key={s.chalan_id + s.partner_id} className="border-b border-hairline last:border-0">
                   <td className="p-3">{s.partner_name}</td>
