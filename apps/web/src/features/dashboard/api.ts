@@ -1,4 +1,5 @@
 import { supabase } from 'lib/supabase';
+import { dhakaDate, isoAtDhaka } from '@patabin/shared';
 
 export type Totals = {
   income: number;
@@ -96,11 +97,20 @@ export async function fetchDailyIncome(start: string, end: string): Promise<DayR
 
 export type LeaderRow = { id: string; name: string; paid: number };
 
+export function dhakaWeekStart(now: Date = new Date()): string {
+  const dt = dhakaDate(now);
+  const [y, m, d] = dt.split('-').map(Number) as [number, number, number];
+  const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  const back = (weekday + 1) % 7;
+  return isoAtDhaka(new Date(Date.UTC(y, m - 1, d - back)).toISOString().slice(0, 10));
+}
+
 export async function fetchCustomerLeaderboard(): Promise<LeaderRow[]> {
+  const weekStart = dhakaWeekStart();
   const [custRes, salesRes, payRes] = await Promise.all([
     supabase.from('customers').select('id, name').is('deleted_at', null),
-    supabase.from('sales').select('customer_id, amount_received').is('deleted_at', null).not('customer_id', 'is', null),
-    supabase.from('customer_payments').select('customer_id, amount').is('deleted_at', null),
+    supabase.from('sales').select('customer_id, amount_received').is('deleted_at', null).not('customer_id', 'is', null).gte('sold_at', weekStart),
+    supabase.from('customer_payments').select('customer_id, amount').is('deleted_at', null).gte('at', weekStart),
   ]);
   if (custRes.error) throw custRes.error;
   if (salesRes.error) throw salesRes.error;

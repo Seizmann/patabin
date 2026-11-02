@@ -1,7 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Crown, Medal, Trophy } from '@phosphor-icons/react';
-import { fetchBreakdown, fetchCustomerLeaderboard, fetchDailyIncome, fetchPartnerBalances, fetchStockCurrent, fetchTotals, fetchWalletBalances, type Totals } from './api';
+import { fetchBreakdown, fetchCustomerLeaderboard, dhakaWeekStart, fetchDailyIncome, fetchPartnerBalances, fetchStockCurrent, fetchTotals, fetchWalletBalances, type Totals } from './api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Card, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
@@ -22,7 +22,7 @@ export default function DashboardPage() {
   const breakdown = useQuery({ queryKey: ['dashboard', 'breakdown', start, end], queryFn: () => fetchBreakdown(start, end) });
   const daily = useQuery({ queryKey: ['dashboard', 'daily', start, end], queryFn: () => fetchDailyIncome(start, end) });
   const partnerBalances = useQuery({ queryKey: ['dashboard', 'partner-balances', start, end], queryFn: () => fetchPartnerBalances(start, end) });
-  const leaderboard = useQuery({ queryKey: ['dashboard', 'leaderboard'], queryFn: fetchCustomerLeaderboard, staleTime: 30_000 });
+  const leaderboard = useQuery({ queryKey: ['dashboard', 'leaderboard', dhakaWeekStart()], queryFn: fetchCustomerLeaderboard, staleTime: 30_000 });
 
   const donutData = (breakdown.data ?? []).map((s) => ({ name: s.slice, value: s.amount })).filter((d) => d.value !== 0);
   const partnerDonutData = (partnerBalances.data ?? []).map((p) => ({ name: p.partner_name, value: p.balance })).filter((d) => d.value !== 0);
@@ -72,7 +72,8 @@ export default function DashboardPage() {
         <ChartSkeleton />
       ) : (leaderboard.data ?? []).length > 0 ? (
         <Card className="p-5">
-          <p className="p-label mb-3 text-center">সেরা কাস্টমার (টপ ৫)</p>
+          <p className="p-label text-center">সেরা কাস্টমার (টপ ৫) — এই সপ্তাহ</p>
+          <p className="p-caption mb-3 text-center text-ink-mute">শনিবার থেকে শুরু, সবচেয়ে বেশি টাকা পরিশোধকারী</p>
           <div className="flex flex-col divide-y divide-hairline">
             {leaderboard.data!.map((r, i) => {
               const { Icon, color } = RANK_STYLES[Math.min(i, RANK_STYLES.length - 1)]!;
