@@ -387,7 +387,7 @@ function WithdrawalsTable({ onOpen }: { onOpen: (w: WithdrawalRow) => void }) {
           <tbody>
             {rows.map((w) => (
               <tr key={w.id} className="cursor-pointer border-b border-hairline last:border-0 hover:bg-canvas" onClick={() => onOpen(w)}>
-                <td className="whitespace-nowrap p-2">{formatDhakaDate(w.at)}</td>
+                <td className="whitespace-nowrap p-2">{formatDhakaDateTime(w.at)}</td>
                 <td className="p-2">{partnerName(w.partner_id)}</td>
                 <td className="p-2">{walletName(w.wallet_account_id)}</td>
                 <td className="p-2 text-right font-semibold">{formatMoney(w.amount)}</td>
@@ -416,7 +416,7 @@ function WithdrawalDetailSheet({ w, partners, onClose }: { w: WithdrawalRow; par
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="p-title">উত্তোলনের বিস্তারিত</p>
-            <p className="p-caption">{formatDhakaDate(w.at)}</p>
+            <p className="p-caption">{formatDhakaDateTime(w.at)}</p>
           </div>
           <Btn variant="ghost" onClick={onClose}>
             বন্ধ
@@ -433,7 +433,7 @@ function WithdrawalDetailSheet({ w, partners, onClose }: { w: WithdrawalRow; par
           </div>
           <div className="flex items-center justify-between py-2">
             <span className="text-ink-mute">সময়</span>
-            <span>{formatDhakaDate(w.at)}</span>
+            <span>{formatDhakaDateTime(w.at)}</span>
           </div>
           <div className="flex items-start justify-between gap-4 py-2">
             <span className="text-ink-mute">নোট</span>
