@@ -1,4 +1,5 @@
 import { supabase } from 'lib/supabase';
+import { dhakaDate, isoAtDhaka } from '@patabin/shared';
 
 export type Totals = {
   income: number;
@@ -36,6 +37,18 @@ export async function fetchBreakdown(start: string, end: string): Promise<Slice[
   const { data, error } = await supabase.rpc('income_by_period_breakdown', { p_start: start, p_end: end });
   if (error) throw error;
   return ((data ?? []) as { slice: string; amount: number }[]).map((r) => ({ slice: sliceLabel(r.slice), amount: Number(r.amount) }));
+}
+
+export type PartnerBalance = { partner_id: string; partner_name: string; balance: number };
+
+export async function fetchPartnerBalances(start: string, end: string): Promise<PartnerBalance[]> {
+  const { data, error } = await supabase.rpc('partner_balance_flows', { p_start: start, p_end: end });
+  if (error) throw error;
+  return ((data ?? []) as { partner_id: string; partner_name: string; balance: number | string }[]).map((p) => ({
+    partner_id: p.partner_id,
+    partner_name: p.partner_name,
+    balance: Number(p.balance),
+  }));
 }
 
 function sliceLabel(s: string): string {
@@ -80,4 +93,39 @@ export async function fetchDailyIncome(start: string, end: string): Promise<DayR
     byDay.set(day, (byDay.get(day) ?? 0) + Number(r.qty) * Number(r.unit_value));
   }
   return [...byDay.entries()].sort().map(([day, income]) => ({ day, income }));
+}
+
+export type LeaderRow = { id: string; name: string; paid: number };
+
+export function dhakaWeekStart(now: Date = new Date()): string {
+  const dt = dhakaDate(now);
+  const [y, m, d] = dt.split('-').map(Number) as [number, number, number];
+  const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  const back = (weekday + 1) % 7;
+  return isoAtDhaka(new Date(Date.UTC(y, m - 1, d - back)).toISOString().slice(0, 10));
+}
+
+export async function fetchCustomerLeaderboard(): Promise<LeaderRow[]> {
+  const weekStart = dhakaWeekStart();
+  const [custRes, salesRes, payRes] = await Promise.all([
+    supabase.from('customers').select('id, name').is('deleted_at', null),
+    supabase.from('sales').select('customer_id, amount_received').is('deleted_at', null).not('customer_id', 'is', null).gte('sold_at', weekStart),
+    supabase.from('customer_payments').select('customer_id, amount').is('deleted_at', null).gte('at', weekStart),
+  ]);
+  if (custRes.error) throw custRes.error;
+  if (salesRes.error) throw salesRes.error;
+  if (payRes.error) throw payRes.error;
+  const names = new Map((custRes.data ?? []).map((c) => [c.id, c.name]));
+  const paidBy = new Map<string, number>();
+  for (const s of (salesRes.data ?? []) as { customer_id: string; amount_received: string | number }[]) {
+    paidBy.set(s.customer_id, (paidBy.get(s.customer_id) ?? 0) + Number(s.amount_received));
+  }
+  for (const p of (payRes.data ?? []) as { customer_id: string; amount: string | number }[]) {
+    paidBy.set(p.customer_id, (paidBy.get(p.customer_id) ?? 0) + Number(p.amount));
+  }
+  return [...paidBy.entries()]
+    .filter(([id]) => names.has(id))
+    .map(([id, paid]) => ({ id, name: names.get(id)!, paid }))
+    .sort((a, b) => b.paid - a.paid)
+    .slice(0, 5);
 }

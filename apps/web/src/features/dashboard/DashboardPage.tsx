@@ -1,14 +1,13 @@
 import { Suspense, lazy } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchBreakdown, fetchDailyIncome, fetchStockCurrent, fetchTotals, fetchWalletBalances, type Totals } from './api';
+import { Crown, Medal, Trophy } from '@phosphor-icons/react';
+import { fetchBreakdown, fetchCustomerLeaderboard, dhakaWeekStart, fetchDailyIncome, fetchPartnerBalances, fetchStockCurrent, fetchTotals, fetchWalletBalances, type Totals } from './api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Card, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 import heroImg from 'assets/images/backgrounds/dashboard-hero.webp';
-import offlineImg from 'assets/images/empty/offline.png';
-import emptySales from 'assets/images/empty/empty-sales.png';
 
 const Donut = lazy(() => import('components/ui/Donut'));
 const IncomeBar = lazy(() => import('components/ui/IncomeBar'));
@@ -22,8 +21,12 @@ export default function DashboardPage() {
   const walletBalances = useQuery({ queryKey: ['dashboard', 'wallet-flows', start, end], queryFn: () => fetchWalletBalances(start, end) });
   const breakdown = useQuery({ queryKey: ['dashboard', 'breakdown', start, end], queryFn: () => fetchBreakdown(start, end) });
   const daily = useQuery({ queryKey: ['dashboard', 'daily', start, end], queryFn: () => fetchDailyIncome(start, end) });
+  const partnerBalances = useQuery({ queryKey: ['dashboard', 'partner-balances', start, end], queryFn: () => fetchPartnerBalances(start, end) });
+  const leaderboard = useQuery({ queryKey: ['dashboard', 'leaderboard', dhakaWeekStart()], queryFn: fetchCustomerLeaderboard, staleTime: 30_000 });
 
   const donutData = (breakdown.data ?? []).map((s) => ({ name: s.slice, value: s.amount })).filter((d) => d.value !== 0);
+  const partnerDonutData = (partnerBalances.data ?? []).map((p) => ({ name: p.partner_name, value: p.balance })).filter((d) => d.value !== 0);
+  const partnerDonutTotal = partnerDonutData.reduce((s, d) => s + d.value, 0);
 
   return (
     <div className="flex flex-col gap-5">
@@ -56,14 +59,38 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {breakdown.isPending ? <ChartSkeleton /> : <Suspense fallback={<ChartSkeleton />}><Donut title="পেমেন্ট মাধ্যম অনুসারে আয়" data={donutData} centerLabel="আয়" centerValue={formatMoney(totals.data?.income ?? 0)} /></Suspense>}
         {daily.isPending ? <ChartSkeleton /> : <Suspense fallback={<ChartSkeleton />}><IncomeBar data={(daily.data ?? []).map((d) => ({ day: d.day, income: Number(d.income) }))} /></Suspense>}
+        {partnerBalances.isPending ? (
+          <ChartSkeleton />
+        ) : partnerDonutData.length > 0 ? (
+          <Suspense fallback={<ChartSkeleton />}>
+            <Donut title="পার্টনার অনুযায়ী ব্যালেন্স" data={partnerDonutData} centerLabel="ব্যালেন্স" centerValue={formatMoney(partnerDonutTotal)} />
+          </Suspense>
+        ) : null}
       </div>
 
+      {leaderboard.isPending ? (
+        <ChartSkeleton />
+      ) : (leaderboard.data ?? []).length > 0 ? (
+        <Card className="p-5">
+          <p className="p-label mb-3 text-center">সেরা কাস্টমার (টপ ৫) — এই সপ্তাহ</p>
+          <div className="flex flex-col divide-y divide-hairline">
+            {leaderboard.data!.map((r, i) => {
+              const { Icon, color } = RANK_STYLES[Math.min(i, RANK_STYLES.length - 1)]!;
+              return (
+                <div key={r.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <span className="flex items-center gap-3">
+                    <Icon weight="fill" size={22} style={{ color }} aria-hidden />
+                    <span className="font-semibold">{r.name}</span>
+                  </span>
+                  <span className="font-semibold">{formatMoney(r.paid)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      ) : null}
+
       {totals.isError && <Notice tone="error">ডেটা আনতে সমস্যা হয়েছে।</Notice>}
-      <p className="p-caption flex items-center gap-2">
-        <img src={offlineImg} alt="" className="hidden" aria-hidden />
-        হালনাগাদ: {formatDhakaDateTime(new Date().toISOString())} ({toBnDigits(start.slice(0, 10))} থেকে {toBnDigits(end.slice(0, 10))})
-        <img src={emptySales} alt="" className="hidden" aria-hidden />
-      </p>
     </div>
   );
 }
@@ -122,3 +149,11 @@ function ChartSkeleton() {
     </div>
   );
 }
+
+const RANK_STYLES = [
+  { Icon: Crown, color: '#D4AF37' },
+  { Icon: Trophy, color: '#9CA3AF' },
+  { Icon: Medal, color: '#B87333' },
+  { Icon: Medal, color: '#8A6D5C' },
+  { Icon: Medal, color: '#C8B79B' },
+];

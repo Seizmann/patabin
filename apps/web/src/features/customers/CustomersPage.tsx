@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createCustomer, createPayment, deleteCustomer, fetchCustomerBalances, fetchCustomerDetails, fetchCustomers, fetchPayments, fetchWallets, updateCustomer, type CustomerRow, type WalletRow } from './api';
+import { createCustomer, createPayment, deleteCustomer, fetchCustomerBalances, fetchCustomerDetails, fetchCustomers, fetchPayments, fetchSaleReceivedByCustomer, fetchWallets, updateCustomer, type CustomerRow, type WalletRow } from './api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { mapError } from 'lib/errors';
@@ -17,6 +17,8 @@ export default function CustomersPage() {
   const qc = useQueryClient();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState('name-asc');
   const [editing, setEditing] = useState<CustomerRow | null>(null);
   const [detail, setDetail] = useState<CustomerRow | null>(null);
   const [busy, setBusy] = useState(false);
@@ -26,6 +28,7 @@ export default function CustomersPage() {
   const { data: rows, isPending } = useQuery({ queryKey: ['customers'], queryFn: fetchCustomers });
   const { data: balances = [] } = useQuery({ queryKey: ['customer-balances'], queryFn: fetchCustomerBalances });
   const { data: payments = [] } = useQuery({ queryKey: ['customer-payments'], queryFn: fetchPayments });
+  const { data: saleReceived = [] } = useQuery({ queryKey: ['customer-sale-received'], queryFn: fetchSaleReceivedByCustomer });
   const { data: wallets = [] } = useQuery({ queryKey: ['wallets'], queryFn: fetchWallets });
 
   const { data: payWallets = [] } = useQuery({ queryKey: ['wallets'], queryFn: fetchWallets });
@@ -106,6 +109,29 @@ export default function CustomersPage() {
     }
   };
 
+  const q = search.trim().toLowerCase();
+  const filtered = q ? (rows ?? []).filter((c) => c.name.toLowerCase().includes(q) || (c.phone ?? '').toLowerCase().includes(q)) : rows ?? [];
+  const paidBy = new Map<string, number>();
+  for (const s of saleReceived) paidBy.set(s.customer_id, (paidBy.get(s.customer_id) ?? 0) + s.received);
+  for (const p of payments) paidBy.set(p.customer_id, (paidBy.get(p.customer_id) ?? 0) + Number(p.amount));
+  const dueBy = new Map(balances.map((b) => [b.customer_id, Number(b.balance)]));
+  const visibleRows = [...filtered].sort((a, b) => {
+    switch (sort) {
+      case 'name-desc':
+        return b.name.localeCompare(a.name, 'bn');
+      case 'paid-desc':
+        return (paidBy.get(b.id) ?? 0) - (paidBy.get(a.id) ?? 0);
+      case 'paid-asc':
+        return (paidBy.get(a.id) ?? 0) - (paidBy.get(b.id) ?? 0);
+      case 'due-desc':
+        return (dueBy.get(b.id) ?? 0) - (dueBy.get(a.id) ?? 0);
+      case 'due-asc':
+        return (dueBy.get(a.id) ?? 0) - (dueBy.get(b.id) ?? 0);
+      default:
+        return a.name.localeCompare(b.name, 'bn');
+    }
+  });
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-5">
       <PageTitle tag="PataBin" title="কাস্টমার" />
@@ -136,7 +162,24 @@ export default function CustomersPage() {
       {rows?.length === 0 && <Empty img={emptySearch} title="কোনো কাস্টমার নেই" caption="বিক্রির সময় কাস্টমার বেছে নিতে আগে যোগ করুন।" />}
       {rows && rows.length > 0 && (
         <div className="card overflow-x-auto">
-          <table className="w-full text-sm">
+          <div className="flex flex-col gap-2 p-4 pb-0 sm:flex-row">
+            <input
+              className="field"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="নাম বা ফোন নাম্বার দিয়ে খুঁজুন"
+              aria-label="কাস্টমার খুঁজুন"
+            />
+            <select className="field min-h-[44px] w-auto py-1.5" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="সাজানোর নিয়ম">
+              <option value="name-asc">নাম (ক-অ)</option>
+              <option value="name-desc">নাম (অ-ক)</option>
+              <option value="paid-desc">বেশি টাকা দিয়েছে</option>
+              <option value="paid-asc">কম টাকা দিয়েছে</option>
+              <option value="due-desc">বেশি বাকি</option>
+              <option value="due-asc">কম বাকি</option>
+            </select>
+          </div>
+          <table className="mt-3 w-full text-sm">
             <thead>
               <tr className="border-b border-hairline text-left">
                 <th className="p-3 font-semibold">নাম</th>
@@ -146,7 +189,7 @@ export default function CustomersPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((c) => (
+              {visibleRows.map((c) => (
                 <tr key={c.id} className="border-b border-hairline last:border-0">
                   <td className="p-3">
                     <button type="button" className="font-semibold hover:underline" onClick={() => setDetail(c)}>
@@ -375,7 +418,7 @@ function CustomerDetailSheet({ c, wallets, due, onClose }: { c: CustomerRow; wal
                           {formatDhakaDateTime(s.sold_at)} · {toBnDigits(s.qty)} পিস
                         </span>
                         <span className={s.due_amount > 0 ? 'font-semibold text-bad' : ''}>
-                          {s.due_amount > 0 ? `বাকি ${formatMoney(s.due_amount)}` : formatMoney(s.amount_received)}
+                          {s.due_amount > 0 ? `বাকি ${formatMoney(s.due_amount)}` : `${formatMoney(s.paid_total)} দিয়েছে`}
                         </span>
                       </div>
                       {s.chalan_codes.length > 0 && <p className="p-caption text-ink-mute">চালান: {s.chalan_codes.join(', ')}</p>}
