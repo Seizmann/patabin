@@ -72,8 +72,7 @@ export default function DashboardPage() {
         <ChartSkeleton />
       ) : (leaderboard.data ?? []).length > 0 ? (
         <Card className="p-5">
-          <p className="p-label text-center">সেরা কাস্টমার (টপ ৫) — এই সপ্তাহ</p>
-          <p className="p-caption mb-3 text-center text-ink-mute">শনিবার থেকে শুরু, সবচেয়ে বেশি টাকা পরিশোধকারী</p>
+          <p className="p-label mb-3 text-center">সেরা কাস্টমার (টপ ৫) — এই সপ্তাহ</p>
           <div className="flex flex-col divide-y divide-hairline">
             {leaderboard.data!.map((r, i) => {
               const { Icon, color } = RANK_STYLES[Math.min(i, RANK_STYLES.length - 1)]!;
