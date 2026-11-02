@@ -7,7 +7,7 @@ import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import { Plus, X } from '@phosphor-icons/react';
-import { formatDhakaDate, formatMoney, toBnDigits } from '@patabin/shared';
+import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 import { mapError } from 'lib/errors';
 import emptySales from 'assets/images/empty/empty-sales.png';
@@ -115,7 +115,7 @@ function SalesTable({ rows, onEdit, onDelete, onDetail }: { rows: SaleRowV[]; on
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} className="border-b border-hairline last:border-0">
-              <td className="whitespace-nowrap p-3">{formatDhakaDate(r.sold_at)}</td>
+              <td className="whitespace-nowrap p-3">{formatDhakaDateTime(r.sold_at)}</td>
               <td className="p-3">
                 <button type="button" className="font-semibold hover:underline" onClick={() => onDetail(r)}>
                   {r.customer_name || 'ক্রেতা'}
@@ -226,7 +226,7 @@ function SaleDetailSheet({ sale, onClose }: { sale: SaleRowV; onClose: () => voi
       <div className="card relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-b-none p-5 lg:rounded-b-[24px]" role="dialog" aria-modal="true" aria-label="বিক্রির বিস্তারিত">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="p-title">বিক্রি — {formatDhakaDate(sale.sold_at)}</p>
+            <p className="p-title">বিক্রি — {formatDhakaDateTime(sale.sold_at)}</p>
             <p className="p-caption">
               {sale.customer_name || 'ক্রেতা'}
               {sale.customer_phone ? ` · ${sale.customer_phone}` : ''}

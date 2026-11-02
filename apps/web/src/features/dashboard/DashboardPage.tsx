@@ -4,7 +4,7 @@ import { fetchBreakdown, fetchDailyIncome, fetchStockCurrent, fetchTotals, fetch
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Card, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
-import { formatDhakaDate, formatMoney, toBnDigits } from '@patabin/shared';
+import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 import heroImg from 'assets/images/backgrounds/dashboard-hero.webp';
 import offlineImg from 'assets/images/empty/offline.png';
@@ -61,7 +61,7 @@ export default function DashboardPage() {
       {totals.isError && <Notice tone="error">ডেটা আনতে সমস্যা হয়েছে।</Notice>}
       <p className="p-caption flex items-center gap-2">
         <img src={offlineImg} alt="" className="hidden" aria-hidden />
-        হালনাগাদ: {formatDhakaDate(new Date().toISOString())} ({toBnDigits(start.slice(0, 10))} থেকে {toBnDigits(end.slice(0, 10))})
+        হালনাগাদ: {formatDhakaDateTime(new Date().toISOString())} ({toBnDigits(start.slice(0, 10))} থেকে {toBnDigits(end.slice(0, 10))})
         <img src={emptySales} alt="" className="hidden" aria-hidden />
       </p>
     </div>
@@ -96,7 +96,7 @@ function HeroCard({ totals, loading, cash }: { totals: Totals | undefined; loadi
           </div>
         </div>
       </div>
-      <p className="p-caption border-t border-hairline p-3">{formatDhakaDate(new Date().toISOString())}</p>
+      <p className="p-caption border-t border-hairline p-3">{formatDhakaDateTime(new Date().toISOString())}</p>
     </Card>
   );
 }

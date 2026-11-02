@@ -11,7 +11,7 @@ import { Btn, Card, Field, Notice, PageTitle } from 'components/ui/base';
 import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
 import { mapError } from 'lib/errors';
-import { formatDhakaDate, formatMoney, toBnDigits } from '@patabin/shared';
+import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 
 export default function PacketsPage() {
@@ -274,7 +274,7 @@ function PacketDetailSheet({ p, onClose }: { p: PacketRow; onClose: () => void }
                         <div className="min-w-0">
                           <p className="truncate font-semibold">{x.customer_name || 'ক্রেতা'}</p>
                           <p className="p-caption text-ink-mute">
-                            {walletDisplay({ type: x.type, label: x.label })} · {formatDhakaDate(x.at)}
+                            {walletDisplay({ type: x.type, label: x.label })} · {formatDhakaDateTime(x.at)}
                           </p>
                         </div>
                         <p className="font-semibold text-good">{formatMoney(x.amount)}</p>
@@ -295,7 +295,7 @@ function PacketDetailSheet({ p, onClose }: { p: PacketRow; onClose: () => void }
                           </p>
                           <p className="p-caption text-ink-mute">
                             {a.person ? `${a.person} · ` : ''}
-                            {formatDhakaDate(a.at)}
+                            {formatDhakaDateTime(a.at)}
                           </p>
                         </div>
                       </div>
@@ -311,7 +311,7 @@ function PacketDetailSheet({ p, onClose }: { p: PacketRow; onClose: () => void }
                       <div key={i} className="flex items-center justify-between gap-3 py-2 text-sm">
                         <div className="min-w-0">
                           <p className="font-semibold">{u.eater_name || 'পার্টনার'}</p>
-                          <p className="p-caption text-ink-mute">{formatDhakaDate(u.at)}</p>
+                          <p className="p-caption text-ink-mute">{formatDhakaDateTime(u.at)}</p>
                         </div>
                         <p className="text-sm font-semibold">{toBnDigits(u.qty)} পিস</p>
                       </div>
