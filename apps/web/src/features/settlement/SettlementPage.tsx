@@ -18,8 +18,11 @@ type SettlementRow = {
   expenses_attributed: number;
   pocket_paid: number;
   entitlement: number;
+  pcs_out: number;
 };
 type ChalanRow = { id: string; code: string; status: string; purchase_date: string };
+
+const ESTIMATE_SELL_RATE = 300;
 
 export default function SettlementPage() {
   usePageTitle('হিসাব মেটানো');
@@ -62,6 +65,15 @@ function ChalanSettlement({ chalan }: { chalan: ChalanRow }) {
     },
     enabled: true,
   });
+  const { data: packetPcs = [] } = useQuery({
+    queryKey: ['settlement-packet-pcs', chalan.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('packets').select('owner_partner_id, total_pcs').eq('chalan_id', chalan.id).is('deleted_at', null);
+      if (error) throw error;
+      return (data ?? []) as { owner_partner_id: string; total_pcs: number }[];
+    },
+  });
+  const totalPcsBy = (partnerId: string) => packetPcs.filter((p) => p.owner_partner_id === partnerId).reduce((sum, p) => sum + p.total_pcs, 0);
 
   return (
     <div className="card overflow-x-auto">
@@ -85,20 +97,29 @@ function ChalanSettlement({ chalan }: { chalan: ChalanRow }) {
               <th className="p-3 font-semibold">লাভ</th>
               <th className="p-3 font-semibold">নিজের খরচ</th>
               <th className="p-3 font-semibold">প্রাপ্য</th>
+              <th className="p-3 font-semibold">সম্ভাব্য</th>
             </tr>
           </thead>
           <tbody>
-            {(rows ?? []).map((s) => (
-              <tr key={s.chalan_id + s.partner_id} className="border-b border-hairline last:border-0">
-                <td className="p-3">{s.partner_name}</td>
-                <td className="p-3">{formatMoney(s.capital)}</td>
-                <td className="p-3">{formatMoney(Number(s.ext_rev) + Number(s.internal_rev))}</td>
-                <td className="p-3">{formatMoney(s.cost)}</td>
-                <td className="p-3">{formatMoney(s.profit)}</td>
-                <td className="p-3">{formatMoney(Number(s.expenses_attributed) - Number(s.pocket_paid) + Number(s.consumption_due))}</td>
-                <td className="p-3 font-semibold">{formatMoney(s.entitlement)}</td>
-              </tr>
-            ))}
+            {(rows ?? []).map((s) => {
+              const remainingPcs = totalPcsBy(s.partner_id) - Number(s.pcs_out);
+              const estimated = Number(s.entitlement) + remainingPcs * ESTIMATE_SELL_RATE;
+              return (
+                <tr key={s.chalan_id + s.partner_id} className="border-b border-hairline last:border-0">
+                  <td className="p-3">{s.partner_name}</td>
+                  <td className="p-3">{formatMoney(s.capital)}</td>
+                  <td className="p-3">{formatMoney(Number(s.ext_rev) + Number(s.internal_rev))}</td>
+                  <td className="p-3">{formatMoney(s.cost)}</td>
+                  <td className="p-3">{formatMoney(s.profit)}</td>
+                  <td className="p-3">{formatMoney(Number(s.expenses_attributed) - Number(s.pocket_paid) + Number(s.consumption_due))}</td>
+                  <td className="p-3 font-semibold">{formatMoney(s.entitlement)}</td>
+                  <td className="p-3">
+                    {formatMoney(estimated)}
+                    <span className="p-caption block text-ink-mute">বাকি {remainingPcs} পিস × {ESTIMATE_SELL_RATE}</span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
