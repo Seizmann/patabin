@@ -1,4 +1,4 @@
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:4a2c12,50:8b5a2b,100:d2a679&height=180&section=header&text=PataBin&fontSize=64&fontColor=fff8f0&fontAlignY=32&desc=Bangla-first%20bookkeeping%20for%20chocolate%20resale&descSize=18&descAlignY=55&descColor=f3e3cf&animation=fadeIn" width="100%" />
+<img src="https://capsule-render.vercel.app/api?type=venom&color=0:4a2c12,50:8b5a2b,100:d2a679&height=200&section=header&text=PataBin&fontSize=68&fontColor=fff8f0&fontAlignY=33&desc=Bangla-first%20bookkeeping%20for%20chocolate%20resale&descSize=18&descAlignY=57&descColor=f3e3cf&animation=blinking" width="100%" />
 
 <div align="center">
 
@@ -6,7 +6,7 @@
 
 <br />
 
-<img src="https://readme-typing-svg.demolab.com?font=Noto+Sans+Bengali:wght@600&size=22&duration=2800&pause=900&color=8B5A2B&center=true&vCenter=true&multiline=false&repeat=true&width=760&lines=স্টক+%C2%B7+%E0%A6%AC%E0%A6%BF%E0%A6%95%E0%A7%8D%E0%A6%B0%E0%A6%BF+%C2%B7+%E0%A6%AA%E0%A6%BE%E0%A6%B0%E0%A7%8D%E0%A6%9F%E0%A6%A8%E0%A6%BE%E0%A6%B0+%E0%A6%B9%E0%A6%BF%E0%A6%B8%E0%A6%BE%E0%A6%AC;Bangla-first+bookkeeping%2C+built+for+chocolate+resale;Own-stock+model+%E2%80%94+clear+partner+balances;Installable+PWA+%E2%80%94+works+offline" alt="Animated tagline" />
+<img src="https://readme-typing-svg.demolab.com?font=Noto+Sans+Bengali:wght@600&size=24&duration=2600&pause=1100&color=C07343&center=true&vCenter=true&multiline=false&repeat=true&width=780&height=52&lines=%F0%9F%8D%AB+%E0%A6%B8%E0%A7%8D%E0%A6%9F%E0%A6%95+%C2%B7+%E0%A6%AC%E0%A6%BF%E0%A6%95%E0%A7%8D%E0%A6%B0%E0%A6%BF+%C2%B7+%E0%A6%AA%E0%A6%BE%E0%A6%B0%E0%A7%8D%E0%A6%9F%E0%A6%A8%E0%A6%BE%E0%A6%B0+%E0%A6%B9%E0%A6%BF%E0%A6%B8%E0%A6%BE%E0%A6%AC;%F0%9F%93%A6+%E0%A6%AA%E0%A7%8D%E0%A6%AF%E0%A6%BE%E0%A6%95%E0%A7%87%E0%A6%9F+%E0%A6%AD%E0%A6%BE%E0%A6%99%E0%A6%BF+%E0%A6%AA%E0%A6%BF%E0%A6%9B+%E0%A6%AC%E0%A6%BF%E0%A6%95%E0%A7%8D%E0%A6%B0%E0%A6%BF;%F0%9F%92%B0+%E0%A6%BD%E0%A6%BE%E0%A6%93%E0%A6%B2+%E0%A6%AA%E0%A6%BE%E0%A6%B0%E0%A7%8D%E0%A6%9F%E0%A6%A8%E0%A6%BE%E0%A6%B0%E0%A7%87%E0%A6%B0+%E0%A6%B8%E0%A7%8D%E0%A6%AA%E0%A6%B7%E0%A7%8D%E0%A6%9F+%E0%A6%B9%E0%A6%BF%E0%A6%B8%E0%A6%BE%E0%A6%AC;Bangla-first+bookkeeping%2C+built+for+chocolate+resale;Own-stock+model+%E2%80%94+clear+partner+balances;Installable+PWA+%E2%80%94+works+offline" alt="Animated tagline" />
 
 <br />
 
@@ -155,4 +155,4 @@ See [LICENSE](./LICENSE) for the full text.
 
 ---
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:d2a679,50:8b5a2b,100:4a2c12&height=120&section=footer&text=Mohammad%20Sijan%20%C2%B7%20SpritexAI&fontSize=22&fontColor=fff8f0&fontAlignY=65&desc=sijan.pro.bd%20%C2%B7%20spritexai.pro.bd&descSize=13&descAlignY=85&descColor=f3e3cf&animation=fadeIn" width="100%" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:d2a679,50:8b5a2b,100:4a2c12&height=130&section=footer&text=Mohammad%20Sijan%20%C2%B7%20SpritexAI&fontSize=24&fontColor=fff8f0&fontAlignY=62&desc=sijan.pro.bd%20%C2%B7%20spritexai.pro.bd&descSize=13&descAlignY=82&descColor=f3e3cf&stroke=d2a679&strokeWidth=2&animation=twinkling" width="100%" />
