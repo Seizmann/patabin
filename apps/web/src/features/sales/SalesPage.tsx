@@ -10,13 +10,13 @@ import { Plus, X } from '@phosphor-icons/react';
 import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 import { mapError } from 'lib/errors';
-import { useAuth } from 'lib/auth';
+import { useWriteGuard } from 'hooks/useWriteGuard';
 import emptySales from 'assets/images/empty/empty-sales.png';
 
 export default function SalesPage() {
   usePageTitle('বিক্রির তালিকা');
   const qc = useQueryClient();
-  const { readOnly } = useAuth();
+  const { guard, denied } = useWriteGuard();
   const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('chalan');
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<SaleRowV | null>(null);
@@ -47,11 +47,9 @@ export default function SalesPage() {
         right={
           <div className="flex items-center gap-2">
             <PeriodSelect period={period} setPeriod={setPeriod} customFrom={customFrom} customTo={customTo} setCustomFrom={setCustomFrom} setCustomTo={setCustomTo} showAll />
-            {!readOnly && (
-              <button type="button" aria-label="নতুন বিক্রি" className="btn grid h-11 w-11 place-items-center p-0" onClick={() => setSheetOpen(true)}>
-                <Plus weight="bold" size={20} />
-              </button>
-            )}
+            <button type="button" aria-label="নতুন বিক্রি" className="btn grid h-11 w-11 place-items-center p-0" onClick={guard(() => setSheetOpen(true))}>
+              <Plus weight="bold" size={20} />
+            </button>
           </div>
         }
       />
@@ -59,7 +57,8 @@ export default function SalesPage() {
       {isPending && <TableSkeleton />}
       {isError && <Notice tone="error">ডেটা আনতে সমস্যা হয়েছে</Notice>}
       {rows?.length === 0 && <Empty img={emptySales} title="কোনো বিক্রি নেই" caption="নতুন বিক্রি যুক্ত করে শুরু করুন।" />}
-      {rows && rows.length > 0 && <SalesTable rows={rows} readOnly={readOnly} onEdit={setEditing} onDelete={(id) => void del(id)} onDetail={setDetail} />}
+      {rows && rows.length > 0 && <SalesTable rows={rows} onEdit={(r) => guard(() => setEditing(r))} onDelete={(id) => guard(() => void del(id))} onDetail={setDetail} />}
+      {denied}
       {sheetOpen && (
         <div className="fixed inset-0 z-40 flex items-end overflow-y-auto bg-black/40 sm:items-center sm:p-6">
           <div role="dialog" aria-modal="true" className="w-full max-h-[92vh] overflow-y-auto rounded-b-3xl border-0 sm:mx-auto sm:max-w-lg sm:rounded-3xl">
@@ -100,7 +99,7 @@ async function invalidate(qc: ReturnType<typeof useQueryClient>) {
   await Promise.all(['sales', 'packets', 'packets-preview', 'dashboard', 'balances', 'wallets', 'customers'].map((k) => qc.invalidateQueries({ queryKey: [k] })));
 }
 
-function SalesTable({ rows, readOnly, onEdit, onDelete, onDetail }: { rows: SaleRowV[]; readOnly: boolean; onEdit: (r: SaleRowV) => void; onDelete: (id: string) => void; onDetail: (r: SaleRowV) => void }) {
+function SalesTable({ rows, onEdit, onDelete, onDetail }: { rows: SaleRowV[]; onEdit: (r: SaleRowV) => void; onDelete: (id: string) => void; onDetail: (r: SaleRowV) => void }) {
   return (
     <div className="card overflow-x-auto">
       <table className="w-full text-sm">
@@ -113,7 +112,7 @@ function SalesTable({ rows, readOnly, onEdit, onDelete, onDetail }: { rows: Sale
             <th className="p-3 font-semibold">ছাড়</th>
             <th className="p-3 font-semibold">প্যাকেট</th>
             <th className="p-3 font-semibold">মাধ্যম</th>
-            {!readOnly && <th className="p-3" />}
+            <th className="p-3" />
           </tr>
         </thead>
         <tbody>
@@ -131,18 +130,16 @@ function SalesTable({ rows, readOnly, onEdit, onDelete, onDetail }: { rows: Sale
               <td className="p-3">{Number(r.discount) ? formatMoney(r.discount) : '-'}</td>
               <td className="p-3 text-xs">{r.packet_codes}</td>
               <td className="p-3 text-xs">{r.wallet_details || (r.wallet_name ? `${r.wallet_name} ··${r.wallet_label.slice(-2)}` : r.wallet_label)}</td>
-              {!readOnly && (
-                <td className="p-3">
-                  <div className="flex justify-end gap-2">
-                    <Btn variant="ghost" onClick={() => onEdit(r)}>
-                      সম্পাদনা
-                    </Btn>
-                    <Btn variant="ghost" onClick={() => onDelete(r.id)}>
-                      মুছুন
-                    </Btn>
-                  </div>
-                </td>
-              )}
+              <td className="p-3">
+                <div className="flex justify-end gap-2">
+                  <Btn variant="ghost" onClick={() => onEdit(r)}>
+                    সম্পাদনা
+                  </Btn>
+                  <Btn variant="ghost" onClick={() => onDelete(r.id)}>
+                    মুছুন
+                  </Btn>
+                </div>
+              </td>
             </tr>
           ))}
         </tbody>

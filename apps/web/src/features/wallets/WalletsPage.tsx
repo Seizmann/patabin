@@ -9,6 +9,7 @@ import TimeInput from 'components/forms/TimeInput';
 import { fetchPartners, myPartnerId } from 'lib/api';
 import { usePeriodFilter } from 'components/PeriodFilter';
 import { mapError } from 'lib/errors';
+import { useWriteGuard } from 'hooks/useWriteGuard';
 import { formatDhakaDateTime, formatMoney } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 import offlineImg from 'assets/images/empty/offline.png';
@@ -17,7 +18,7 @@ type WalletBalance = { wallet_id: string; type: string; name: string; label: str
 
 export default function WalletsPage() {
   usePageTitle('ওয়ালেট');
-  const { suAdmin, readOnly } = useAuth();
+  const { suAdmin } = useAuth();
   const { start, end } = usePeriodFilter('chalan');
   const { data: wallets = [], isPending } = useQuery({
     queryKey: ['wallets-all', start, end],
@@ -45,17 +46,18 @@ export default function WalletsPage() {
         ))}
       </div>
 
-      <AccountsCard wallets={wallets.map((w) => ({ id: w.wallet_id, type: w.type, name: w.name, label: w.label, is_active: w.is_active }))} suAdmin={suAdmin} readOnly={readOnly} />
-      <TransferCard wallets={wallets} partners={partners} myId={myId ?? null} readOnly={readOnly} />
-      <WithdrawCard wallets={wallets} partners={partners} myId={myId ?? null} readOnly={readOnly} />
+      <AccountsCard wallets={wallets.map((w) => ({ id: w.wallet_id, type: w.type, name: w.name, label: w.label, is_active: w.is_active }))} suAdmin={suAdmin} />
+      <TransferCard wallets={wallets} partners={partners} myId={myId ?? null} />
+      <WithdrawCard wallets={wallets} partners={partners} myId={myId ?? null} />
 
       <MfsNote partners={partners} myId={myId ?? null} />
     </div>
   );
 }
 
-function TransferCard({ wallets, partners, readOnly }: { wallets: WalletBalance[]; partners: { id: string; name: string }[]; myId: string | null; readOnly: boolean }) {
+function TransferCard({ wallets, partners }: { wallets: WalletBalance[]; partners: { id: string; name: string }[]; myId: string | null }) {
   const qc = useQueryClient();
+  const { guard, denied } = useWriteGuard();
   const [fromId, setFromId] = useState('');
   const [toId, setToId] = useState('');
   const [amount, setAmount] = useState('');
@@ -108,8 +110,7 @@ function TransferCard({ wallets, partners, readOnly }: { wallets: WalletBalance[
   return (
     <Card className="p-6">
       <p className="p-label mb-4">স্থানান্তর</p>
-      {!readOnly && (
-        <form onSubmit={submit} noValidate className="grid grid-cols-2 gap-4">
+      <form onSubmit={guard(submit)} noValidate className="grid grid-cols-2 gap-4">
         <Field label="কোথা থেকে">
           <select className="field" value={fromId} onChange={(e) => setFromId(e.target.value)}>
             <option value="">-- নির্বাচন করুন --</option>
@@ -163,8 +164,8 @@ function TransferCard({ wallets, partners, readOnly }: { wallets: WalletBalance[
           {ok && <Notice tone="ok">{ok}</Notice>}
           {error && <Notice tone="error">{error}</Notice>}
         </div>
-        </form>
-      )}
+      </form>
+      {denied}
       <TransfersTable />
     </Card>
   );
@@ -221,8 +222,9 @@ function TransfersTable() {
   );
 }
 
-function WithdrawCard({ wallets, partners, myId, readOnly }: { wallets: WalletBalance[]; partners: { id: string; name: string }[]; myId: string | null; readOnly: boolean }) {
+function WithdrawCard({ wallets, partners, myId }: { wallets: WalletBalance[]; partners: { id: string; name: string }[]; myId: string | null }) {
   const qc = useQueryClient();
+  const { guard, denied } = useWriteGuard();
   const [wallet, setWallet] = useState('');
   const [amount, setAmount] = useState('');
   const [partnerId, setPartnerId] = useState('');
@@ -295,10 +297,8 @@ function WithdrawCard({ wallets, partners, myId, readOnly }: { wallets: WalletBa
   return (
     <Card className="p-6">
       <p className="p-label mb-4">নিজের টাকা তুলুন</p>
-      {!readOnly && (
-        <>
-        {hasOpenChalan && <Notice tone="error">চালান খোলা আছে; চালান বন্ধ হলে টাকা তোলা যাবে।</Notice>}
-        <form onSubmit={submit} noValidate className="grid grid-cols-2 gap-4">
+      {hasOpenChalan && <Notice tone="error">চালান খোলা আছে; চালান বন্ধ হলে টাকা তোলা যাবে।</Notice>}
+      <form onSubmit={guard(submit)} noValidate className="grid grid-cols-2 gap-4">
         <Field label="শূন্য ধরার পার্টনার">
           <select className="field" value={partnerId} onChange={(e) => setPartnerId(e.target.value)}>
             <option value="">নিজে</option>
@@ -335,9 +335,8 @@ function WithdrawCard({ wallets, partners, myId, readOnly }: { wallets: WalletBa
           {ok && <Notice tone="ok">{ok}</Notice>}
           {error && <Notice tone="error">{error}</Notice>}
         </div>
-        </form>
-        </>
-      )}
+      </form>
+      {denied}
       {effectivePartner && !hasOpenChalan && (
         <p className={`p-caption mt-3 ${exceeds ? 'text-bad' : 'text-ink-mute'}`}>
           {effectivePartner && partners.find((p) => p.id === effectivePartner)?.name ? `${partners.find((p) => p.id === effectivePartner)?.name} — ` : 'আপনার — '}ব্যালেন্স: {formatMoney(partnerBalance)}
@@ -451,8 +450,9 @@ function WithdrawalDetailSheet({ w, partners, onClose }: { w: WithdrawalRow; par
   );
 }
 
-function AccountsCard({ wallets, suAdmin, readOnly }: { wallets: { id: string; type: string; name: string; label: string; is_active: boolean }[]; suAdmin: boolean; readOnly: boolean }) {
+function AccountsCard({ wallets, suAdmin }: { wallets: { id: string; type: string; name: string; label: string; is_active: boolean }[]; suAdmin: boolean }) {
   const qc = useQueryClient();
+  const { guard, denied } = useWriteGuard();
   const [type, setType] = useState('bkash');
   const [name, setName] = useState('');
   const [label, setLabel] = useState('');
@@ -496,8 +496,8 @@ function AccountsCard({ wallets, suAdmin, readOnly }: { wallets: { id: string; t
         {mfs.map((w) => (
           <div key={w.id} className="flex items-center justify-between py-2">
             <span>{walletDisplay(w)}{w.is_active ? '' : ' (নিষ্ক্রিয়)'}</span>
-            {w.is_active && !readOnly && (
-              <Btn variant="ghost" onClick={() => void deactivate(w.id)}>
+            {w.is_active && (
+              <Btn variant="ghost" onClick={guard(() => void deactivate(w.id))}>
                 নিষ্ক্রিয় করুন
               </Btn>
             )}
@@ -505,8 +505,7 @@ function AccountsCard({ wallets, suAdmin, readOnly }: { wallets: { id: string; t
         ))}
         {mfs.length === 0 && <p className="p-caption py-2 text-ink-mute">এখনো কোনো এমএফএস অ্যাকাউন্ট নেই।</p>}
       </div>
-      {!readOnly && (
-        <form onSubmit={add} noValidate className="mt-4 grid grid-cols-2 gap-4">
+      <form onSubmit={guard(add)} noValidate className="mt-4 grid grid-cols-2 gap-4">
         <Field label="ধরন">
           <select className="field" value={type} onChange={(e) => setType(e.target.value)}>
             <option value="bkash">বিকাশ</option>
@@ -525,8 +524,8 @@ function AccountsCard({ wallets, suAdmin, readOnly }: { wallets: { id: string; t
           </Btn>
           {error && <Notice tone="error">{error}</Notice>}
         </div>
-        </form>
-      )}
+      </form>
+      {denied}
     </Card>
   );
 }
