@@ -5,7 +5,13 @@ import { useAuth } from 'lib/auth';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Card, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
 
-type ProfileRow = { id: string; role: 'su_admin' | 'patabin_admin'; display_name: string; is_active: boolean; must_change_password: boolean };
+type ProfileRow = { id: string; role: 'su_admin' | 'patabin_admin' | 'patabin_partner'; display_name: string; is_active: boolean; must_change_password: boolean };
+
+const ROLE_BN: Record<ProfileRow['role'], string> = {
+  su_admin: 'সুপার অ্যাডমিন',
+  patabin_admin: 'অ্যাডমিন',
+  patabin_partner: 'ইনভেস্টর',
+};
 
 const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`;
 
@@ -110,6 +116,7 @@ export default function UsersPage() {
               <select className="field" value={role} onChange={(e) => setRole(e.target.value)}>
                 <option value="patabin_admin">অ্যাডমিন</option>
                 <option value="su_admin">অ্যাডমিন (সুপার)</option>
+                <option value="patabin_partner">ইনভেস্টর</option>
               </select>
             </Field>
             <div className="col-span-2">
@@ -134,7 +141,7 @@ export default function UsersPage() {
           <div>
             <p className="p-title">{p.display_name}</p>
             <p className="p-caption">
-              {p.role === 'su_admin' ? 'সুপার অ্যাডমিন' : 'অ্যাডমিন'} · {p.is_active ? 'সক্রিয়' : 'নিষ্ক্রিয়'}
+              {ROLE_BN[p.role]} · {p.is_active ? 'সক্রিয়' : 'নিষ্ক্রিয়'}
               {p.must_change_password ? ' · পাসওয়ার্ড বদলাতে হবে' : ''}
             </p>
           </div>
@@ -146,13 +153,18 @@ export default function UsersPage() {
               পাসওয়ার্ড রিসেট
             </Btn>
             {session?.user.id !== p.id && (
-              <Btn
-                variant="ghost"
-                busy={busyId === p.id}
-                onClick={() => void run(p.id, 'set_role', { user_id: p.id, role: p.role === 'su_admin' ? 'patabin_admin' : 'su_admin' })}
-              >
-                ভূমিকা বদল
-              </Btn>
+              <Field label="ভূমিকা">
+                <select
+                  className="field min-h-[44px] w-auto py-1.5"
+                  value={p.role}
+                  disabled={busyId === p.id}
+                  onChange={(e) => void run(p.id, 'set_role', { user_id: p.id, role: e.target.value })}
+                >
+                  {p.role !== 'patabin_admin' && <option value="patabin_admin">অ্যাডমিন</option>}
+                  {p.role !== 'su_admin' && <option value="su_admin">অ্যাডমিন (সুপার)</option>}
+                  {p.role !== 'patabin_partner' && <option value="patabin_partner">ইনভেস্টর</option>}
+                </select>
+              </Field>
             )}
           </div>
         </Card>

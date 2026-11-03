@@ -7,12 +7,14 @@ import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Card, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import NumberInput from 'components/forms/NumberInput';
 import { mapError } from 'lib/errors';
+import { useAuth } from 'lib/auth';
 import { formatDhakaDate, formatMoney } from '@patabin/shared';
 
 export default function ChalanDetailPage() {
   const { code = '' } = useParams();
   usePageTitle(`চালান ${code}`);
   const qc = useQueryClient();
+  const { readOnly } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -81,7 +83,7 @@ export default function ChalanDetailPage() {
         {purchases.data?.length === 0 && <p className="p-caption">কিছু নেই</p>}
       </Card>
 
-      {!closed && id && purchases.data && settlements.data && packets && (
+      {!closed && !readOnly && id && purchases.data && settlements.data && packets && (
         <AdjustCard chalanId={id} purchases={purchases.data} settlements={settlements.data} packets={packets} />
       )}
 
@@ -120,19 +122,21 @@ export default function ChalanDetailPage() {
         </div>
       </Card>
 
-      <div className="flex items-center gap-3">
-        {!closed && (
-          <Btn busy={busy} onClick={() => run(() => closeChalan(id!))}>
-            চালান বন্ধ করুন
-          </Btn>
-        )}
-        {closed && (
-          <Btn variant="ghost" busy={busy} onClick={() => run(() => reopenChalan(id!))}>
-            আবার খুলুন
-          </Btn>
-        )}
-        {error && <Notice tone="error">{error}</Notice>}
-      </div>
+      {!readOnly && (
+        <div className="flex items-center gap-3">
+          {!closed && (
+            <Btn busy={busy} onClick={() => run(() => closeChalan(id!))}>
+              চালান বন্ধ করুন
+            </Btn>
+          )}
+          {closed && (
+            <Btn variant="ghost" busy={busy} onClick={() => run(() => reopenChalan(id!))}>
+              আবার খুলুন
+            </Btn>
+          )}
+          {error && <Notice tone="error">{error}</Notice>}
+        </div>
+      )}
       <p className="p-caption">তারিখ: {chalan.data && formatDhakaDate(chalan.data.purchase_date)} · কেনার দাম {chalan.data && formatMoney(chalan.data.buy_rate)}</p>
     </div>
   );

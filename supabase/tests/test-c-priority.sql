@@ -7,6 +7,8 @@ delete from public.expenses;
 delete from public.stock_adjustments;
 delete from public.personal_uses;
 delete from public.sale_allocations;
+delete from public.customer_payment_allocations;
+delete from public.customer_payments;
 delete from public.sale_receives;
 delete from public.sales;
 delete from public.sell_priority;

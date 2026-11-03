@@ -1415,7 +1415,7 @@ export type Database = {
       update_sale: { Args: { p_id: string; p_sale: Json }; Returns: undefined }
     }
     Enums: {
-      user_role: "su_admin" | "patabin_admin"
+      user_role: "su_admin" | "patabin_admin" | "patabin_partner"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1543,7 +1543,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      user_role: ["su_admin", "patabin_admin"],
+      user_role: ["su_admin", "patabin_admin", "patabin_partner"],
     },
   },
 } as const

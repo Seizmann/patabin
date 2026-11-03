@@ -9,6 +9,7 @@ import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import TimeInput from 'components/forms/TimeInput';
 import NumberInput from 'components/forms/NumberInput';
 import { mapError } from 'lib/errors';
+import { useAuth } from 'lib/auth';
 import { formatDhakaDateTime, formatMoney } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 import emptyExpenses from 'assets/images/empty/empty-expenses.png';
@@ -16,6 +17,7 @@ import emptyExpenses from 'assets/images/empty/empty-expenses.png';
 export default function ExpensesPage() {
   usePageTitle('খরচ');
   const qc = useQueryClient();
+  const { readOnly } = useAuth();
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
   const [paidBy, setPaidBy] = useState('');
@@ -103,7 +105,8 @@ export default function ExpensesPage() {
           <PeriodSelect period={period} setPeriod={setPeriod} customFrom={customFrom} customTo={customTo} setCustomFrom={setCustomFrom} setCustomTo={setCustomTo} showAll />
         }
       />
-      <form onSubmit={submit} noValidate className="card grid grid-cols-2 gap-4 p-6">
+      {!readOnly && (
+        <form onSubmit={submit} noValidate className="card grid grid-cols-2 gap-4 p-6">
         <Field label="ক্যাটাগরি">
           <select className="field" value={category} onChange={(e) => setCategory(e.target.value)}>
             <option value="">-- নির্বাচন করুন --</option>
@@ -175,7 +178,8 @@ export default function ExpensesPage() {
           {ok && <Notice tone="ok">{ok}</Notice>}
           {error && <Notice tone="error">{error}</Notice>}
         </div>
-      </form>
+        </form>
+      )}
 
       {isPending && (
         <div className="flex flex-col gap-2" aria-busy>
@@ -194,7 +198,7 @@ export default function ExpensesPage() {
                 <th className="p-3 font-semibold">ক্যাটাগরি</th>
                 <th className="p-3 font-semibold">বিবরণ</th>
                 <th className="p-3 font-semibold">টাকা</th>
-                <th className="p-3" />
+                {!readOnly && <th className="p-3" />}
               </tr>
             </thead>
             <tbody>
@@ -207,11 +211,13 @@ export default function ExpensesPage() {
                     {x.chalan_id ? ` · ${chalans.find((c) => c.id === x.chalan_id)?.code ?? ''}` : ''}
                   </td>
                   <td className="p-3">{formatMoney(x.amount)}</td>
-                  <td className="p-3 text-right">
-                    <Btn variant="ghost" onClick={() => void del(x.id)}>
-                      মুছুন
-                    </Btn>
-                  </td>
+                  {!readOnly && (
+                    <td className="p-3 text-right">
+                      <Btn variant="ghost" onClick={() => void del(x.id)}>
+                        মুছুন
+                      </Btn>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

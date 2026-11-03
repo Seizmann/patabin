@@ -3,17 +3,18 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from 'lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 
-type Profile = { id: string; role: 'su_admin' | 'patabin_admin'; display_name: string; must_change_password: boolean; is_active: boolean };
+type Profile = { id: string; role: 'su_admin' | 'patabin_admin' | 'patabin_partner'; display_name: string; must_change_password: boolean; is_active: boolean };
 
 type AuthState = {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
   suAdmin: boolean;
+  readOnly: boolean;
   refreshProfile: () => void;
 };
 
-const Ctx = createContext<AuthState>({ session: null, profile: null, loading: true, suAdmin: false, refreshProfile: () => {} });
+const Ctx = createContext<AuthState>({ session: null, profile: null, loading: true, suAdmin: false, readOnly: false, refreshProfile: () => {} });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -55,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile: data as AuthState['profile'] ?? null,
       loading: loading || (!!session && data === undefined),
       suAdmin: data?.role === 'su_admin',
+      readOnly: data?.role === 'patabin_partner',
       refreshProfile: () => void refetch(),
     }),
     [session, data, loading, uid, refetch],

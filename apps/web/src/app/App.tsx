@@ -4,7 +4,7 @@ import { lazy, Suspense } from 'react';
 import { AuthProvider } from 'lib/auth';
 import { useIdleSignout } from 'hooks/useIdleSignout';
 import AppShell from 'components/layout/AppShell';
-import { GuestOnly, RequireAuth, RequireSu } from './guards';
+import { GuestOnly, RequireAuth, RequireSu, RequireWrite } from './guards';
 import Unknown from 'features/notfound/UnknownPage';
 
 const LoginPage = lazy(() => import('features/auth/LoginPage'));
@@ -68,10 +68,14 @@ export default function App() {
               <Route element={<AppShell />}>
                 <Route path="/" element={<Page><DashboardPage /></Page>} />
                 <Route path="/sales" element={<Page><SalesPage /></Page>} />
-                <Route path="/sales/new" element={<Page><NewSalePage /></Page>} />
+                <Route element={<RequireWriteRoute to="/sales" />}>
+                  <Route path="/sales/new" element={<Page><NewSalePage /></Page>} />
+                </Route>
                 <Route path="/personal-use" element={<Page><PersonalUsePage /></Page>} />
                 <Route path="/chalans" element={<Page><ChalansPage /></Page>} />
-                <Route path="/chalans/new" element={<Page><NewChalanPage /></Page>} />
+                <Route element={<RequireWriteRoute to="/chalans" />}>
+                  <Route path="/chalans/new" element={<Page><NewChalanPage /></Page>} />
+                </Route>
                 <Route path="/chalans/:code" element={<Page><ChalanDetailPage /></Page>} />
                 <Route path="/packets" element={<Page><PacketsPage /></Page>} />
                 <Route path="/customers" element={<Page><CustomersPage /></Page>} />
@@ -102,4 +106,8 @@ function RequireAuthApp() {
 
 function RequireSuRoute() {
   return <RequireSu />;
+}
+
+function RequireWriteRoute({ to }: { to: string }) {
+  return <RequireWrite fallback={to} />;
 }

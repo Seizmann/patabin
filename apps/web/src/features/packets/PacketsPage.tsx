@@ -11,12 +11,14 @@ import { Btn, Card, Field, Notice, PageTitle } from 'components/ui/base';
 import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
 import { mapError } from 'lib/errors';
+import { useAuth } from 'lib/auth';
 import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 
 export default function PacketsPage() {
   usePageTitle('প্যাকেট');
   const qc = useQueryClient();
+  const { readOnly } = useAuth();
   const { data: all = [], isPending } = useQuery({ queryKey: ['packets'], queryFn: fetchPackets });
   const { data: openChalans = [] } = useQuery({
     queryKey: ['open-chalan-pack'],
@@ -88,7 +90,7 @@ export default function PacketsPage() {
                 {order.map((id) => {
                   const p = packets.find((x) => x.packet_id === id);
                   if (!p) return null;
-                  return <PacketCard key={id} p={p} busy={busy} onOpen={() => setDetail(p)} />;
+                  return <PacketCard key={id} p={p} busy={busy} readOnly={readOnly} onOpen={() => setDetail(p)} />;
                 })}
               </div>
             </SortableContext>
@@ -102,15 +104,15 @@ export default function PacketsPage() {
         </>
       )}
 
-      {openChalans.map((c) => (
+      {!readOnly && openChalans.map((c) => (
         <PackSheet key={c.id} chalanId={c.id} code={c.code} size={c.pcs_per_packet} onDone={() => qc.invalidateQueries({ queryKey: ['packets'] })} />
       ))}
     </div>
   );
 }
 
-function PacketCard({ p, busy, onOpen }: { p: PacketRow; busy: boolean; onOpen: () => void }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: p.packet_id });
+function PacketCard({ p, busy, readOnly, onOpen }: { p: PacketRow; busy: boolean; readOnly: boolean; onOpen: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: p.packet_id, disabled: readOnly });
   return (
     <div
       ref={setNodeRef}
@@ -119,16 +121,18 @@ function PacketCard({ p, busy, onOpen }: { p: PacketRow; busy: boolean; onOpen: 
       className={`card flex items-center gap-3 px-4 py-3 ${isDragging ? 'opacity-50' : ''}`}
       aria-label={`প্যাকেট ${p.packet_code} — বিস্তারিত খুলুন`}
     >
-      <button
-        type="button"
-        className="grid h-11 w-8 touch-none place-items-center text-ink-mute"
-        onClick={(e) => e.stopPropagation()}
-        {...listeners}
-        {...attributes}
-        aria-label={`প্যাকেট সরান ${p.packet_code}`}
-      >
-        <DotsSixVertical weight="regular" size={20} />
-      </button>
+      {!readOnly && (
+        <button
+          type="button"
+          className="grid h-11 w-8 touch-none place-items-center text-ink-mute"
+          onClick={(e) => e.stopPropagation()}
+          {...listeners}
+          {...attributes}
+          aria-label={`প্যাকেট সরান ${p.packet_code}`}
+        >
+          <DotsSixVertical weight="regular" size={20} />
+        </button>
+      )}
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold">
           {p.chalan_code}/{p.packet_code} · {p.owner_name}

@@ -13,10 +13,19 @@ export function RequireAuth(): ReactElement {
 }
 
 export function RequireSu(): ReactElement {
-  const { profile } = useAuth();
+  const { profile, suAdmin, loading } = useAuth();
   const loc = useLocation();
-  if (profile) return <Outlet />;
+  if (loading) return <RouteLoading />;
+  if (profile && suAdmin) return <Outlet />;
+  if (profile) return <Navigate to="/" replace />;
   return <Navigate to={loc.state?.from as string | undefined ?? '/login'} replace />;
+}
+
+export function RequireWrite({ fallback }: { fallback: string }): ReactElement {
+  const { readOnly, loading } = useAuth();
+  if (loading) return <RouteLoading />;
+  if (readOnly) return <Navigate to={fallback} replace />;
+  return <Outlet />;
 }
 
 export function GuestOnly(): ReactElement {
