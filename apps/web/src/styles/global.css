@@ -93,6 +93,17 @@ input, select, textarea { outline: none; }
   animation: shimmer 1.4s infinite;
 }
 @keyframes shimmer { to { transform: translateX(100%); } }
+@keyframes access-denied-backdrop { from { opacity: 0; } to { opacity: 1; } }
+@keyframes access-denied-pop {
+  0% { opacity: 0; transform: scale(.85) translateY(14px); }
+  60% { opacity: 1; transform: scale(1.03) translateY(0); }
+  100% { transform: scale(1); }
+}
+.access-denied-backdrop { animation: access-denied-backdrop .18s ease-out; }
+.access-denied-card { animation: access-denied-pop .3s cubic-bezier(.34, 1.56, .64, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .access-denied-backdrop, .access-denied-card { animation: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   .skeleton::after { animation: none; }
 }

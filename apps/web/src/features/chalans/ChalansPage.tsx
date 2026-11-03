@@ -6,14 +6,14 @@ import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { mapError } from 'lib/errors';
-import { useAuth } from 'lib/auth';
+import { useWriteGuard } from 'hooks/useWriteGuard';
 import { formatDhakaDate, formatMoney } from '@patabin/shared';
 import emptyChalan from 'assets/images/empty/empty-expenses.png';
 
 export default function ChalansPage() {
   usePageTitle('চালান');
   const qc = useQueryClient();
-  const { readOnly } = useAuth();
+  const { guard, pop, denied, canWrite } = useWriteGuard();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
@@ -46,9 +46,26 @@ export default function ChalansPage() {
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5">
-      <PageTitle tag="PataBin" title="চালান" right={!readOnly ? <Link to="/chalans/new" className="btn">{`+ নতুন চালান`}</Link> : undefined} />
+      <PageTitle
+        tag="PataBin"
+        title="চালান"
+        right={
+          <Link
+            to="/chalans/new"
+            className="btn"
+            onClick={(e) => {
+              if (!canWrite) return;
+              e.preventDefault();
+              pop();
+            }}
+          >
+            {`+ নতুন চালান`}
+          </Link>
+        }
+      />
       {error && <Notice tone="error">{error}</Notice>}
       {ok && <Notice tone="ok">{ok}</Notice>}
+      {denied}
       {isPending && (
         <div className="flex flex-col gap-2" aria-busy>
           {[0, 1, 2].map((n) => (
@@ -69,7 +86,7 @@ export default function ChalansPage() {
                 <th className="p-3 font-semibold">বাকি</th>
                 <th className="p-3 font-semibold">পুঁজি</th>
                 <th className="p-3 font-semibold">খরচ</th>
-                {!readOnly && <th className="p-3 font-semibold" />}
+                <th className="p-3 font-semibold" />
               </tr>
             </thead>
             <tbody>
@@ -92,19 +109,17 @@ export default function ChalansPage() {
                     <td className="p-3">{s ? `${s.remaining} পিস` : '-'}</td>
                     <td className="p-3">{s ? formatMoney(s.capital) : '-'}</td>
                     <td className="p-3">{s ? formatMoney(s.expenses) : '-'}</td>
-                    {!readOnly && (
-                      <td className="p-3">
-                        {c.status === 'open' ? (
-                          <Btn variant="ghost" busy={busy} onClick={() => void act(c.id, true)}>
-                            বন্ধ
-                          </Btn>
-                        ) : (
-                          <Btn variant="ghost" busy={busy} onClick={() => void act(c.id, false)}>
-                            খুলুন
-                          </Btn>
-                        )}
-                      </td>
-                    )}
+                    <td className="p-3">
+                      {c.status === 'open' ? (
+                        <Btn variant="ghost" busy={busy} onClick={guard(() => void act(c.id, true))}>
+                          বন্ধ
+                        </Btn>
+                      ) : (
+                        <Btn variant="ghost" busy={busy} onClick={guard(() => void act(c.id, false))}>
+                          খুলুন
+                        </Btn>
+                      )}
+                    </td>
                   </tr>
                 );
               })}

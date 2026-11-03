@@ -4,7 +4,7 @@ import { createCustomer, createPayment, deleteCustomer, fetchCustomerBalances, f
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { mapError } from 'lib/errors';
-import { useAuth } from 'lib/auth';
+import { useWriteGuard } from 'hooks/useWriteGuard';
 import { walletDisplay } from 'lib/wallet';
 import { Plus } from '@phosphor-icons/react';
 import NumberInput from 'components/forms/NumberInput';
@@ -16,7 +16,7 @@ type Line = { wallet: string; amount: string };
 export default function CustomersPage() {
   usePageTitle('কাস্টমার');
   const qc = useQueryClient();
-  const { readOnly } = useAuth();
+  const { guard, denied } = useWriteGuard();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [search, setSearch] = useState('');
@@ -138,8 +138,7 @@ export default function CustomersPage() {
     <div className="mx-auto flex max-w-3xl flex-col gap-5">
       <PageTitle tag="PataBin" title="কাস্টমার" />
       <Notice tone="info">বাকি টাকা (due): পাবে বোঝায় কাস্টমার দিবে; অতিরিক্ত দিলে উগরানো হবে।</Notice>
-      {!readOnly && (
-        <form onSubmit={add} noValidate className="card grid grid-cols-2 gap-4 p-6">
+      <form onSubmit={guard(add)} noValidate className="card grid grid-cols-2 gap-4 p-6">
         <Field label="নাম">
           <input className="field" value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
@@ -153,8 +152,8 @@ export default function CustomersPage() {
           {ok && <Notice tone="ok">{ok}</Notice>}
           {error && <Notice tone="error">{error}</Notice>}
         </div>
-        </form>
-      )}
+      </form>
+      {denied}
 
       {isPending && (
         <div className="flex flex-col gap-2" aria-busy>
@@ -189,7 +188,7 @@ export default function CustomersPage() {
                 <th className="p-3 font-semibold">নাম</th>
                 <th className="p-3 font-semibold">ফোন</th>
                 <th className="p-3 font-semibold">বাকি</th>
-                {!readOnly && <th className="p-3" />}
+                <th className="p-3" />
               </tr>
             </thead>
             <tbody>
@@ -204,21 +203,19 @@ export default function CustomersPage() {
                   <td className={`p-3 font-semibold ${Number(balances.find((b) => b.customer_id === c.id)?.balance ?? 0) > 0 ? 'text-bad' : 'text-ink'}`}>
                     {formatMoney(Number(balances.find((b) => b.customer_id === c.id)?.balance ?? 0))}
                   </td>
-                  {!readOnly && (
-                    <td className="p-3">
-                      <div className="flex justify-end gap-2">
-                        <Btn variant="ghost" onClick={() => setPayOpen(c)}>
-                          শোধ নিন
-                        </Btn>
-                        <Btn variant="ghost" onClick={() => setEditing(c)}>
-                          সম্পাদনা
-                        </Btn>
-                        <Btn variant="ghost" onClick={() => void del(c.id)}>
-                          মুছুন
-                        </Btn>
-                      </div>
-                    </td>
-                  )}
+                  <td className="p-3">
+                    <div className="flex justify-end gap-2">
+                      <Btn variant="ghost" onClick={guard(() => setPayOpen(c))}>
+                        শোধ নিন
+                      </Btn>
+                      <Btn variant="ghost" onClick={guard(() => setEditing(c))}>
+                        সম্পাদনা
+                      </Btn>
+                      <Btn variant="ghost" onClick={guard(() => void del(c.id))}>
+                        মুছুন
+                      </Btn>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -239,7 +236,7 @@ export default function CustomersPage() {
         <div className="fixed inset-0 z-40 flex items-end overflow-y-auto bg-black/40 sm:items-center sm:p-6">
           <div role="dialog" aria-modal="true" className="card w-full max-h-[92vh] overflow-y-auto rounded-b-3xl p-5 sm:mx-auto sm:max-w-lg sm:rounded-3xl">
             <p className="p-title mb-4">{payOpen.name} — শোধ নিন</p>
-            <form onSubmit={submitPayment} noValidate className="flex flex-col gap-4">
+            <form onSubmit={guard(submitPayment)} noValidate className="flex flex-col gap-4">
               {payLines.map((l, i) => (
                 <div key={i} className="grid grid-cols-2 gap-3">
                   <Field label={`ওয়ালেট ${i + 1}`}>

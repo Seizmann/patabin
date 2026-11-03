@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -11,14 +11,14 @@ import { Btn, Card, Field, Notice, PageTitle } from 'components/ui/base';
 import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
 import { mapError } from 'lib/errors';
-import { useAuth } from 'lib/auth';
+import { useWriteGuard } from 'hooks/useWriteGuard';
 import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 
 export default function PacketsPage() {
   usePageTitle('প্যাকেট');
   const qc = useQueryClient();
-  const { readOnly } = useAuth();
+  const { pop, denied, canWrite } = useWriteGuard();
   const { data: all = [], isPending } = useQuery({ queryKey: ['packets'], queryFn: fetchPackets });
   const { data: openChalans = [] } = useQuery({
     queryKey: ['open-chalan-pack'],
@@ -62,6 +62,10 @@ export default function PacketsPage() {
   const onDragEnd = async (e: DragEndEvent) => {
     const { active, over } = e;
     if (!over || active.id === over.id) return;
+    if (!canWrite) {
+      pop();
+      return;
+    }
     setOrder((cur) => {
       const oldIdx = cur.indexOf(String(active.id));
       const newIdx = cur.indexOf(String(over.id));
@@ -90,7 +94,7 @@ export default function PacketsPage() {
                 {order.map((id) => {
                   const p = packets.find((x) => x.packet_id === id);
                   if (!p) return null;
-                  return <PacketCard key={id} p={p} busy={busy} readOnly={readOnly} onOpen={() => setDetail(p)} />;
+                  return <PacketCard key={id} p={p} busy={busy} onOpen={() => setDetail(p)} />;
                 })}
               </div>
             </SortableContext>
@@ -104,15 +108,16 @@ export default function PacketsPage() {
         </>
       )}
 
-      {!readOnly && openChalans.map((c) => (
+      {openChalans.map((c) => (
         <PackSheet key={c.id} chalanId={c.id} code={c.code} size={c.pcs_per_packet} onDone={() => qc.invalidateQueries({ queryKey: ['packets'] })} />
       ))}
+      {denied}
     </div>
   );
 }
 
-function PacketCard({ p, busy, readOnly, onOpen }: { p: PacketRow; busy: boolean; readOnly: boolean; onOpen: () => void }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: p.packet_id, disabled: readOnly });
+function PacketCard({ p, busy, onOpen }: { p: PacketRow; busy: boolean; onOpen: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: p.packet_id });
   return (
     <div
       ref={setNodeRef}
@@ -121,18 +126,16 @@ function PacketCard({ p, busy, readOnly, onOpen }: { p: PacketRow; busy: boolean
       className={`card flex items-center gap-3 px-4 py-3 ${isDragging ? 'opacity-50' : ''}`}
       aria-label={`প্যাকেট ${p.packet_code} — বিস্তারিত খুলুন`}
     >
-      {!readOnly && (
-        <button
-          type="button"
-          className="grid h-11 w-8 touch-none place-items-center text-ink-mute"
-          onClick={(e) => e.stopPropagation()}
-          {...listeners}
-          {...attributes}
-          aria-label={`প্যাকেট সরান ${p.packet_code}`}
-        >
-          <DotsSixVertical weight="regular" size={20} />
-        </button>
-      )}
+      <button
+        type="button"
+        className="grid h-11 w-8 touch-none place-items-center text-ink-mute"
+        onClick={(e) => e.stopPropagation()}
+        {...listeners}
+        {...attributes}
+        aria-label={`প্যাকেট সরান ${p.packet_code}`}
+      >
+        <DotsSixVertical weight="regular" size={20} />
+      </button>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold">
           {p.chalan_code}/{p.packet_code} · {p.owner_name}
@@ -336,6 +339,7 @@ function PacketDetailSheet({ p, onClose }: { p: PacketRow; onClose: () => void }
 }
 
 function PackSheet({ chalanId, code, size, onDone }: { chalanId: string; code: string; size: number; onDone: () => void }) {
+  const { guard, denied } = useWriteGuard();
   const [open, setOpen] = useState(false);
   const [sz, setSz] = useState(String(size));
   const [rows, setRows] = useState<{ id: string; name: string; pcs: string }[]>([]);
@@ -380,14 +384,14 @@ function PackSheet({ chalanId, code, size, onDone }: { chalanId: string; code: s
           <p className="p-title">{code}</p>
           <p className="p-caption">বাকি পিস প্যাকেটে সাজান</p>
         </div>
-        <Btn onClick={() => setOpen((o) => !o)}>{open ? 'বন্ধ' : 'প্যাকিং করুন'}</Btn>
+        <Btn onClick={guard(() => setOpen((o) => !o))}>{open ? 'বন্ধ' : 'প্যাকিং করুন'}</Btn>
       </div>
       {open && (
         <form
-          onSubmit={(e) => {
+          onSubmit={guard((e: FormEvent) => {
             e.preventDefault();
             void submit();
-          }}
+          })}
           className="mt-4 flex flex-col gap-4"
           noValidate
         >
@@ -410,6 +414,7 @@ function PackSheet({ chalanId, code, size, onDone }: { chalanId: string; code: s
           </Btn>
         </form>
       )}
+      {denied}
     </Card>
   );
 }

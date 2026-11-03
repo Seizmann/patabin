@@ -8,7 +8,7 @@ import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
 import { fetchPartners, fetchSettings, myPartnerId } from 'lib/api';
 import { mapError } from 'lib/errors';
-import { useAuth } from 'lib/auth';
+import { useWriteGuard } from 'hooks/useWriteGuard';
 import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import offline from 'assets/images/empty/offline.png';
 
@@ -42,7 +42,7 @@ async function fetchPersonalUses(start: string, end: string): Promise<PersonalUs
 export default function PersonalUsePage() {
   usePageTitle('ব্যক্তিগত ব্যবহার');
   const qc = useQueryClient();
-  const { readOnly } = useAuth();
+  const { guard, denied } = useWriteGuard();
   const [ eater, setEater ] = useState('');
   const [packetId, setPacketId] = useState('');
   const [qty, setQty] = useState('');
@@ -114,8 +114,7 @@ export default function PersonalUsePage() {
           title="ব্যক্তিগত ব্যবহার"
           right={<PeriodSelect period={period} setPeriod={setPeriod} customFrom={customFrom} customTo={customTo} setCustomFrom={setCustomFrom} setCustomTo={setCustomTo} />}
         />
-        {!readOnly && (
-          <form onSubmit={submit} className="flex flex-col gap-5" noValidate>
+        <form onSubmit={guard(submit)} className="flex flex-col gap-5" noValidate>
           <Field label="কে খাচ্ছে">
             <select className="field" value={eater} onChange={(e) => setEater(e.target.value)}>
               <option value="">{myId ? partners.find((p) => p.id === myId)?.name ?? 'নিজে' : 'নিজে'}</option>
@@ -158,8 +157,8 @@ export default function PersonalUsePage() {
           <Btn type="submit" busy={busy} disabled={!Number(qty)}>
             সংরক্ষণ করুন
           </Btn>
-          </form>
-        )}
+        </form>
+        {denied}
       </Card>
 
       {usesPending && (
