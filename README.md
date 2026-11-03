@@ -49,6 +49,7 @@ PataBin is a mobile-first PWA built for partners who buy chocolates in bulk, bre
 | 💸 **Expenses & withdrawals** | Category-managed records with manual attribution and optional chalan link |
 | 👛 **Wallets** | Shared wallet accounts with per-partner and shared balances, payments received live |
 | 🧑‍💼 **Administration** | `su_admin` settings: sell price, buy rate, packet size, expense categories |
+| 👁️ **Investor role** | `patabin_partner` accounts see every balance, report, and audit trail — but can't write anything. Read-only is enforced in the database (RLS + RPC guards), not just hidden in the UI |
 
 <div align="center">
 
