@@ -4,6 +4,7 @@ import { createCustomer, createPayment, deleteCustomer, fetchCustomerBalances, f
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { mapError } from 'lib/errors';
+import { useAuth } from 'lib/auth';
 import { walletDisplay } from 'lib/wallet';
 import { Plus } from '@phosphor-icons/react';
 import NumberInput from 'components/forms/NumberInput';
@@ -15,6 +16,7 @@ type Line = { wallet: string; amount: string };
 export default function CustomersPage() {
   usePageTitle('কাস্টমার');
   const qc = useQueryClient();
+  const { readOnly } = useAuth();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [search, setSearch] = useState('');
@@ -136,7 +138,8 @@ export default function CustomersPage() {
     <div className="mx-auto flex max-w-3xl flex-col gap-5">
       <PageTitle tag="PataBin" title="কাস্টমার" />
       <Notice tone="info">বাকি টাকা (due): পাবে বোঝায় কাস্টমার দিবে; অতিরিক্ত দিলে উগরানো হবে।</Notice>
-      <form onSubmit={add} noValidate className="card grid grid-cols-2 gap-4 p-6">
+      {!readOnly && (
+        <form onSubmit={add} noValidate className="card grid grid-cols-2 gap-4 p-6">
         <Field label="নাম">
           <input className="field" value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
@@ -150,7 +153,8 @@ export default function CustomersPage() {
           {ok && <Notice tone="ok">{ok}</Notice>}
           {error && <Notice tone="error">{error}</Notice>}
         </div>
-      </form>
+        </form>
+      )}
 
       {isPending && (
         <div className="flex flex-col gap-2" aria-busy>
@@ -185,7 +189,7 @@ export default function CustomersPage() {
                 <th className="p-3 font-semibold">নাম</th>
                 <th className="p-3 font-semibold">ফোন</th>
                 <th className="p-3 font-semibold">বাকি</th>
-                <th className="p-3" />
+                {!readOnly && <th className="p-3" />}
               </tr>
             </thead>
             <tbody>
@@ -200,19 +204,21 @@ export default function CustomersPage() {
                   <td className={`p-3 font-semibold ${Number(balances.find((b) => b.customer_id === c.id)?.balance ?? 0) > 0 ? 'text-bad' : 'text-ink'}`}>
                     {formatMoney(Number(balances.find((b) => b.customer_id === c.id)?.balance ?? 0))}
                   </td>
-                  <td className="p-3">
-                    <div className="flex justify-end gap-2">
-                      <Btn variant="ghost" onClick={() => setPayOpen(c)}>
-                        শোধ নিন
-                      </Btn>
-                      <Btn variant="ghost" onClick={() => setEditing(c)}>
-                        সম্পাদনা
-                      </Btn>
-                      <Btn variant="ghost" onClick={() => void del(c.id)}>
-                        মুছুন
-                      </Btn>
-                    </div>
-                  </td>
+                  {!readOnly && (
+                    <td className="p-3">
+                      <div className="flex justify-end gap-2">
+                        <Btn variant="ghost" onClick={() => setPayOpen(c)}>
+                          শোধ নিন
+                        </Btn>
+                        <Btn variant="ghost" onClick={() => setEditing(c)}>
+                          সম্পাদনা
+                        </Btn>
+                        <Btn variant="ghost" onClick={() => void del(c.id)}>
+                          মুছুন
+                        </Btn>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

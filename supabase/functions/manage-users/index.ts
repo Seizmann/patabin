@@ -10,15 +10,15 @@ const createSchema = z.object({
   email: z.string().email(),
   temp_password: z.string().min(10).max(72),
   display_name: z.string().min(1).max(60),
-  role: z.enum(['su_admin', 'patabin_admin']).default('patabin_admin'),
+  role: z.enum(['su_admin', 'patabin_admin', 'patabin_partner']).default('patabin_admin'),
   partner_name: z.string().min(1).max(60).optional(),
 });
 
 const resetSchema = z.object({ user_id: z.string().uuid(), temp_password: z.string().min(10).max(72) });
 const activeSchema = z.object({ user_id: z.string().uuid(), is_active: z.boolean() });
-const roleSchema = z.object({ user_id: z.string().uuid(), role: z.enum(['su_admin', 'patabin_admin']) });
+const roleSchema = z.object({ user_id: z.string().uuid(), role: z.enum(['su_admin', 'patabin_admin', 'patabin_partner']) });
 
-type Profile = { id: string; role: 'su_admin' | 'patabin_admin'; is_active: boolean; display_name: string };
+type Profile = { id: string; role: 'su_admin' | 'patabin_admin' | 'patabin_partner'; is_active: boolean; display_name: string };
 
 function json(body: unknown, status = 200, allowOrigin?: string): Response {
   return new Response(JSON.stringify(body), {
@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
 
   const { data: me } = await service.from<Profile>('profiles').select('id, role, is_active').eq('id', callerId).maybeSingle();
   if (!me?.is_active) return json({ error: 'unauthorized' }, 401, originCheck.origin);
-  const callerRole: 'su_admin' | 'patabin_admin' = me.role;
+  const callerRole: 'su_admin' | 'patabin_admin' | 'patabin_partner' = me.role;
 
   let body: unknown;
   try {

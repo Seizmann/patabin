@@ -7,6 +7,7 @@ import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import TimeInput from 'components/forms/TimeInput';
 import NumberInput from 'components/forms/NumberInput';
 import { mapError } from 'lib/errors';
+import { useAuth } from 'lib/auth';
 import { formatDhakaDateTime, toBnDigits } from '@patabin/shared';
 import offline from 'assets/images/empty/offline.png';
 
@@ -15,6 +16,7 @@ type PacketRow = { packet_id: string; packet_code: string; owner_name: string; r
 export default function AdjustmentsPage() {
   usePageTitle('নষ্ট/ফ্রি');
   const qc = useQueryClient();
+  const { readOnly } = useAuth();
   const [packetId, setPacketId] = useState('');
   const [qty, setQty] = useState('');
   const [reason, setReason] = useState('gift');
@@ -92,7 +94,8 @@ export default function AdjustmentsPage() {
         title="নষ্ট/ফ্রি"
         right={<PeriodSelect period={period} setPeriod={setPeriod} customFrom={customFrom} customTo={customTo} setCustomFrom={setCustomFrom} setCustomTo={setCustomTo} />}
       />
-      <form onSubmit={submit} noValidate className="card grid grid-cols-2 gap-4 p-6">
+      {!readOnly && (
+        <form onSubmit={submit} noValidate className="card grid grid-cols-2 gap-4 p-6">
         <Field label="প্যাকেট, যারটা থেকে" className="col-span-2">
           <select className="field" value={packetId} onChange={(e) => setPacketId(e.target.value)}>
             <option value="">-- নির্বাচন করুন --</option>
@@ -131,7 +134,8 @@ export default function AdjustmentsPage() {
           {ok && <Notice tone="ok">{ok}</Notice>}
           {error && <Notice tone="error">{error}</Notice>}
         </div>
-      </form>
+        </form>
+      )}
 
       {isPending && (
         <div className="flex flex-col gap-2" aria-busy>

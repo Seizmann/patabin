@@ -2,6 +2,7 @@ begin;
 set local session_replication_role = replica;
 delete from public.chalan_close_snapshots;
 delete from public.wallet_transfers;
+delete from public.customer_payment_allocations;
 delete from public.customer_payments;
 delete from public.withdrawals;
 delete from public.expenses;

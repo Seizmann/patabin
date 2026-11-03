@@ -7,6 +7,8 @@ delete from public.expenses;
 delete from public.stock_adjustments;
 delete from public.personal_uses;
 delete from public.sale_allocations;
+delete from public.customer_payment_allocations;
+delete from public.customer_payments;
 delete from public.sale_receives;
 delete from public.sales;
 delete from public.sell_priority;
@@ -87,11 +89,31 @@ begin
   assert v_bal = 8130.00, 'balance after transfers ' || coalesce(v_bal::text, 'null');
   assert v_pool + v_goods = v_bal, 'identity after transfers ' || coalesce((v_pool + v_goods)::text, 'null') || ' vs ' || coalesce(v_bal::text, 'null');
 
+  begin
+    perform public.create_withdrawal(jsonb_build_object('partner_id', p_su, 'wallet_account_id', v_cash, 'amount', 300, 'note', 'nije nilam'));
+    raise 'withdrawal with open chalan must fail';
+  exception when others then
+    assert sqlerrm like '%WITHDRAWAL_CHALAN_OPEN%', 'unexpected: ' || sqlerrm;
+  end;
+
+  -- consume remaining stock at zero value so the chalan can close
+  perform public.create_personal_use(jsonb_build_object(
+    'eater_partner_id', p_su,
+    'packet_id', pk.packet_id,
+    'qty', pk.remaining,
+    'unit_value', 0
+  ))
+  from public.v_packet_stock pk
+  where pk.chalan_id = v_chalan and pk.remaining > 0;
+  perform public.close_chalan(v_chalan);
+
   perform public.create_withdrawal(jsonb_build_object('partner_id', p_su, 'wallet_account_id', v_cash, 'amount', 300, 'note', 'nije nilam'));
   select sum(balance) into v_pool from public.v_wallet_balance;
   select balance into v_bal from public.v_partner_balance where partner_id = p_su;
-  assert v_bal = 7830.00, 'balance after withdrawal ' || coalesce(v_bal::text, 'null');
-  assert v_pool + v_goods = v_bal, 'identity after withdrawal ' || coalesce((v_pool + v_goods)::text, 'null') || ' vs ' || coalesce(v_bal::text, 'null');
+  assert v_bal = 1180.00, 'balance after withdrawal ' || coalesce(v_bal::text, 'null');
+  -- after close all goods are consumed, so the open-chalan identity
+  -- (pool + goods = balance) collapses to pool = balance
+  assert v_pool = v_bal, 'identity after withdrawal ' || coalesce(v_pool::text, 'null') || ' vs ' || coalesce(v_bal::text, 'null');
 
   select count(*) into v_rows from public.audit_log where table_name = 'sales' and action = 'I' and row_id = v_sale;
   assert v_rows = 1, 'audit sale insert missing';

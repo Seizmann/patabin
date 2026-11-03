@@ -18,7 +18,7 @@ export default function ProfilePage() {
           <>
             <Line label="নাম" value={profile.display_name || '-'} />
             <Line label="ইমেইল" value={session?.user.email ?? '-'} />
-            <Line label="ভূমিকা" value={profile.role === 'su_admin' ? 'সুপার অ্যাডমিন' : 'অ্যাডমিন'} />
+            <Line label="ভূমিকা" value={profile.role === 'su_admin' ? 'সুপার অ্যাডমিন' : profile.role === 'patabin_partner' ? 'ইনভেস্টর' : 'অ্যাডমিন'} />
             <Line label="অবস্থা" value={profile.is_active ? 'সক্রিয়' : 'নিষ্ক্রিয়'} />
           </>
         ) : (
