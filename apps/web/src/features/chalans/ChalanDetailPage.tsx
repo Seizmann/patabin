@@ -39,9 +39,13 @@ export default function ChalanDetailPage() {
     try {
       await fn();
       await qc.invalidateQueries({ queryKey: ['chalan', code] });
+      await qc.invalidateQueries({ queryKey: ['chalans'] });
+      await qc.invalidateQueries({ queryKey: ['chalans-period-meta'] });
       await qc.invalidateQueries({ queryKey: ['chalan-summary', id] });
       await qc.invalidateQueries({ queryKey: ['chalan-settlements', id] });
       await qc.invalidateQueries({ queryKey: ['packets', id] });
+      await qc.invalidateQueries({ queryKey: ['open-chalan-guard'] });
+      await qc.invalidateQueries({ queryKey: ['open-chalan-pack'] });
       await qc.invalidateQueries({ queryKey: ['balances'] });
       await qc.invalidateQueries({ queryKey: ['dashboard'] });
     } catch (err) {

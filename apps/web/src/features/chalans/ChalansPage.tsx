@@ -36,7 +36,10 @@ export default function ChalansPage() {
       setOk(close ? 'চালান বন্ধ হয়েছে' : 'চালান খোলা হয়েছে');
       await Promise.all([
         qc.invalidateQueries({ queryKey: ['chalans'] }),
+        qc.invalidateQueries({ queryKey: ['chalans-period-meta'] }),
         qc.invalidateQueries({ queryKey: ['chalan-summaries'] }),
+        qc.invalidateQueries({ queryKey: ['open-chalan-guard'] }),
+        qc.invalidateQueries({ queryKey: ['open-chalan-pack'] }),
       ]);
     } catch (err) {
       setError(mapError(err));
@@ -54,7 +57,7 @@ export default function ChalansPage() {
             to="/chalans/new"
             className="btn"
             onClick={(e) => {
-              if (!canWrite) return;
+              if (canWrite) return;
               e.preventDefault();
               pop();
             }}
