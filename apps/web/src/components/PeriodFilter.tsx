@@ -36,6 +36,10 @@ export function usePeriodFilter(initial: PeriodId = 'chalan') {
       return (data ?? []) as ChalanMeta[];
     },
     staleTime: 30_000,
+    // the "এই চালান"/"গত চালান" range depends on which chalan is open —
+    // always re-check on mount so a freshly closed/created chalan never
+    // leaves the dashboard stuck on the old chalan's numbers
+    refetchOnMount: 'always',
   });
   const openChalan = chalans.find((c) => c.status === 'open');
 
