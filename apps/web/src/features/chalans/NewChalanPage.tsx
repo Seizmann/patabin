@@ -47,8 +47,13 @@ export default function NewChalanPage() {
     setBusy(true);
     try {
       await createChalan({ purchase_date: date ?? null, buy_rate: Number(rate), pcs_per_packet: Number(size), note: note || null, items });
-      await qc.invalidateQueries({ queryKey: ['chalans'] });
-      await qc.invalidateQueries({ queryKey: ['dashboard'] });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['chalans'] }),
+        qc.invalidateQueries({ queryKey: ['chalans-period-meta'] }),
+        qc.invalidateQueries({ queryKey: ['open-chalan-pack'] }),
+        qc.invalidateQueries({ queryKey: ['open-chalan-guard'] }),
+        qc.invalidateQueries({ queryKey: ['dashboard'] }),
+      ]);
       nav('/packets');
     } catch (err) {
       setError(mapError(err));
