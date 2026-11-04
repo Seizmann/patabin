@@ -46,7 +46,9 @@ export function usePeriodFilter(initial: PeriodId = 'chalan') {
   const [start, end] = useMemo(() => {
     const nowIso = new Date().toISOString();
     if (period === 'chalan') {
-      return openChalan?.purchase_date ? [openChalan.purchase_date, nowIso] : periodRange('today', nowIso);
+      // খোলা চালান না থাকলে "এই চালান" ফাঁকা — বন্ধ চালানের হিসাব এখানে দেখাবে না
+      // (পুরনো চালান দেখতে "গত চালান" বাছুন)
+      return openChalan?.purchase_date ? [openChalan.purchase_date, nowIso] : [nowIso, nowIso];
     }
     if (period === 'prevChalan') {
       const newest = chalans[0];
