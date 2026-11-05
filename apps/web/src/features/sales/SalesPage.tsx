@@ -57,7 +57,7 @@ export default function SalesPage() {
       {isPending && <TableSkeleton />}
       {isError && <Notice tone="error">ডেটা আনতে সমস্যা হয়েছে</Notice>}
       {rows?.length === 0 && <Empty img={emptySales} title="কোনো বিক্রি নেই" caption="নতুন বিক্রি যুক্ত করে শুরু করুন।" />}
-      {rows && rows.length > 0 && <SalesTable rows={rows} onEdit={(r) => guard(() => setEditing(r))} onDelete={(id) => guard(() => void del(id))} onDetail={setDetail} />}
+      {rows && rows.length > 0 && <SalesTable rows={rows} onEdit={guard((r: SaleRowV) => setEditing(r))} onDelete={guard((id: string) => void del(id))} onDetail={setDetail} />}
       {denied}
       {sheetOpen && (
         <div className="fixed inset-0 z-40 flex items-end overflow-y-auto bg-black/40 sm:items-center sm:p-6">
