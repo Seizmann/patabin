@@ -56,7 +56,7 @@ export default function AppShell() {
   useRealtimeSync();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const tabCls = `flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px] text-ink-mute`;
+  const tabCls = `flex h-11 min-w-11 flex-1 items-center justify-center rounded-full transition-colors`;
   const sideCls = `flex min-h-[44px] items-center gap-3 rounded-lg px-4 py-2 text-[15px] text-ink-mute hover:text-espresso`;
 
   return (
@@ -94,22 +94,19 @@ export default function AppShell() {
         </main>
         <nav
           aria-label="Primary"
-          className="fixed inset-x-0 bottom-0 z-20 flex border-t border-hairline bg-surface lg:hidden"
-          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+          className="fixed bottom-[max(12px,env(safe-area-inset-bottom))] left-1/2 z-20 flex w-[calc(100%-24px)] max-w-sm -translate-x-1/2 items-center gap-0.5 rounded-full border border-white/50 bg-white/60 p-1.5 shadow-[0_8px_32px_rgba(31,22,17,0.18)] backdrop-blur-xl lg:hidden"
         >
           {sections.slice(0, 5).map((s) => (
             <NavLink key={s.to} to={s.to} end={s.end} className={tabCls} aria-label={s.label}>
               {({ isActive }) => (
-                <span className={`flex flex-col items-center gap-0.5 ${isActive ? 'text-espresso' : ''}`}>
+                <span className={`flex h-10 w-full items-center justify-center rounded-full transition-colors ${isActive ? 'bg-espresso text-surface' : 'text-ink-mute hover:text-espresso'}`}>
                   <s.Icon weight={isActive ? 'fill' : 'regular'} size={22} />
-                  {s.label}
                 </span>
               )}
             </NavLink>
           ))}
-          <button type="button" aria-label={bn.more} className={tabCls + ' text-espresso'} onClick={() => setMoreOpen(true)}>
+          <button type="button" aria-label={bn.more} className={tabCls + ' text-ink-mute hover:text-espresso'} onClick={() => setMoreOpen(true)}>
             <DotsThree weight="regular" size={22} />
-            {bn.more}
           </button>
         </nav>
       </div>

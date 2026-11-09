@@ -44,14 +44,7 @@ export default function SalesPage() {
       <PageTitle
         tag="PataBin"
         title="বিক্রির তালিকা"
-        right={
-          <div className="flex items-center gap-2">
-            <PeriodSelect period={period} setPeriod={setPeriod} customFrom={customFrom} customTo={customTo} setCustomFrom={setCustomFrom} setCustomTo={setCustomTo} showAll />
-            <button type="button" aria-label="নতুন বিক্রি" className="btn grid h-11 w-11 place-items-center p-0" onClick={guard(() => setSheetOpen(true))}>
-              <Plus weight="bold" size={20} />
-            </button>
-          </div>
-        }
+        right={<PeriodSelect period={period} setPeriod={setPeriod} customFrom={customFrom} customTo={customTo} setCustomFrom={setCustomFrom} setCustomTo={setCustomTo} showAll />}
       />
       {error && <Notice tone="error">{error}</Notice>}
       {isPending && <TableSkeleton />}
@@ -59,6 +52,14 @@ export default function SalesPage() {
       {rows?.length === 0 && <Empty img={emptySales} title="কোনো বিক্রি নেই" caption="নতুন বিক্রি যুক্ত করে শুরু করুন।" />}
       {rows && rows.length > 0 && <SalesTable rows={rows} onEdit={guard((r: SaleRowV) => setEditing(r))} onDelete={guard((id: string) => void del(id))} onDetail={setDetail} />}
       {denied}
+      <button
+        type="button"
+        aria-label="নতুন বিক্রি"
+        className="fixed bottom-[calc(max(12px,env(safe-area-inset-bottom))+76px)] right-4 z-30 grid h-14 w-14 place-items-center rounded-full bg-gradient-to-b from-cocoa to-espresso text-white shadow-[0_10px_28px_rgba(74,44,29,0.45)] transition-transform hover:scale-105 active:scale-95 lg:bottom-8 lg:right-8"
+        onClick={guard(() => setSheetOpen(true))}
+      >
+        <Plus weight="bold" size={24} />
+      </button>
       {sheetOpen && (
         <div className="fixed inset-0 z-40 flex items-end overflow-y-auto bg-black/40 sm:items-center sm:p-6">
           <div role="dialog" aria-modal="true" className="w-full max-h-[92vh] overflow-y-auto rounded-b-3xl border-0 sm:mx-auto sm:max-w-lg sm:rounded-3xl">

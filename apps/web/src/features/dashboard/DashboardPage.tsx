@@ -1,7 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Crown, Medal, Trophy } from '@phosphor-icons/react';
-import { fetchBreakdown, fetchCustomerLeaderboard, dhakaWeekStart, fetchDailyIncome, fetchPartnerBalances, fetchStockCurrent, fetchTotals, fetchWalletBalances, type Totals } from './api';
+import { fetchBreakdown, fetchCustomerLeaderboard, dhakaWeekStart, fetchDailyIncome, fetchPartnerSellSummary, fetchStockCurrent, fetchTotals, fetchWalletBalances, type PartnerSellSummary, type Totals } from './api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Card, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
@@ -21,12 +21,9 @@ export default function DashboardPage() {
   const walletBalances = useQuery({ queryKey: ['dashboard', 'wallet-flows', start, end], queryFn: () => fetchWalletBalances(start, end) });
   const breakdown = useQuery({ queryKey: ['dashboard', 'breakdown', start, end], queryFn: () => fetchBreakdown(start, end) });
   const daily = useQuery({ queryKey: ['dashboard', 'daily', start, end], queryFn: () => fetchDailyIncome(start, end) });
-  const partnerBalances = useQuery({ queryKey: ['dashboard', 'partner-balances', start, end], queryFn: () => fetchPartnerBalances(start, end) });
-  const leaderboard = useQuery({ queryKey: ['dashboard', 'leaderboard', dhakaWeekStart()], queryFn: fetchCustomerLeaderboard, staleTime: 30_000 });
-
   const donutData = (breakdown.data ?? []).map((s) => ({ name: s.slice, value: s.amount })).filter((d) => d.value !== 0);
-  const partnerDonutData = (partnerBalances.data ?? []).map((p) => ({ name: p.partner_name, value: p.balance })).filter((d) => d.value !== 0);
-  const partnerDonutTotal = partnerDonutData.reduce((s, d) => s + d.value, 0);
+  const partnerBalances = useQuery({ queryKey: ['dashboard', 'partner-sell-summary', start, end], queryFn: () => fetchPartnerSellSummary(start, end) });
+  const leaderboard = useQuery({ queryKey: ['dashboard', 'leaderboard', dhakaWeekStart()], queryFn: fetchCustomerLeaderboard, staleTime: 30_000 });
 
   return (
     <div className="flex flex-col gap-5">
@@ -59,14 +56,9 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {breakdown.isPending ? <ChartSkeleton /> : <Suspense fallback={<ChartSkeleton />}><Donut title="পেমেন্ট মাধ্যম অনুসারে আয়" data={donutData} centerLabel="আয়" centerValue={formatMoney(totals.data?.income ?? 0)} /></Suspense>}
         {daily.isPending ? <ChartSkeleton /> : <Suspense fallback={<ChartSkeleton />}><IncomeBar data={(daily.data ?? []).map((d) => ({ day: d.day, income: Number(d.income) }))} /></Suspense>}
-        {partnerBalances.isPending ? (
-          <ChartSkeleton />
-        ) : partnerDonutData.length > 0 ? (
-          <Suspense fallback={<ChartSkeleton />}>
-            <Donut title="পার্টনার অনুযায়ী ব্যালেন্স" data={partnerDonutData} centerLabel="ব্যালেন্স" centerValue={formatMoney(partnerDonutTotal)} />
-          </Suspense>
-        ) : null}
       </div>
+
+      {partnerBalances.isPending ? <ChartSkeleton /> : <PartnerSummaryCard rows={partnerBalances.data ?? []} />}
 
       {leaderboard.isPending ? (
         <ChartSkeleton />
@@ -92,6 +84,35 @@ export default function DashboardPage() {
 
       {totals.isError && <Notice tone="error">ডেটা আনতে সমস্যা হয়েছে।</Notice>}
     </div>
+  );
+}
+
+function PartnerSummaryCard({ rows }: { rows: PartnerSellSummary[] }) {
+  if (rows.length === 0) return null;
+  const totalBal = rows.reduce((s, r) => s + r.balance, 0);
+  const totalPcs = rows.reduce((s, r) => s + r.remaining_pcs, 0);
+  return (
+    <Card className="overflow-hidden p-5">
+      <p className="p-label mb-3 text-center">পার্টনার ব্যালেন্স ও বাকি স্টক</p>
+      <div className="flex flex-col divide-y divide-hairline">
+        {rows.map((r) => (
+          <div key={r.partner_id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+            <span className="font-semibold">{r.partner_name}</span>
+            <span className="flex items-center gap-3">
+              <span className="p-caption">{toBnDigits(r.remaining_pcs)} পিস বাকি</span>
+              <span className={`p-num min-w-20 text-right font-semibold ${r.balance < 0 ? 'text-bad' : ''}`}>{formatMoney(r.balance)}</span>
+            </span>
+          </div>
+        ))}
+        <div className="flex items-center justify-between gap-3 py-2.5 text-sm">
+          <span className="font-extrabold">মোট</span>
+          <span className="flex items-center gap-3">
+            <span className="p-caption">{toBnDigits(totalPcs)} পিস</span>
+            <span className={`p-num min-w-20 text-right font-extrabold ${totalBal < 0 ? 'text-bad' : ''}`}>{formatMoney(totalBal)}</span>
+          </span>
+        </div>
+      </div>
+    </Card>
   );
 }
 

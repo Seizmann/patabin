@@ -39,14 +39,18 @@ export async function fetchBreakdown(start: string, end: string): Promise<Slice[
   return ((data ?? []) as { slice: string; amount: number }[]).map((r) => ({ slice: sliceLabel(r.slice), amount: Number(r.amount) }));
 }
 
-export type PartnerBalance = { partner_id: string; partner_name: string; balance: number };
+export type PartnerSellSummary = { partner_id: string; partner_name: string; sell_revenue: number; personal_use: number; khoroch: number; remaining_pcs: number; balance: number };
 
-export async function fetchPartnerBalances(start: string, end: string): Promise<PartnerBalance[]> {
-  const { data, error } = await supabase.rpc('partner_balance_flows', { p_start: start, p_end: end });
+export async function fetchPartnerSellSummary(start: string, end: string): Promise<PartnerSellSummary[]> {
+  const { data, error } = await supabase.rpc('partner_sell_summary', { p_start: start, p_end: end });
   if (error) throw error;
-  return ((data ?? []) as { partner_id: string; partner_name: string; balance: number | string }[]).map((p) => ({
-    partner_id: p.partner_id,
-    partner_name: p.partner_name,
+  return ((data ?? []) as Record<string, string | number>[]).map((p) => ({
+    partner_id: String(p.partner_id),
+    partner_name: String(p.partner_name),
+    sell_revenue: Number(p.sell_revenue),
+    personal_use: Number(p.personal_use),
+    khoroch: Number(p.khoroch),
+    remaining_pcs: Number(p.remaining_pcs),
     balance: Number(p.balance),
   }));
 }
@@ -62,6 +66,16 @@ export async function fetchStockCurrent(): Promise<number> {
   const { data, error } = await supabase.from('v_packet_stock').select('remaining');
   if (error) throw error;
   return ((data ?? []) as { remaining: number | string }[]).reduce((acc, r) => acc + Number(r.remaining), 0);
+}
+
+export async function fetchStockByPartner(): Promise<Record<string, number>> {
+  const { data, error } = await supabase.from('v_packet_stock').select('owner_name, remaining');
+  if (error) throw error;
+  const byPartner: Record<string, number> = {};
+  for (const r of (data ?? []) as { owner_name: string; remaining: number | string }[]) {
+    byPartner[r.owner_name] = (byPartner[r.owner_name] ?? 0) + Number(r.remaining);
+  }
+  return byPartner;
 }
 
 export async function fetchWalletBalances(start: string, end: string): Promise<WalletBalance[]> {

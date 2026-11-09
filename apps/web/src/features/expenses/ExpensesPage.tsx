@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createExpense, fetchExpenses, fetchPartners, fetchWallets, type ExpenseRow } from './api';
 import { fetchChalans } from 'features/chalans/api';
@@ -29,6 +29,7 @@ export default function ExpensesPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
+  const [detail, setDetail] = useState<ExpenseRow | null>(null);
 
   const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('chalan');
 
@@ -144,7 +145,7 @@ export default function ExpensesPage() {
             <option value="">নিজের পকেট</option>
             {(wallets ?? []).map((w) => (
               <option key={w.id} value={w.id}>
-                {w.label}
+                {walletDisplay(w)}
               </option>
             ))}
           </select>
@@ -162,7 +163,7 @@ export default function ExpensesPage() {
         <Field label="সময়" className="col-span-2 sm:col-span-1">
           <TimeInput value={spentAt} onChange={setSpentAt} />
         </Field>
-        <Field label="নোট (ঐচ্ছিক)" className="col-span-2">
+        <Field label="কারণ (ঐচ্ছিক)" className="col-span-2">
           <input className="field" value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
         {paidBy && attributedTo && (
@@ -206,8 +207,10 @@ export default function ExpensesPage() {
                   <td className="whitespace-nowrap p-3">{formatDhakaDateTime(x.spent_at)}</td>
                   <td className="p-3">{catOf(x.category_id)}</td>
                   <td className="p-3 text-xs">
-                    {nameOf(x.paid_by_partner_id)} → {nameOf(x.attributed_to_partner_id)} এর · {x.wallet_account_id ? walletDisplay((wallets ?? []).find((w) => w.id === x.wallet_account_id) ?? { name: '', label: '', type: '' }) : 'নিজের পকেট'}
-                    {x.chalan_id ? ` · ${chalans.find((c) => c.id === x.chalan_id)?.code ?? ''}` : ''}
+                    <button type="button" className="text-left hover:underline" onClick={() => setDetail(x)}>
+                      {nameOf(x.paid_by_partner_id)} → {nameOf(x.attributed_to_partner_id)} এর · {x.wallet_account_id ? walletDisplay((wallets ?? []).find((w) => w.id === x.wallet_account_id) ?? { name: '', label: '', type: '' }) : 'নিজের পকেট'}
+                      {x.chalan_id ? ` · ${chalans.find((c) => c.id === x.chalan_id)?.code ?? ''}` : ''}
+                    </button>
                   </td>
                   <td className="p-3">{formatMoney(x.amount)}</td>
                   <td className="p-3 text-right">
@@ -221,6 +224,51 @@ export default function ExpensesPage() {
           </table>
         </div>
       )}
+      {detail && <ExpenseDetailSheet expense={detail} onClose={() => setDetail(null)} category={catOf(detail.category_id)} chalanCode={detail.chalan_id ? chalans.find((c) => c.id === detail.chalan_id)?.code ?? '' : ''} walletText={detail.wallet_account_id ? walletDisplay((wallets ?? []).find((w) => w.id === detail.wallet_account_id) ?? { name: '', label: '', type: '' }) : 'নিজের পকেট'} nameOf={nameOf} />}
+    </div>
+  );
+}
+
+function ExpenseDetailSheet({ expense, onClose, category, chalanCode, walletText, nameOf }: { expense: ExpenseRow; onClose: () => void; category: string; chalanCode: string; walletText: string; nameOf: (id: string | null) => string }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  const rows: [string, string][] = [
+    ['সময়', formatDhakaDateTime(expense.spent_at)],
+    ['ক্যাটাগরি', category],
+    ['টাকা', formatMoney(expense.amount)],
+    ['কে দিল', nameOf(expense.paid_by_partner_id)],
+    ['কার খরচ', nameOf(expense.attributed_to_partner_id)],
+    ['কোথা থেকে', walletText],
+    ...(chalanCode ? ([['কন চালান', chalanCode]] as [string, string][]) : []),
+    ...(expense.note ? ([['কারণ', expense.note]] as [string, string][]) : []),
+  ];
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center lg:items-center">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="card relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-b-none p-5 lg:rounded-b-[24px]" role="dialog" aria-modal="true" aria-label="খরচের বিস্তারিত">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="p-title">খরচ — {formatMoney(expense.amount)}</p>
+            <p className="p-caption">{formatDhakaDateTime(expense.spent_at)}</p>
+          </div>
+          <Btn variant="ghost" onClick={onClose}>
+            বন্ধ
+          </Btn>
+        </div>
+        <div className="mt-4 flex flex-col divide-y divide-hairline text-sm">
+          {rows.map(([label, value]) => (
+            <div key={label} className="flex items-start justify-between gap-4 py-2">
+              <span className="text-ink-mute">{label}</span>
+              <span className="text-right font-semibold">{value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
