@@ -1,7 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Crown, Medal, Trophy } from '@phosphor-icons/react';
-import { fetchBreakdown, fetchCustomerLeaderboard, dhakaWeekStart, fetchDailyIncome, fetchPartnerBalances, fetchStockByPartner, fetchStockCurrent, fetchTotals, fetchWalletBalances, type PartnerBalance, type Totals } from './api';
+import { fetchBreakdown, fetchCustomerLeaderboard, dhakaWeekStart, fetchDailyIncome, fetchPartnerSellSummary, fetchStockCurrent, fetchTotals, fetchWalletBalances, type PartnerSellSummary, type Totals } from './api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Card, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
@@ -22,8 +22,7 @@ export default function DashboardPage() {
   const breakdown = useQuery({ queryKey: ['dashboard', 'breakdown', start, end], queryFn: () => fetchBreakdown(start, end) });
   const daily = useQuery({ queryKey: ['dashboard', 'daily', start, end], queryFn: () => fetchDailyIncome(start, end) });
   const donutData = (breakdown.data ?? []).map((s) => ({ name: s.slice, value: s.amount })).filter((d) => d.value !== 0);
-  const partnerBalances = useQuery({ queryKey: ['dashboard', 'partner-balances', start, end], queryFn: () => fetchPartnerBalances(start, end) });
-  const stockByPartner = useQuery({ queryKey: ['dashboard', 'stock-by-partner'], queryFn: fetchStockByPartner, staleTime: 30_000 });
+  const partnerBalances = useQuery({ queryKey: ['dashboard', 'partner-sell-summary', start, end], queryFn: () => fetchPartnerSellSummary(start, end) });
   const leaderboard = useQuery({ queryKey: ['dashboard', 'leaderboard', dhakaWeekStart()], queryFn: fetchCustomerLeaderboard, staleTime: 30_000 });
 
   return (
@@ -59,11 +58,7 @@ export default function DashboardPage() {
         {daily.isPending ? <ChartSkeleton /> : <Suspense fallback={<ChartSkeleton />}><IncomeBar data={(daily.data ?? []).map((d) => ({ day: d.day, income: Number(d.income) }))} /></Suspense>}
       </div>
 
-      {partnerBalances.isPending || stockByPartner.isPending ? (
-        <ChartSkeleton />
-      ) : (
-        <PartnerSummaryCard balances={partnerBalances.data ?? []} stockByPartner={stockByPartner.data ?? {}} />
-      )}
+      {partnerBalances.isPending ? <ChartSkeleton /> : <PartnerSummaryCard rows={partnerBalances.data ?? []} />}
 
       {leaderboard.isPending ? (
         <ChartSkeleton />
@@ -92,30 +87,27 @@ export default function DashboardPage() {
   );
 }
 
-function PartnerSummaryCard({ balances, stockByPartner }: { balances: PartnerBalance[]; stockByPartner: Record<string, number> }) {
-  const names = [...new Set([...balances.map((b) => b.partner_name), ...Object.keys(stockByPartner)])];
-  if (names.length === 0) return null;
-  const balOf = (n: string) => balances.find((b) => b.partner_name === n)?.balance ?? 0;
-  const remOf = (n: string) => stockByPartner[n] ?? 0;
-  const totalBal = balances.reduce((s, b) => s + b.balance, 0);
-  const totalRem = names.reduce((s, n) => s + remOf(n), 0);
+function PartnerSummaryCard({ rows }: { rows: PartnerSellSummary[] }) {
+  if (rows.length === 0) return null;
+  const totalBal = rows.reduce((s, r) => s + r.balance, 0);
+  const totalPcs = rows.reduce((s, r) => s + r.remaining_pcs, 0);
   return (
     <Card className="overflow-hidden p-5">
       <p className="p-label mb-3 text-center">পার্টনার ব্যালেন্স ও বাকি স্টক</p>
       <div className="flex flex-col divide-y divide-hairline">
-        {names.map((n) => (
-          <div key={n} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-            <span className="font-semibold">{n}</span>
+        {rows.map((r) => (
+          <div key={r.partner_id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+            <span className="font-semibold">{r.partner_name}</span>
             <span className="flex items-center gap-3">
-              <span className="p-caption">{toBnDigits(remOf(n))} পিস বাকি</span>
-              <span className={`p-num min-w-20 text-right font-semibold ${balOf(n) < 0 ? 'text-bad' : ''}`}>{formatMoney(balOf(n))}</span>
+              <span className="p-caption">{toBnDigits(r.remaining_pcs)} পিস বাকি</span>
+              <span className={`p-num min-w-20 text-right font-semibold ${r.balance < 0 ? 'text-bad' : ''}`}>{formatMoney(r.balance)}</span>
             </span>
           </div>
         ))}
         <div className="flex items-center justify-between gap-3 py-2.5 text-sm">
           <span className="font-extrabold">মোট</span>
           <span className="flex items-center gap-3">
-            <span className="p-caption">{toBnDigits(totalRem)} পিস</span>
+            <span className="p-caption">{toBnDigits(totalPcs)} পিস</span>
             <span className={`p-num min-w-20 text-right font-extrabold ${totalBal < 0 ? 'text-bad' : ''}`}>{formatMoney(totalBal)}</span>
           </span>
         </div>
