@@ -144,7 +144,7 @@ export default function ExpensesPage() {
             <option value="">নিজের পকেট</option>
             {(wallets ?? []).map((w) => (
               <option key={w.id} value={w.id}>
-                {w.label}
+                {walletDisplay(w)}
               </option>
             ))}
           </select>
