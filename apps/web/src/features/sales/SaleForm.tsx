@@ -26,7 +26,8 @@ type Props = {
 export default function SaleForm({ title, submitLabel, initial, onSubmit, showCustomer = true }: Props) {
   const [qty, setQty] = useState(String(initial?.qty ?? 1));
   const [price, setPrice] = useState(initial?.list_unit_price != null ? String(initial.list_unit_price) : '');
-  const [amount, setAmount] = useState(initial?.amount_received != null ? String(initial.amount_received) : '');
+  const [amount, setAmount] = useState<string | null>(initial?.amount_received != null ? String(initial.amount_received) : null);
+  const [amountTouched, setAmountTouched] = useState(false);
   const [customerId, setCustomerId] = useState(initial?.customerId ?? '');
   const [due, setDue] = useState(String(initial?.due_amount ?? ''));
   const [newName, setNewName] = useState('');
@@ -55,7 +56,7 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
 
   const listValue = Number(qty || '0') * Number(price || '0');
   const dueNum = Number(due || '0');
-  const received = amount === '' ? Math.max(0, listValue - dueNum) : Number(amount || '0');
+  const received = amount === null ? Math.max(0, listValue - dueNum) : Number(amount || '0');
   const discount = Math.max(0, listValue - received - dueNum);
   const packetPreview = (() => {
     let left = Number(qty || '0');
@@ -171,7 +172,17 @@ export default function SaleForm({ title, submitLabel, initial, onSubmit, showCu
           </div>
         </Field>
         <Field label="টাকা (৳)">
-          <NumberInput className="grow" value={amount === '' ? String(received) : amount} onChange={setAmount} />
+          <NumberInput
+            className="grow"
+            value={amountTouched ? amount ?? '' : amount ?? String(received)}
+            onChange={(v) => {
+              setAmountTouched(true);
+              setAmount(v === '' ? null : v);
+            }}
+            onBlur={() => {
+              if (amount === null) setAmountTouched(false);
+            }}
+          />
         </Field>
         <div className="p-caption rounded-xl bg-canvas px-4 py-3">
           তালিকা: {formatMoney(listValue)} · ছাড়: {formatMoney(discount)} ({qty && listValue ? Math.round((discount * 100) / listValue) : 0}%) · বাকি: {formatMoney(Number(due || 0))}
