@@ -97,12 +97,7 @@ function PartnerSummaryCard({ rows }: { rows: PartnerSellSummary[] }) {
       <div className="flex flex-col divide-y divide-hairline">
         {rows.map((r) => (
           <div key={r.partner_id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-            <span className="min-w-0">
-              <span className="block font-semibold">{r.partner_name}</span>
-              <span className="p-caption">
-                বিক্রি {formatMoney(r.sell_revenue)} · ব্যক্তিগত {formatMoney(r.personal_use)} · খরচ {formatMoney(r.khoroch)}
-              </span>
-            </span>
+            <span className="font-semibold">{r.partner_name}</span>
             <span className="flex items-center gap-3">
               <span className="p-caption">{toBnDigits(r.remaining_pcs)} পিস বাকি</span>
               <span className={`p-num min-w-20 text-right font-semibold ${r.balance < 0 ? 'text-bad' : ''}`}>{formatMoney(r.balance)}</span>
