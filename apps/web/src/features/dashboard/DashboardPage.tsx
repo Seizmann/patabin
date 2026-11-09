@@ -100,7 +100,7 @@ function PartnerSummaryCard({ rows }: { rows: PartnerSellSummary[] }) {
             <span className="min-w-0">
               <span className="block font-semibold">{r.partner_name}</span>
               <span className="p-caption">
-                বিক্রি {formatMoney(r.sell_revenue)} · বাকি স্টকের খরচ {formatMoney(r.remaining_cost)}
+                বিক্রি {formatMoney(r.sell_revenue)} · ব্যক্তিগত {formatMoney(r.personal_use)} · খরচ {formatMoney(r.khoroch)}
               </span>
             </span>
             <span className="flex items-center gap-3">

@@ -39,7 +39,7 @@ export async function fetchBreakdown(start: string, end: string): Promise<Slice[
   return ((data ?? []) as { slice: string; amount: number }[]).map((r) => ({ slice: sliceLabel(r.slice), amount: Number(r.amount) }));
 }
 
-export type PartnerSellSummary = { partner_id: string; partner_name: string; sell_revenue: number; remaining_pcs: number; remaining_cost: number; balance: number };
+export type PartnerSellSummary = { partner_id: string; partner_name: string; sell_revenue: number; personal_use: number; khoroch: number; remaining_pcs: number; balance: number };
 
 export async function fetchPartnerSellSummary(start: string, end: string): Promise<PartnerSellSummary[]> {
   const { data, error } = await supabase.rpc('partner_sell_summary', { p_start: start, p_end: end });
@@ -48,8 +48,9 @@ export async function fetchPartnerSellSummary(start: string, end: string): Promi
     partner_id: String(p.partner_id),
     partner_name: String(p.partner_name),
     sell_revenue: Number(p.sell_revenue),
+    personal_use: Number(p.personal_use),
+    khoroch: Number(p.khoroch),
     remaining_pcs: Number(p.remaining_pcs),
-    remaining_cost: Number(p.remaining_cost),
     balance: Number(p.balance),
   }));
 }
