@@ -63,18 +63,39 @@ export default function DashboardPage() {
       {leaderboard.isPending ? (
         <ChartSkeleton />
       ) : (leaderboard.data ?? []).length > 0 ? (
-        <Card className="p-5">
-          <p className="p-label mb-3 text-center">সেরা কাস্টমার (টপ ৫) — এই সপ্তাহ</p>
-          <div className="flex flex-col divide-y divide-hairline">
+        <Card className="overflow-hidden p-5">
+          <p className="p-label mb-4 text-center">সেরা কাস্টমার (টপ ৫) — এই সপ্তাহ</p>
+          <div className="flex flex-col gap-2">
             {leaderboard.data!.map((r, i) => {
               const { Icon, color } = RANK_STYLES[Math.min(i, RANK_STYLES.length - 1)]!;
+              const top = i < 3;
               return (
-                <div key={r.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                  <span className="flex items-center gap-3">
-                    <Icon weight="fill" size={22} style={{ color }} aria-hidden />
-                    <span className="font-semibold">{r.name}</span>
+                <div
+                  key={r.id}
+                  className={`flex items-center gap-3 rounded-2xl px-4 ${top ? 'py-3' : 'py-2'} ${
+                    i === 0
+                      ? 'bg-gradient-to-r from-[#D4AF37]/25 via-[#D4AF37]/10 to-transparent ring-1 ring-[#D4AF37]/40'
+                      : top
+                        ? 'bg-canvas'
+                        : ''
+                  }`}
+                >
+                  <span
+                    className={`relative grid shrink-0 place-items-center rounded-full font-extrabold text-white ${top ? 'h-11 w-11 text-base' : 'h-9 w-9 text-sm bg-canvas !text-ink-mute'}`}
+                    style={top ? { background: color, boxShadow: `0 4px 14px ${color}55` } : undefined}
+                  >
+                    {top ? r.name.charAt(0) : toBnDigits(i + 1)}
+                    {top && (
+                      <span className="absolute -right-1.5 -top-1.5 grid h-5.5 w-5.5 place-items-center rounded-full bg-surface shadow-sm ring-1 ring-hairline">
+                        <Icon weight="fill" size={13} style={{ color }} aria-hidden />
+                      </span>
+                    )}
                   </span>
-                  <span className="font-semibold">{formatMoney(r.paid)}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className={`block truncate ${i === 0 ? 'text-base font-extrabold' : 'font-bold'}`}>{r.name}</span>
+                    <span className="p-caption">{i === 0 ? 'চ্যাম্পিয়ন' : top ? (i === 1 ? 'রানার-আপ' : 'তৃতীয় স্থান') : `${toBnDigits(i + 1)} নম্বর`}</span>
+                  </span>
+                  <span className={`p-num ${i === 0 ? 'text-xl' : top ? 'text-lg' : 'text-base'} font-extrabold`}>{formatMoney(r.paid)}</span>
                 </div>
               );
             })}
