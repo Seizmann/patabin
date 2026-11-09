@@ -64,6 +64,16 @@ export async function fetchStockCurrent(): Promise<number> {
   return ((data ?? []) as { remaining: number | string }[]).reduce((acc, r) => acc + Number(r.remaining), 0);
 }
 
+export async function fetchStockByPartner(): Promise<Record<string, number>> {
+  const { data, error } = await supabase.from('v_packet_stock').select('owner_name, remaining');
+  if (error) throw error;
+  const byPartner: Record<string, number> = {};
+  for (const r of (data ?? []) as { owner_name: string; remaining: number | string }[]) {
+    byPartner[r.owner_name] = (byPartner[r.owner_name] ?? 0) + Number(r.remaining);
+  }
+  return byPartner;
+}
+
 export async function fetchWalletBalances(start: string, end: string): Promise<WalletBalance[]> {
   const { data, error } = await supabase.rpc('wallet_flows', { p_start: start, p_end: end });
   if (error) throw error;
