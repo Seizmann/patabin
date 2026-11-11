@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { useRef, useState, type TouchEvent, type ReactNode } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Calculator,
   House,
@@ -51,10 +51,52 @@ const moreItems = (suAdmin: boolean): Omit<Section, 'end'>[] => [
   { to: '/profile', label: bn.profile, Icon: UserCircle },
 ];
 
+const SWIPE_THRESHOLD = 60;
+const SWIPE_DIRECTION_RATIO = 1.5;
+
 export default function AppShell() {
   const { suAdmin, profile } = useAuth();
   useRealtimeSync();
   const [moreOpen, setMoreOpen] = useState(false);
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const touchStart = useRef<{ x: number; y: number; skip: boolean } | null>(null);
+
+  const tabPaths = sections.map((s) => s.to);
+
+  const activeTabIndex = tabPaths.findIndex((p) => (p === '/' ? pathname === '/' : pathname.startsWith(p)));
+
+  const handleTouchStart = (e: TouchEvent) => {
+    const target = e.target as HTMLElement;
+    let el: HTMLElement | null = target.closest<HTMLElement>('[role="dialog"]');
+    let skip = Boolean(el);
+    while (!skip && el) {
+      const { overflowX } = getComputedStyle(el);
+      if ((overflowX === 'auto' || overflowX === 'scroll') && el.scrollWidth > el.clientWidth) {
+        skip = true;
+        break;
+      }
+      el = el.parentElement;
+    }
+    const touch = e.touches[0];
+    if (!touch) return;
+    touchStart.current = { x: touch.clientX, y: touch.clientY, skip };
+  };
+
+  const handleTouchEnd = (e: TouchEvent) => {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start || start.skip || activeTabIndex === -1) return;
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy) * SWIPE_DIRECTION_RATIO) return;
+    const nextIndex = dx < 0 ? activeTabIndex + 1 : activeTabIndex - 1;
+    const nextPath = tabPaths[nextIndex];
+    if (!nextPath) return;
+    navigate(nextPath);
+  };
 
   const tabCls = `flex h-11 min-w-11 flex-1 items-center justify-center rounded-full transition-colors`;
   const sideCls = `flex min-h-[44px] items-center gap-3 rounded-lg px-4 py-2 text-[15px] text-ink-mute hover:text-espresso`;
@@ -88,7 +130,11 @@ export default function AppShell() {
         </button>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div
+        className="flex min-w-0 flex-1 flex-col"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-10">
           <Outlet />
         </main>
