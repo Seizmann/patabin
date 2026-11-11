@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Crown, Medal, Trophy } from '@phosphor-icons/react';
 import { fetchBreakdown, fetchCustomerLeaderboard, dhakaWeekStart, fetchDailyIncome, fetchPartnerSellSummary, fetchStockCurrent, fetchTotals, fetchWalletBalances, type PartnerSellSummary, type Totals } from './api';
 import { usePageTitle } from 'hooks/usePageTitle';
-import { Card, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { Card, Notice, Skeleton } from 'components/ui/base';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
@@ -27,8 +27,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-start justify-between gap-3">
-        <PageTitle tag="পাতাবিন" title="হোম" />
+      <div className="flex items-start justify-end gap-3">
         <PeriodSelect period={period} setPeriod={setPeriod} customFrom={customFrom} customTo={customTo} setCustomFrom={setCustomFrom} setCustomTo={setCustomTo} />
       </div>
 
