@@ -1,5 +1,5 @@
 import { useRef, useState, type TouchEvent, type ReactNode } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   Calculator,
   House,
@@ -58,43 +58,43 @@ export default function AppShell() {
   const { suAdmin, profile } = useAuth();
   useRealtimeSync();
   const [moreOpen, setMoreOpen] = useState(false);
-  const { pathname } = useLocation();
   const navigate = useNavigate();
-  const touchStart = useRef<{ x: number; y: number; skip: boolean } | null>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   const tabPaths = sections.map((s) => s.to);
 
-  const activeTabIndex = tabPaths.findIndex((p) => (p === '/' ? pathname === '/' : pathname.startsWith(p)));
-
   const handleTouchStart = (e: TouchEvent) => {
+    touchStart.current = null;
+    if (e.touches.length > 1) return;
+    if (document.querySelector('[role="dialog"]')) return;
     const target = e.target as HTMLElement;
-    let el: HTMLElement | null = target.closest<HTMLElement>('[role="dialog"]');
-    let skip = Boolean(el);
-    while (!skip && el) {
+    if (target.closest('svg, input, textarea, select')) return;
+    let el: HTMLElement | null = target;
+    while (el) {
       const { overflowX } = getComputedStyle(el);
-      if ((overflowX === 'auto' || overflowX === 'scroll') && el.scrollWidth > el.clientWidth) {
-        skip = true;
-        break;
-      }
+      if ((overflowX === 'auto' || overflowX === 'scroll') && el.scrollWidth > el.clientWidth) return;
       el = el.parentElement;
     }
     const touch = e.touches[0];
     if (!touch) return;
-    touchStart.current = { x: touch.clientX, y: touch.clientY, skip };
+    touchStart.current = { x: touch.clientX, y: touch.clientY };
   };
 
   const handleTouchEnd = (e: TouchEvent) => {
     const start = touchStart.current;
     touchStart.current = null;
-    if (!start || start.skip || activeTabIndex === -1) return;
+    if (!start) return;
+    const pathname = window.location.pathname;
+    const activeIndex = tabPaths.findIndex((p) => (p === '/' ? pathname === '/' : pathname.startsWith(p)));
+    if (activeIndex === -1) return;
     const touch = e.changedTouches[0];
     if (!touch) return;
     const dx = touch.clientX - start.x;
     const dy = touch.clientY - start.y;
     if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy) * SWIPE_DIRECTION_RATIO) return;
-    const nextIndex = dx < 0 ? activeTabIndex + 1 : activeTabIndex - 1;
-    const nextPath = tabPaths[nextIndex];
+    const nextPath = tabPaths[dx < 0 ? activeIndex + 1 : activeIndex - 1];
     if (!nextPath) return;
+    if (e.cancelable) e.preventDefault();
     navigate(nextPath);
   };
 
