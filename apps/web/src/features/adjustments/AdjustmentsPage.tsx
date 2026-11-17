@@ -8,10 +8,11 @@ import TimeInput from 'components/forms/TimeInput';
 import NumberInput from 'components/forms/NumberInput';
 import { mapError } from 'lib/errors';
 import { useWriteGuard } from 'hooks/useWriteGuard';
+import { useViewMode } from 'lib/viewMode';
 import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import offline from 'assets/images/empty/offline.png';
 
-type PacketRow = { packet_id: string; packet_code: string; owner_name: string; remaining: number };
+type PacketRow = { packet_id: string; packet_code: string; owner_partner_id: string; owner_name: string; remaining: number };
 
 type AdjustmentRow = {
   id: string;
@@ -38,24 +39,30 @@ export default function AdjustmentsPage() {
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
   const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('chalan');
+  const { myPartnerId: mine, isSelf } = useViewMode();
 
   const { data: packets = [] } = useQuery({
     queryKey: ['packets'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('v_packet_stock').select('packet_id, packet_code, owner_name, remaining').eq('chalan_status', 'open').gt('remaining', 0);
+      const { data, error } = await supabase.from('v_packet_stock').select('packet_id, packet_code, owner_partner_id, owner_name, remaining').eq('chalan_status', 'open').gt('remaining', 0);
       if (error) throw error;
       return (data ?? []) as PacketRow[];
     },
   });
   const { data: rows, isPending } = useQuery({
-    queryKey: ['adjustments', start, end],
+    queryKey: ['adjustments', start, end, isSelf ? mine : ''],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('stock_adjustments')
         .select('id, packet_id, at, qty, reason, person, note, packets(code, partners(name), chalans(code, buy_rate))')
         .is('deleted_at', null).gte('at', start).lt('at', end).order('at', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as AdjustmentRow[];
+      let result = (data ?? []) as unknown as (AdjustmentRow & { packet_id: string })[];
+      if (isSelf && mine) {
+        const myIds = new Set(packets.filter((p) => p.owner_partner_id === mine).map((p) => p.packet_id));
+        result = result.filter((r) => myIds.has(r.packet_id));
+      }
+      return result as unknown as AdjustmentRow[];
     },
   });
 

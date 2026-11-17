@@ -5,6 +5,7 @@ import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import { mapError } from 'lib/errors';
+import { useViewMode } from 'lib/viewMode';
 import { formatDhakaDate, formatMoney } from '@patabin/shared';
 
 type SettlementRow = {
@@ -59,12 +60,14 @@ export default function SettlementPage() {
 
 function ChalanSettlement({ chalan }: { chalan: ChalanRow }) {
   const [selected, setSelected] = useState<SettlementRow | null>(null);
+  const { myPartnerId: mine, isSelf } = useViewMode();
   const { data: rows, isPending } = useQuery({
-    queryKey: ['settlement', chalan.id],
+    queryKey: ['settlement', chalan.id, isSelf ? mine : ''],
     queryFn: async () => {
       const { data, error } = await supabase.from('v_partner_chalan_settlement').select('*').eq('chalan_id', chalan.id);
       if (error) throw error;
-      return (data ?? []) as SettlementRow[];
+      const all = (data ?? []) as SettlementRow[];
+      return isSelf && mine ? all.filter((r) => r.partner_id === mine) : all;
     },
     enabled: true,
   });

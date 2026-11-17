@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Card, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { useViewMode } from 'lib/viewMode';
 import { formatMoney, toBnDigits } from '@patabin/shared';
 import emptySearch from 'assets/images/empty/empty-search.png';
 
@@ -26,6 +27,7 @@ export default function ReportsPage() {
   usePageTitle('রিপোর্ট');
   const [tab, setTab] = useState<ReportTab>('chalan');
   const [error, setError] = useState('');
+  const { myPartnerId: mine, isSelf } = useViewMode();
 
   const { data = { chalans: [], partners: [], settlement: [] }, isPending } = useQuery({
     queryKey: ['report-data'],
@@ -81,7 +83,12 @@ export default function ReportsPage() {
       )}
       {error && <Notice tone="error">{error}</Notice>}
       {!isPending && tab === 'chalan' && <ChalanReport rows={data.chalans} />}
-      {!isPending && tab === 'partner' && <PartnerReport rows={data.partners} settlement={data.settlement as SettlementX[]} />}
+      {!isPending && tab === 'partner' && (
+        <PartnerReport
+          rows={isSelf && mine ? data.partners.filter((p) => p.partner_id === mine) : data.partners}
+          settlement={isSelf && mine ? (data.settlement as SettlementX[]).filter((s) => s.partner_id === mine) : (data.settlement as SettlementX[])}
+        />
+      )}
     </div>
   );
 }

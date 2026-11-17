@@ -11,6 +11,7 @@ import TimeInput from 'components/forms/TimeInput';
 import NumberInput from 'components/forms/NumberInput';
 import { mapError } from 'lib/errors';
 import { useWriteGuard } from 'hooks/useWriteGuard';
+import { useViewMode } from 'lib/viewMode';
 import { formatDhakaDateTime, formatMoney } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 import emptyExpenses from 'assets/images/empty/empty-expenses.png';
@@ -37,10 +38,11 @@ export default function ExpensesPage() {
   const [detail, setDetail] = useState<ExpenseRow | null>(null);
 
   const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('chalan');
+  const { myPartnerId: mine, isSelf } = useViewMode();
 
   const { data: partners = [] } = useQuery({ queryKey: ['partners'], queryFn: fetchPartners });
   const { data: wallets } = useQuery({ queryKey: ['wallets'], queryFn: fetchWallets });
-  const { data: rows, isPending } = useQuery({ queryKey: ['expenses', start, end], queryFn: () => fetchExpenses(start, end) });
+  const { data: rows, isPending } = useQuery({ queryKey: ['expenses', start, end, isSelf ? mine : ''], queryFn: () => fetchExpenses(start, end, isSelf ? (mine ?? '') : '') });
   const { data: chalans = [] } = useQuery({
     queryKey: ['chalans'],
     queryFn: fetchChalans,
@@ -230,6 +232,7 @@ export default function ExpensesPage() {
           </Btn>
           {ok && <Notice tone="ok">{ok}</Notice>}
           {error && <Notice tone="error">{error}</Notice>}
+          {isSelf && <Notice tone="info">শুধু আপনার খরচ দেখানো হচ্ছে (self mode)।</Notice>}
         </div>
       </form>
       {denied}

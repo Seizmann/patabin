@@ -2,8 +2,12 @@ import { supabase } from 'lib/supabase';
 
 export type PacketRow = { packet_id: string; chalan_id: string; chalan_code: string; chalan_status: string; packet_code: string; owner_partner_id: string; owner_name: string; total_pcs: number; remaining: number; position: number | null };
 
-export async function fetchPackets(): Promise<PacketRow[]> {
-  const { data, error } = await supabase.from('v_packet_stock').select('*');
+export async function fetchPackets(partnerId = ''): Promise<PacketRow[]> {
+  let q = supabase.from('v_packet_stock').select('*');
+  if (partnerId) {
+    q = q.eq('owner_partner_id', partnerId);
+  }
+  const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as PacketRow[];
 }

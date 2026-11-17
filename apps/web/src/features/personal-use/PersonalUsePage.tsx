@@ -6,9 +6,10 @@ import { Btn, Card, Empty, Field, Notice, PageTitle, Skeleton } from 'components
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
-import { fetchPartners, fetchSettings, myPartnerId } from 'lib/api';
+import { fetchPartners, fetchSettings } from 'lib/api';
 import { mapError } from 'lib/errors';
 import { useWriteGuard } from 'hooks/useWriteGuard';
+import { useViewMode } from 'lib/viewMode';
 import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import offline from 'assets/images/empty/offline.png';
 
@@ -22,19 +23,24 @@ type PersonalUseRow = {
   note: string | null;
   packet_id: string | null;
   chalan_id: string | null;
+  eater_partner_id: string;
   partners: { name: string } | null;
   packets: { code: string; partners: { name: string } | null } | null;
   chalans: { code: string } | null;
 };
 
-async function fetchPersonalUses(start: string, end: string): Promise<PersonalUseRow[]> {
-  const { data, error } = await supabase
+async function fetchPersonalUses(start: string, end: string, partnerId = ''): Promise<PersonalUseRow[]> {
+  let q = supabase
     .from('personal_uses')
-    .select('id, at, qty, unit_value, note, packet_id, chalan_id, partners(name), packets(code, partners(name)), chalans(code)')
+    .select('id, at, qty, unit_value, note, packet_id, chalan_id, eater_partner_id, partners(name), packets(code, partners(name)), chalans(code)')
     .is('deleted_at', null)
     .gte('at', start)
     .lt('at', end)
     .order('at', { ascending: false });
+  if (partnerId) {
+    q = q.eq('eater_partner_id', partnerId);
+  }
+  const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as unknown as PersonalUseRow[];
 }
@@ -56,7 +62,7 @@ export default function PersonalUsePage() {
 
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
   const { data: partners = [] } = useQuery({ queryKey: ['partners'], queryFn: fetchPartners });
-  const { data: myId } = useQuery({ queryKey: ['my-partner'], queryFn: myPartnerId });
+  const { myPartnerId: myId, isSelf } = useViewMode();
   const { data: packets = [] } = useQuery({
     queryKey: ['packets'],
     queryFn: async () => {
@@ -65,7 +71,7 @@ export default function PersonalUsePage() {
       return (data ?? []) as PacketRow[];
     },
   });
-  const { data: uses = [], isPending: usesPending } = useQuery({ queryKey: ['personal-uses', start, end], queryFn: () => fetchPersonalUses(start, end) });
+  const { data: uses = [], isPending: usesPending } = useQuery({ queryKey: ['personal-uses', start, end, isSelf ? myId : ''], queryFn: () => fetchPersonalUses(start, end, isSelf ? (myId ?? '') : '') });
 
   const chosen = packets.find((p) => p.packet_id === packetId) ?? null;
   const ownerIsOther = chosen && chosen.owner_partner_id !== (eater || myId);
@@ -183,6 +189,7 @@ export default function PersonalUsePage() {
             <input className="field" value={note} onChange={(e) => setNote(e.target.value)} />
           </Field>
           {error && <Notice tone="error">{error}</Notice>}
+          {isSelf && <Notice tone="info">শুধু আপনার ব্যক্তিগত ব্যবহার দেখানো হচ্ছে (self mode)।</Notice>}
           {ok && <Notice tone="ok">{ok}</Notice>}
           <Btn type="submit" busy={busy} disabled={!Number(qty)}>
             সংরক্ষণ করুন

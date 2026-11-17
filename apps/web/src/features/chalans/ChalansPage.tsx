@@ -7,6 +7,7 @@ import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { mapError } from 'lib/errors';
 import { useWriteGuard } from 'hooks/useWriteGuard';
+import { useViewMode } from 'lib/viewMode';
 import { formatDhakaDate, formatMoney } from '@patabin/shared';
 import emptyChalan from 'assets/images/empty/empty-expenses.png';
 
@@ -17,7 +18,18 @@ export default function ChalansPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
-  const { data: rows, isPending } = useQuery({ queryKey: ['chalans'], queryFn: fetchChalans });
+  const { myPartnerId: mine, isSelf } = useViewMode();
+  const { data: allRows, isPending } = useQuery({ queryKey: ['chalans'], queryFn: fetchChalans });
+  const { data: myChalanIds } = useQuery({
+    queryKey: ['my-chalan-purchases', mine],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('chalan_purchases').select('chalan_id').eq('partner_id', mine!).is('deleted_at', null);
+      if (error) throw error;
+      return new Set(((data ?? []) as { chalan_id: string }[]).map((r) => r.chalan_id));
+    },
+    enabled: isSelf && !!mine,
+  });
+  const rows = isSelf && myChalanIds ? (allRows ?? []).filter((c) => myChalanIds.has(c.id)) : allRows;
   const { data: summaries } = useQuery({
     queryKey: ['chalan-summaries'],
     queryFn: async () => {
@@ -67,6 +79,7 @@ export default function ChalansPage() {
         }
       />
       {error && <Notice tone="error">{error}</Notice>}
+      {isSelf && <Notice tone="info">শুধু আপনার চালান দেখানো হচ্ছে (self mode)।</Notice>}
       {ok && <Notice tone="ok">{ok}</Notice>}
       {denied}
       {isPending && (
