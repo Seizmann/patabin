@@ -49,6 +49,11 @@ export async function reopenChalan(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function deleteChalan(id: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_chalan', { p_id: id });
+  if (error) throw error;
+}
+
 export async function adjustChalanPurchase(chalanId: string, partnerId: string, delta: number, packetCuts?: { packet_id: string; qty: number }[]): Promise<void> {
   const { error } = await supabase.rpc('adjust_chalan_purchase', {
     p_chalan_id: chalanId,

@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { closeChalan, fetchChalans, reopenChalan } from './api';
+import { Trash } from '@phosphor-icons/react';
+import { closeChalan, deleteChalan, fetchChalans, reopenChalan } from './api';
 import { supabase } from 'lib/supabase';
+import { useAuth } from 'lib/auth';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { useDialog } from 'components/ui/Dialog';
 import { mapError } from 'lib/errors';
 import { useWriteGuard } from 'hooks/useWriteGuard';
 import { useViewMode } from 'lib/viewMode';
@@ -18,6 +21,8 @@ export default function ChalansPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
+  const { suAdmin } = useAuth();
+  const dialog = useDialog();
   const { myPartnerId: mine, isSelf } = useViewMode();
   const { data: allRows, isPending } = useQuery({ queryKey: ['chalans'], queryFn: fetchChalans });
   const { data: myChalanIds } = useQuery({
@@ -52,6 +57,37 @@ export default function ChalansPage() {
         qc.invalidateQueries({ queryKey: ['chalan-summaries'] }),
         qc.invalidateQueries({ queryKey: ['open-chalan-guard'] }),
         qc.invalidateQueries({ queryKey: ['open-chalan-pack'] }),
+      ]);
+    } catch (err) {
+      setError(mapError(err));
+    }
+    setBusy(false);
+  };
+
+  const del = async (id: string) => {
+    const okDel = await dialog.confirm({
+      title: 'চালান মুছে ফেলবেন?',
+      message: 'চালান ও এর প্যাকেট মুছে ফেলা হবে; বিক্রি হয়ে গেলে মোছা যাবে না। নিশ্চিত?',
+      destructive: true,
+      confirmText: 'মুছুন',
+    });
+    if (!okDel) return;
+    setBusy(true);
+    setError('');
+    setOk('');
+    try {
+      await deleteChalan(id);
+      setOk('চালান মুছে ফেলা হয়েছে');
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['chalans'] }),
+        qc.invalidateQueries({ queryKey: ['chalans-period-meta'] }),
+        qc.invalidateQueries({ queryKey: ['chalan-summaries'] }),
+        qc.invalidateQueries({ queryKey: ['open-chalan-guard'] }),
+        qc.invalidateQueries({ queryKey: ['open-chalan-pack'] }),
+        qc.invalidateQueries({ queryKey: ['packets'] }),
+        qc.invalidateQueries({ queryKey: ['dashboard'] }),
+        qc.invalidateQueries({ queryKey: ['balances'] }),
+        qc.invalidateQueries({ queryKey: ['partner-balances'] }),
       ]);
     } catch (err) {
       setError(mapError(err));
@@ -126,15 +162,22 @@ export default function ChalansPage() {
                     <td className="p-3">{s ? formatMoney(s.capital) : '-'}</td>
                     <td className="p-3">{s ? formatMoney(s.expenses) : '-'}</td>
                     <td className="p-3">
-                      {c.status === 'open' ? (
-                        <Btn variant="ghost" busy={busy} onClick={guard(() => void act(c.id, true))}>
-                          বন্ধ
-                        </Btn>
-                      ) : (
-                        <Btn variant="ghost" busy={busy} onClick={guard(() => void act(c.id, false))}>
-                          খুলুন
-                        </Btn>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {c.status === 'open' ? (
+                          <Btn variant="ghost" busy={busy} onClick={guard(() => void act(c.id, true))}>
+                            বন্ধ
+                          </Btn>
+                        ) : (
+                          <Btn variant="ghost" busy={busy} onClick={guard(() => void act(c.id, false))}>
+                            খুলুন
+                          </Btn>
+                        )}
+                        {suAdmin && c.status === 'open' && (
+                          <Btn variant="ghost" aria-label="মুছুন" busy={busy} onClick={guard(() => void del(c.id))}>
+                            <Trash size={16} aria-hidden />
+                          </Btn>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
