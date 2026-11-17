@@ -61,6 +61,7 @@ export async function fetchSales(
   search = '',
   walletName = '',
   dueOnly = false,
+  createdBy = '',
 ): Promise<{ rows: SaleRowV[]; total: number }> {
   const offset = page * pageSize;
   let q = supabase
@@ -80,6 +81,9 @@ export async function fetchSales(
   }
   if (dueOnly) {
     q = q.gt('due_amount', 0);
+  }
+  if (createdBy) {
+    q = q.eq('created_by', createdBy);
   }
   const { data, error, count } = await q;
   if (error) throw error;
@@ -104,22 +108,31 @@ export async function deleteSale(id: string): Promise<void> {
 export type SalePacketShare = { label: string; owner_name: string; qty: number };
 export type SaleReceiveShare = { type: string; label: string; amount: number };
 
-export async function fetchSaleDetails(saleId: string): Promise<{ packets: SalePacketShare[]; receives: SaleReceiveShare[] }> {
-  const [allocRes, recRes] = await Promise.all([
+export async function fetchSaleDetails(saleId: string): Promise<{ packets: SalePacketShare[]; receives: SaleReceiveShare[]; enteredBy: string }> {
+  const [allocRes, recRes, saleRes] = await Promise.all([
     supabase.from('sale_allocations').select('qty, packets(code, partners(name), chalans(code))').eq('sale_id', saleId),
     supabase.from('sale_receives').select('amount, wallets(type, name, label)').eq('sale_id', saleId),
+    supabase.from('sales').select('created_by').eq('id', saleId).single(),
   ]);
   if (allocRes.error) throw allocRes.error;
   if (recRes.error) throw recRes.error;
+  if (saleRes.error) throw saleRes.error;
   type RawAlloc = { qty: number; packets: { code: string; partners: { name: string } | null; chalans: { code: string } | null } | null };
   type RawRec = { amount: string | number; wallets: { type: string; name: string; label: string } | null };
   const allocs = (allocRes.data ?? []) as unknown as RawAlloc[];
   const recs = (recRes.data ?? []) as unknown as RawRec[];
+  const createdBy = (saleRes.data as { created_by: string | null } | null)?.created_by;
+  let enteredBy = '';
+  if (createdBy) {
+    const { data } = await supabase.from('profiles').select('display_name').eq('id', createdBy).maybeSingle();
+    enteredBy = data?.display_name ?? '';
+  }
   return {
     packets: allocs
       .filter((a) => a.packets)
       .map((a) => ({ label: `${a.packets!.chalans?.code ?? '?'}/${a.packets!.code}`, owner_name: a.packets!.partners?.name ?? '-', qty: a.qty }))
       .sort((a, b) => a.label.localeCompare(b.label) || b.qty - a.qty),
     receives: recs.filter((r) => r.wallets).map((r) => ({ type: r.wallets!.type, label: r.wallets!.label, amount: Number(r.amount) })),
+    enteredBy,
   };
 }

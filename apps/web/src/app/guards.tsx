@@ -21,10 +21,10 @@ export function RequireSu(): ReactElement {
   return <Navigate to={loc.state?.from as string | undefined ?? '/login'} replace />;
 }
 
-export function RequireWrite({ fallback }: { fallback: string }): ReactElement {
-  const { readOnly, loading } = useAuth();
+export function RequireWrite({ fallback, perm }: { fallback: string; perm?: string }): ReactElement {
+  const { readOnly, can, loading } = useAuth();
   if (loading) return <RouteLoading />;
-  if (readOnly) return <Navigate to={fallback} replace />;
+  if (readOnly || (perm && !can(perm))) return <Navigate to={fallback} replace />;
   return <Outlet />;
 }
 

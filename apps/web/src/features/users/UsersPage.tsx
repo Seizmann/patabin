@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from 'lib/supabase';
 import { useAuth } from 'lib/auth';
@@ -36,6 +36,7 @@ export default function UsersPage() {
   const [ok, setOk] = useState('');
   const [busyId, setBusyId] = useState('');
   const [creating, setCreating] = useState(false);
+  const [permTarget, setPermTarget] = useState<ProfileRow | null>(null);
   const [email, setEmail] = useState('');
   const [tempPassword, setTempPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -67,8 +68,8 @@ export default function UsersPage() {
     e.preventDefault();
     setError('');
     setOk('');
-    if (!email || !displayName) {
-      setError('ইমেইল ও নাম দিন');
+    if (!email || !displayName || tempPassword.length < 10) {
+      setError('ইমেইল, নাম দিন আর সাময়িক পাসওয়ার্ড অন্তত ১০ অক্ষরের দিন');
       return;
     }
     setBusyId('create');
@@ -153,22 +154,118 @@ export default function UsersPage() {
               পাসওয়ার্ড রিসেট
             </Btn>
             {session?.user.id !== p.id && (
-              <Field label="ভূমিকা">
-                <select
-                  className="field min-h-[44px] w-auto py-1.5"
-                  value={p.role}
-                  disabled={busyId === p.id}
-                  onChange={(e) => void run(p.id, 'set_role', { user_id: p.id, role: e.target.value })}
-                >
-                  {p.role !== 'patabin_admin' && <option value="patabin_admin">অ্যাডমিন</option>}
-                  {p.role !== 'su_admin' && <option value="su_admin">অ্যাডমিন (সুপার)</option>}
-                  {p.role !== 'patabin_partner' && <option value="patabin_partner">ইনভেস্টর</option>}
-                </select>
-              </Field>
+              <>
+                <Btn variant="ghost" onClick={() => setPermTarget(p)}>
+                  পারমিশন
+                </Btn>
+                <Field label="ভূমিকা">
+                  <select
+                    className="field min-h-[44px] w-auto py-1.5"
+                    value={p.role}
+                    disabled={busyId === p.id}
+                    onChange={(e) => void run(p.id, 'set_role', { user_id: p.id, role: e.target.value })}
+                  >
+                    <option value="patabin_admin">অ্যাডমিন</option>
+                    <option value="su_admin">অ্যাডমিন (সুপার)</option>
+                    <option value="patabin_partner">ইনভেস্টর</option>
+                  </select>
+                </Field>
+              </>
             )}
           </div>
         </Card>
       ))}
+      {permTarget && <PermSheet target={permTarget} onClose={() => setPermTarget(null)} />}
+    </div>
+  );
+}
+
+function PermSheet({ target, onClose }: { target: ProfileRow; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [busyKey, setBusyKey] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const { data: catalog = [] } = useQuery({
+    queryKey: ['permissions'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('permissions').select('key, label_bn').order('sort');
+      if (error) throw error;
+      return (data ?? []) as { key: string; label_bn: string }[];
+    },
+  });
+  const { data: roleDefaults = [] } = useQuery({
+    queryKey: ['role-permissions'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('role_permissions').select('role, permission_key');
+      if (error) throw error;
+      return (data ?? []) as { role: ProfileRow['role']; permission_key: string }[];
+    },
+  });
+  const { data: overrides = [] } = useQuery({
+    queryKey: ['profile-permissions', target.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('profile_permissions').select('permission_key, allowed').eq('profile_id', target.id);
+      if (error) throw error;
+      return (data ?? []) as { permission_key: string; allowed: boolean }[];
+    },
+  });
+
+  const roleDefault = (key: string) => roleDefaults.some((x) => x.role === target.role && x.permission_key === key);
+  const effective = (key: string) => {
+    const o = overrides.find((x) => x.permission_key === key);
+    return o ? o.allowed : roleDefault(key);
+  };
+  const hasOverride = (key: string) => overrides.some((x) => x.permission_key === key);
+
+  const toggle = async (key: string) => {
+    setBusyKey(key);
+    setError('');
+    const next = !effective(key);
+    const err = await callFn('set_permissions', { user_id: target.id, permission_key: key, allowed: next === roleDefault(key) ? null : next });
+    setBusyKey('');
+    if (err) setError('পরিবর্তন হয়নি।');
+    else await qc.invalidateQueries({ queryKey: ['profile-permissions', target.id] });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center lg:items-center">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="card relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-b-none p-5 lg:rounded-b-[24px]" role="dialog" aria-modal="true" aria-label="পারমিশন">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="p-title">পারমিশন — {target.display_name}</p>
+            <p className="p-caption">{ROLE_BN[target.role]} · ডিফল্ট থেকে বদলালে ওভাররাইড হবে</p>
+          </div>
+          <Btn variant="ghost" onClick={onClose}>
+            বন্ধ
+          </Btn>
+        </div>
+        {error && <div className="mt-3"><Notice tone="error">{error}</Notice></div>}
+        <div className="mt-4 flex flex-col divide-y divide-hairline">
+          {catalog.map((c) => (
+            <div key={c.key} className="flex items-center justify-between gap-3 py-3">
+              <div>
+                <p className="text-sm font-semibold">{c.label_bn}</p>
+                <p className="p-caption">
+                  ডিফল্ট: {roleDefault(c.key) ? 'আছে' : 'নেই'}
+                  {hasOverride(c.key) ? ' · ওভাররাইড করা' : ''}
+                </p>
+              </div>
+              <Btn variant={effective(c.key) ? 'solid' : 'ghost'} busy={busyKey === c.key} onClick={() => void toggle(c.key)}>
+                {effective(c.key) ? 'আছে' : 'নেই'}
+              </Btn>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

@@ -14,7 +14,7 @@ export default function ChalanDetailPage() {
   const { code = '' } = useParams();
   usePageTitle(`চালান ${code}`);
   const qc = useQueryClient();
-  const { guard, denied } = useWriteGuard();
+  const { guard, denied } = useWriteGuard('chalans');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -149,7 +149,7 @@ type PacketRow = { packet_id: string; packet_code: string; owner_partner_id: str
 
 function AdjustCard({ chalanId, purchases, settlements, packets }: { chalanId: string; purchases: PurchaseRow[]; settlements: SettlementRow[]; packets: PacketRow[] }) {
   const qc = useQueryClient();
-  const { guard, denied } = useWriteGuard();
+  const { guard, denied } = useWriteGuard('chalans');
   const [partnerId, setPartnerId] = useState('');
   const [mode, setMode] = useState<'add' | 'sub'>('add');
   const [pcs, setPcs] = useState('');

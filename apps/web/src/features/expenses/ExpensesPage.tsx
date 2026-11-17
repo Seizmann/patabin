@@ -17,7 +17,7 @@ import emptyExpenses from 'assets/images/empty/empty-expenses.png';
 export default function ExpensesPage() {
   usePageTitle('খরচ');
   const qc = useQueryClient();
-  const { guard, denied } = useWriteGuard();
+  const { guard, denied } = useWriteGuard('expenses');
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
   const [paidBy, setPaidBy] = useState('');
@@ -25,6 +25,9 @@ export default function ExpensesPage() {
   const [wallet, setWallet] = useState('');
   const [chalan, setChalan] = useState('');
   const [note, setNote] = useState('');
+  const [newCat, setNewCat] = useState('');
+  const [showNewCat, setShowNewCat] = useState(false);
+  const [catBusy, setCatBusy] = useState(false);
   const [spentAt, setSpentAt] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -51,6 +54,32 @@ export default function ExpensesPage() {
 
   const nameOf = (id: string | null) => partners.find((x) => x.id === id)?.name ?? '';
   const catOf = (id: string) => categories.find((c) => c.id === id)?.name ?? '';
+
+  const onCategoryChange = (v: string) => {
+    if (v === '__new__') {
+      setShowNewCat(true);
+      return;
+    }
+    setShowNewCat(false);
+    setCategory(v);
+  };
+
+  const addCategory = async () => {
+    const name = newCat.trim();
+    if (!name) return;
+    setCatBusy(true);
+    setError('');
+    try {
+      const { data, error: err } = await supabase.from('expense_categories').insert({ name }).select('id').single();
+      if (err) throw err;
+      await qc.invalidateQueries({ queryKey: ['expense-categories'] });
+      setCategory(data!.id);
+      setNewCat('');
+    } catch (err) {
+      setError(mapError(err));
+    }
+    setCatBusy(false);
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -108,14 +137,35 @@ export default function ExpensesPage() {
       />
         <form onSubmit={guard(submit)} noValidate className="card grid grid-cols-2 gap-4 p-6">
         <Field label="ক্যাটাগরি">
-          <select className="field" value={category} onChange={(e) => setCategory(e.target.value)}>
+          <select className="field" value={category} onChange={(e) => onCategoryChange(e.target.value)}>
             <option value="">-- নির্বাচন করুন --</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
             ))}
+            <option value="__new__">+ নতুন ক্যাটাগরি</option>
           </select>
+          {showNewCat && (
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                className="field"
+                placeholder="নতুন ক্যাটাগরির নাম"
+                value={newCat}
+                autoFocus
+                onChange={(e) => setNewCat(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void addCategory();
+                  }
+                }}
+              />
+              <Btn type="button" busy={catBusy} onClick={() => void addCategory()}>
+                যোগ করুন
+              </Btn>
+            </div>
+          )}
         </Field>
         <Field label="টাকা (৳)">
           <NumberInput value={amount} onChange={setAmount} />

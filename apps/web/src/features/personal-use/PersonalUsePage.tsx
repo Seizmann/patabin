@@ -42,7 +42,7 @@ async function fetchPersonalUses(start: string, end: string): Promise<PersonalUs
 export default function PersonalUsePage() {
   usePageTitle('ব্যক্তিগত ব্যবহার');
   const qc = useQueryClient();
-  const { guard, denied } = useWriteGuard();
+  const { guard, denied } = useWriteGuard('personal_use');
   const [ eater, setEater ] = useState('');
   const [packetId, setPacketId] = useState('');
   const [qty, setQty] = useState('');

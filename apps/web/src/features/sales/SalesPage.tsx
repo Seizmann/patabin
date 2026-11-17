@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useRef } from 'react';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from 'lib/supabase';
 import { fetchSaleDetails, createSale, deleteSale, fetchSales, fetchWallets, updateSale, type SaleInput, type SaleRowV } from './api';
 import SaleForm from './SaleForm';
@@ -27,31 +27,49 @@ function useDebounced(value: string, delay = 300): string {
 export default function SalesPage() {
   usePageTitle('বিক্রির তালিকা');
   const qc = useQueryClient();
-  const { guard, denied } = useWriteGuard();
+  const { guard, denied } = useWriteGuard('sales');
   const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('chalan');
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<SaleRowV | null>(null);
   const [detail, setDetail] = useState<SaleRowV | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
   const [wallet, setWallet] = useState('');
   const [dueOnly, setDueOnly] = useState(false);
+  const [enteredBy, setEnteredBy] = useState('');
   const debouncedSearch = useDebounced(search);
-
-  useEffect(() => {
-    setPage(0);
-  }, [start, end, debouncedSearch, wallet, dueOnly]);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const { data: wallets = [] } = useQuery({ queryKey: ['wallets'], queryFn: fetchWallets });
-
-  const { data, isPending, isError, isFetching, isPlaceholderData } = useQuery({
-    queryKey: ['sales', start, end, page, debouncedSearch, wallet, dueOnly],
-    queryFn: () => fetchSales(start, end, page, PAGE_SIZE, debouncedSearch, wallet, dueOnly),
-    placeholderData: keepPreviousData,
+  const { data: admins = [] } = useQuery({
+    queryKey: ['profiles-active'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('profiles').select('id, display_name').eq('is_active', true).order('display_name');
+      if (error) throw error;
+      return (data ?? []) as { id: string; display_name: string }[];
+    },
   });
-  const rows = data?.rows ?? [];
-  const pageCount = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE));
+
+  const { data, isPending, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ['sales', start, end, debouncedSearch, wallet, dueOnly, enteredBy],
+    queryFn: ({ pageParam }) => fetchSales(start, end, pageParam, PAGE_SIZE, debouncedSearch, wallet, dueOnly, enteredBy),
+    initialPageParam: 0,
+    getNextPageParam: (last, pages) => (last.rows.length < PAGE_SIZE ? undefined : pages.length),
+  });
+  const rows = data?.pages.flatMap((p) => p.rows) ?? [];
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) void fetchNextPage();
+      },
+      { rootMargin: '400px 0px' },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const del = async (id: string) => {
     setError('');
@@ -87,6 +105,14 @@ export default function SalesPage() {
             </option>
           ))}
         </select>
+        <select className="field min-h-[44px] w-auto py-1.5" value={enteredBy} onChange={(e) => setEnteredBy(e.target.value)} aria-label="এন্ট্রি অ্যাডমিন">
+          <option value="">সব অ্যাডমিন</option>
+          {admins.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.display_name}
+            </option>
+          ))}
+        </select>
         <Btn variant={dueOnly ? 'solid' : 'ghost'} className="shrink-0" onClick={() => setDueOnly((v) => !v)}>
           শুধু বাকি
         </Btn>
@@ -98,26 +124,22 @@ export default function SalesPage() {
         <Empty
           img={emptySales}
           title="কোনো বিক্রি নেই"
-          caption={search || wallet || dueOnly ? 'ফিল্টার বদলে আবার দেখুন।' : 'নতুন বিক্রি যুক্ত করে শুরু করুন।'}
+          caption={search || wallet || dueOnly || enteredBy ? 'ফিল্টার বদলে আবার দেখুন।' : 'নতুন বিক্রি যুক্ত করে শুরু করুন।'}
         />
       )}
       {rows.length > 0 && (
         <>
-          <div className={isPlaceholderData || (isFetching && !isPending) ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
+          <div>
             <SalesTable rows={rows} onEdit={guard((r: SaleRowV) => setEditing(r))} onDelete={guard((id: string) => void del(id))} onDetail={setDetail} />
           </div>
-          {pageCount > 1 && (
-            <div className="flex items-center justify-between">
-              <Btn variant="ghost" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-                আগের
-              </Btn>
-              <p className="p-caption p-num">
-                {toBnDigits(page + 1)} / {toBnDigits(pageCount)}
-              </p>
-              <Btn variant="ghost" disabled={page >= pageCount - 1} onClick={() => setPage((p) => p + 1)}>
-                পরের
-              </Btn>
+          <div ref={sentinelRef} aria-hidden />
+          {isFetchingNextPage && (
+            <div role="status" aria-busy className="flex justify-center py-2">
+              <Skeleton className="h-10 w-full max-w-md" />
             </div>
+          )}
+          {!hasNextPage && rows.length >= PAGE_SIZE && (
+            <p className="p-caption p-num text-center">সব দেখানো হয়েছে</p>
           )}
         </>
       )}
@@ -143,7 +165,6 @@ export default function SalesPage() {
               submitLabel="বিক্রি সংরক্ষণ"
               onSubmit={async (payload: SaleInput) => {
                 await createSale(payload);
-                setPage(0);
                 await invalidate(qc);
                 setSheetOpen(false);
               }}
@@ -338,6 +359,12 @@ function SaleDetailSheet({ sale, onClose }: { sale: SaleRowV; onClose: () => voi
                   <span className="text-bad">
                     {formatMoney(sale.discount)} {sale.discount_pct ? `(${toBnDigits(Math.round(Number(sale.discount_pct)))}%)` : ''}
                   </span>
+                </div>
+              )}
+              {data?.enteredBy && (
+                <div className="flex justify-between py-1.5">
+                  <span>এন্ট্রি করেছে</span>
+                  <span className="font-semibold">{data.enteredBy}</span>
                 </div>
               )}
               {Number(sale.due_amount) > 0 && (

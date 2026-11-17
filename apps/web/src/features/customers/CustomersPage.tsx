@@ -17,7 +17,7 @@ type Line = { wallet: string; amount: string };
 export default function CustomersPage() {
   usePageTitle('কাস্টমার');
   const qc = useQueryClient();
-  const { guard, denied } = useWriteGuard();
+  const { guard, denied } = useWriteGuard('customers');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [search, setSearch] = useState('');
