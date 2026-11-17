@@ -8,10 +8,21 @@ import TimeInput from 'components/forms/TimeInput';
 import NumberInput from 'components/forms/NumberInput';
 import { mapError } from 'lib/errors';
 import { useWriteGuard } from 'hooks/useWriteGuard';
-import { formatDhakaDateTime, toBnDigits } from '@patabin/shared';
+import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import offline from 'assets/images/empty/offline.png';
 
 type PacketRow = { packet_id: string; packet_code: string; owner_name: string; remaining: number };
+
+type AdjustmentRow = {
+  id: string;
+  packet_id: string;
+  at: string;
+  qty: number;
+  reason: string;
+  person: string | null;
+  note: string | null;
+  packets: { code: string; partners: { name: string } | null; chalans: { code: string; buy_rate: number } | null } | null;
+};
 
 export default function AdjustmentsPage() {
   usePageTitle('নষ্ট/ফ্রি');
@@ -39,22 +50,36 @@ export default function AdjustmentsPage() {
   const { data: rows, isPending } = useQuery({
     queryKey: ['adjustments', start, end],
     queryFn: async () => {
-      const { data, error } = await supabase.from('stock_adjustments').select('*').is('deleted_at', null).gte('at', start).lt('at', end).order('at', { ascending: false });
+      const { data, error } = await supabase
+        .from('stock_adjustments')
+        .select('id, packet_id, at, qty, reason, person, note, packets(code, partners(name), chalans(code, buy_rate))')
+        .is('deleted_at', null).gte('at', start).lt('at', end).order('at', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as { id: string; packet_id: string; at: string; qty: number; reason: string; person: string | null; note: string | null }[];
+      return (data ?? []) as unknown as AdjustmentRow[];
     },
   });
 
-  const { data: packetNames = [] } = useQuery({
-    queryKey: ['packets-all'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('v_packet_stock').select('packet_id, packet_code, owner_name');
-      if (error) throw error;
-      return (data ?? []) as { packet_id: string; packet_code: string; owner_name: string }[];
-    },
-  });
-
-  const packetOf = (id: string) => packets.find((p) => p.packet_id === id) ?? packetNames.find((p) => p.packet_id === id);
+  const summaries = (() => {
+    const groups = new Map<string, { code: string; rows: { owner: string; pcs: number; cost: number; reasons: Map<string, number> }[] }>();
+    for (const x of rows ?? []) {
+      const code = x.packets?.chalans?.code ?? 'অজানা';
+      let g = groups.get(code);
+      if (!g) {
+        g = { code, rows: [] };
+        groups.set(code, g);
+      }
+      const owner = x.packets?.partners?.name ?? 'অজানা';
+      let row = g.rows.find((r) => r.owner === owner);
+      if (!row) {
+        row = { owner, pcs: 0, cost: 0, reasons: new Map() };
+        g.rows.push(row);
+      }
+      row.pcs += Number(x.qty);
+      row.cost += Number(x.qty) * Number(x.packets?.chalans?.buy_rate ?? 0);
+      row.reasons.set(x.reason, (row.reasons.get(x.reason) ?? 0) + Number(x.qty));
+    }
+    return [...groups.values()];
+  })();
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -145,6 +170,35 @@ export default function AdjustmentsPage() {
       )}
       {rows?.length === 0 && <Empty img={offline} title="কিছু নষ্ট বা ফ্রি হয়নি" caption="স্টক বাদ দিতে হলে এখানে লিখুন।" />}
       {rows && rows.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <p className="p-label">চালান অনুযায়ী হিসাব</p>
+          {summaries.map((g) => (
+            <div key={g.code} className="card p-5">
+              <p className="p-title mb-3">চালান {g.code}</p>
+              <div className="flex flex-col divide-y divide-hairline">
+                {g.rows.map((r) => (
+                  <div key={r.owner} className="flex items-center justify-between gap-3 py-2 first:pt-0">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{r.owner}</p>
+                      <p className="p-caption text-ink-mute">
+                        {[...r.reasons.entries()].map(([reason, qty]) => `${bnReason(reason)} ${toBnDigits(qty)}`).join(' · ')}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="p-num text-sm font-bold">{toBnDigits(r.pcs)} পিস</p>
+                      <p className="p-caption p-num text-ink-mute">কেনার দামে {formatMoney(r.cost)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="p-caption mt-3 rounded-xl bg-canvas px-4 py-3">
+                এই পিসগুলোর ক্ষতি প্যাকেটের মালিক বহন করবে — হিসাবে তার অংশ থেকে বাদ পড়বে।
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+      {rows && rows.length > 0 && (
         <div className="card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -161,10 +215,9 @@ export default function AdjustmentsPage() {
                 <tr key={x.id} className="border-b border-hairline last:border-0">
                   <td className="whitespace-nowrap p-3">{formatDhakaDateTime(x.at)}</td>
                   <td className="p-3 text-xs">{
-                    (() => {
-                      const p = packetOf(x.packet_id);
-                      return p ? `${p.packet_code} · ${p.owner_name}` : '-';
-                    })()
+                    x.packets
+                      ? `${x.packets.code} · ${x.packets.partners?.name ?? '-'}`
+                      : '-'
                   }</td>
                   <td className="p-3">{toBnDigits(x.qty)}</td>
                   <td className="p-3">{bnReason(x.reason)}</td>
