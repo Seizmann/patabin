@@ -5,12 +5,13 @@ import { useAuth } from 'lib/auth';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Card, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
 
-type ProfileRow = { id: string; role: 'su_admin' | 'patabin_admin' | 'patabin_partner'; display_name: string; is_active: boolean; must_change_password: boolean };
+type ProfileRow = { id: string; role: 'su_admin' | 'patabin_admin' | 'patabin_partner' | 'patabin_demo_admin'; display_name: string; is_active: boolean; must_change_password: boolean };
 
 const ROLE_BN: Record<ProfileRow['role'], string> = {
   su_admin: 'সুপার অ্যাডমিন',
   patabin_admin: 'অ্যাডমিন',
   patabin_partner: 'ইনভেস্টর',
+  patabin_demo_admin: 'ডেমো অ্যাডমিন',
 };
 
 const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`;
@@ -118,6 +119,7 @@ export default function UsersPage() {
                 <option value="patabin_admin">অ্যাডমিন</option>
                 <option value="su_admin">অ্যাডমিন (সুপার)</option>
                 <option value="patabin_partner">ইনভেস্টর</option>
+                <option value="patabin_demo_admin">ডেমো অ্যাডমিন</option>
               </select>
             </Field>
             <div className="col-span-2">
@@ -168,6 +170,7 @@ export default function UsersPage() {
                     <option value="patabin_admin">অ্যাডমিন</option>
                     <option value="su_admin">অ্যাডমিন (সুপার)</option>
                     <option value="patabin_partner">ইনভেস্টর</option>
+                    <option value="patabin_demo_admin">ডেমো অ্যাডমিন</option>
                   </select>
                 </Field>
               </>

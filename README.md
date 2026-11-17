@@ -6,7 +6,7 @@
 
 <br />
 
-<img src="https://readme-typing-svg.demolab.com?font=Noto+Sans+Bengali:wght@600&size=24&duration=2600&pause=1100&color=C07343&center=true&vCenter=true&multiline=false&repeat=true&width=780&height=52&lines=%F0%9F%8D%AB+%E0%A6%B8%E0%A7%8D%E0%A6%9F%E0%A6%95+%C2%B7+%E0%A6%AC%E0%A6%BF%E0%A6%95%E0%A7%8D%E0%A6%B0%E0%A6%BF+%C2%B7+%E0%A6%AA%E0%A6%BE%E0%A6%B0%E0%A7%8D%E0%A6%9F%E0%A6%A8%E0%A6%BE%E0%A6%B0+%E0%A6%B9%E0%A6%BF%E0%A6%B8%E0%A6%BE%E0%A6%AC;%F0%9F%93%A6+%E0%A6%AA%E0%A7%8D%E0%A6%AF%E0%A6%BE%E0%A6%95%E0%A7%87%E0%A6%9F+%E0%A6%AD%E0%A6%BE%E0%A6%99%E0%A6%BF+%E0%A6%AA%E0%A6%BF%E0%A6%9B+%E0%A6%AC%E0%A6%BF%E0%A6%95%E0%A7%8D%E0%A6%B0%E0%A6%BF;%F0%9F%92%B0+%E0%A6%BD%E0%A6%BE%E0%A6%93%E0%A6%B2+%E0%A6%AA%E0%A6%BE%E0%A6%B0%E0%A7%8D%E0%A6%9F%E0%A6%A8%E0%A6%BE%E0%A6%B0%E0%A7%87%E0%A6%B0+%E0%A6%B8%E0%A7%8D%E0%A6%AA%E0%A6%B7%E0%A7%8D%E0%A6%9F+%E0%A6%B9%E0%A6%BF%E0%A6%B8%E0%A6%BE%E0%A6%AC;Bangla-first+bookkeeping%2C+built+for+chocolate+resale;Own-stock+model+%E2%80%94+clear+partner+balances;Installable+PWA+%E2%80%94+works+offline" alt="Animated tagline" />
+<img src="https://readme-typing-svg.demolab.com?font=Noto+Sans+Bengali:wght@600&size=24&duration=2600&pause=1100&color=C07343&center=true&vCenter=true&multiline=false&repeat=true&width=780&height=52&lines=%F0%9F%8D%AB+%E0%A6%B8%E0%A7%8D%E0%A6%9F%E0%A6%95+%C2%B7+%E0%A6%AC%E0%A6%BF%E0%A6%95%E0%A7%8D%E0%A6%B0%E0%A6%BF+%C2%B7+%E0%A6%AA%E0%A6%BE%E0%A6%B0%E0%A7%8D%E0%A6%9F%E0%A6%A8%E0%A6%BE%E0%A6%B0+%E0%A6%B9%E0%A6%BF%E0%A6%B8%E0%A6%BE%E0%A6%AC;%F0%9F%93%A6+%E0%A6%AA%E0%A7%8D%E0%A6%AF%E0%A6%BE%E0%A6%95%E0%A7%87%E0%A6%9F+%E0%A6%AD%E0%A6%BE%E0%A6%99%E0%A6%BF+%E0%A6%AA%E0%A6%BF%E0%A6%B6+%E0%A6%AC%E0%A6%BF%E0%A6%95%E0%A7%8D%E0%A6%B0%E0%A6%BF;%F0%9F%92%B0+%E0%A6%BD%E0%A6%BE%E0%A6%93%E0%A6%B2+%E0%A6%AA%E0%A6%BE%E0%A6%B0%E0%A7%8D%E0%A6%9F%E0%A6%A8%E0%A6%BE%E0%A6%B0%E0%A7%87%E0%A6%B0+%E0%A6%B8%E0%A7%8D%E0%A6%AA%E0%A6%B7%E0%A7%8D%E0%A6%9F+%E0%A6%B9%E0%A6%BF%E0%A6%B8%E0%A6%BE%E0%A6%AC;Bangla-first+bookkeeping%2C+built+for+chocolate+resale;Own-stock+model+%E2%80%94+clear+partner+balances;Installable+PWA+%E2%80%94+works+offline" alt="Animated tagline" />
 
 <br />
 
@@ -18,7 +18,26 @@
 [![PWA](https://img.shields.io/badge/Installable-PWA-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps)
 [![pnpm](https://img.shields.io/badge/pnpm-workspace-F69220?style=for-the-badge&logo=pnpm&logoColor=white)](https://pnpm.io/)
 
+<br />
+
+[![Live App](https://img.shields.io/badge/%F0%9F%8C%90_Live_App-patabin.vabobd.top-8b5a2b?style=for-the-badge)](https://patabin.vabobd.top)
+
 </div>
+
+---
+
+## 🌐 Try the live demo
+
+The production app is live at **[patabin.vabobd.top](https://patabin.vabobd.top)** — installable as a PWA on any phone.
+
+Want to look around without touching real business data? Log in with the public **Demo Admin** account. It serves a complete set of realistic dummy data (chalans, packets, sales, customers, wallets, expenses, reports) and is strictly read-only — every write is rejected in the UI and at the database level.
+
+> **Live app:** https://patabin.vabobd.top
+>
+> | | |
+> | --- | --- |
+> | **Email** | `demo@patabin.rexio.pro` |
+> | **Password** | `demo1234` |
 
 ---
 
@@ -48,8 +67,11 @@ PataBin is a mobile-first PWA built for partners who buy chocolates in bulk, bre
 | 🔁 **Stock adjustments** | Gifts, damage, loss, samples — traceable with person and note |
 | 💸 **Expenses & withdrawals** | Category-managed records with manual attribution and optional chalan link |
 | 👛 **Wallets** | Shared wallet accounts with per-partner and shared balances, payments received live |
-| 🧑‍💼 **Administration** | `su_admin` settings: sell price, buy rate, packet size, expense categories |
-| 👁️ **Investor role** | `patabin_partner` accounts see every balance, report, and audit trail — but can't write anything. Read-only is enforced in the database (RLS + RPC guards), not just hidden in the UI |
+| 🧑‍💼 **Administration** | `su_admin` settings, user management, and DB-driven module permissions |
+| 👁️ **Investor role** | `patabin_partner` accounts see every balance, report, and audit trail — but can't write anything |
+| 🎭 **Demo role** | `patabin_demo_admin` is a read-only public demo account: the app serves dummy data instead of real records, enforced both client-side and in Postgres (RLS + RPC guards) |
+
+**Read-only is enforced in the database (RLS + RPC guards), not just hidden in the UI.**
 
 <div align="center">
 
