@@ -344,6 +344,12 @@ function SaleDetailSheet({ sale, onClose }: { sale: SaleRowV; onClose: () => voi
                   </span>
                 </div>
               )}
+              {data?.enteredBy && (
+                <div className="flex justify-between py-1.5">
+                  <span>এন্ট্রি করেছে</span>
+                  <span className="font-semibold">{data.enteredBy}</span>
+                </div>
+              )}
               {Number(sale.due_amount) > 0 && (
                 <div className="flex justify-between py-1.5">
                   <span>বাকি</span>
