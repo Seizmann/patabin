@@ -256,7 +256,8 @@ Constraints:
 ### RLS
 - Helpers (`SECURITY DEFINER`, `stable`, fixed `search_path`): `is_active_user()`, `is_su_admin()`.
 - Active users: SELECT and INSERT/UPDATE on business tables (soft-delete is an UPDATE; delete = set `deleted_at`). No DELETE policies.
-- `settings`, `expense_categories` writes, `profiles` writes: `su_admin` only (profile writes also via the edge function).
+- `settings`, `profiles` writes: `su_admin` only (profile writes also via the edge function).
+- `expense_categories`: INSERT allowed for any active user (custom categories from the expense form); UPDATE: `su_admin` only.
 - `audit_log`: SELECT for active users, no direct writes (written by triggers), append-only (no update/delete grants for anyone).
 - Closed-chalan immutability enforced by triggers, not only UI.
 - Views use `security_invoker = true`.
