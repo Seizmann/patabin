@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Trash } from '@phosphor-icons/react';
 import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Card, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { useDialog } from 'components/ui/Dialog';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
@@ -48,6 +50,7 @@ async function fetchPersonalUses(start: string, end: string, partnerId = ''): Pr
 export default function PersonalUsePage() {
   usePageTitle('ব্যক্তিগত ব্যবহার');
   const qc = useQueryClient();
+  const dialog = useDialog();
   const { guard, denied } = useWriteGuard('personal_use');
   const [ eater, setEater ] = useState('');
   const [packetId, setPacketId] = useState('');
@@ -129,10 +132,7 @@ export default function PersonalUsePage() {
         },
       });
       if (rpcErr) throw rpcErr;
-      await qc.invalidateQueries({ queryKey: ['packets'] });
-      await qc.invalidateQueries({ queryKey: ['personal-uses'] });
-      await qc.invalidateQueries({ queryKey: ['balances'] });
-      await qc.invalidateQueries({ queryKey: ['dashboard'] });
+      await invalidateAll();
       setOk('সংরক্ষিত');
       setQty('');
       setNote('');
@@ -140,6 +140,29 @@ export default function PersonalUsePage() {
       setError(mapError(err));
     }
     setBusy(false);
+  };
+
+  const invalidateAll = async () => {
+    await qc.invalidateQueries({ queryKey: ['packets'] });
+    await qc.invalidateQueries({ queryKey: ['personal-uses'] });
+    await qc.invalidateQueries({ queryKey: ['balances'] });
+    await qc.invalidateQueries({ queryKey: ['dashboard'] });
+    await qc.invalidateQueries({ queryKey: ['settlement'] });
+    await qc.invalidateQueries({ queryKey: ['partner-balances'] });
+  };
+
+  const del = async (id: string) => {
+    setError('');
+    const okDel = await dialog.confirm({ title: 'ব্যবহার মুছে ফেলবেন?', message: 'এই ব্যক্তিগত ব্যবহারের এন্ট্রি মুছে ফেলা হবে; স্টক ফিরবে। নিশ্চিত?', destructive: true, confirmText: 'মুছুন' });
+    if (!okDel) return;
+    try {
+      const { error: rpcErr } = await supabase.rpc('delete_personal_use', { p_id: id });
+      if (rpcErr) throw rpcErr;
+      await invalidateAll();
+      setOk('মুছে ফেলা হয়েছে');
+    } catch (err) {
+      setError(mapError(err));
+    }
   };
 
   return (
@@ -250,6 +273,7 @@ export default function PersonalUsePage() {
                 <th className="p-3 font-semibold">উৎস</th>
                 <th className="p-3 font-semibold">পরিমাণ</th>
                 <th className="p-3 font-semibold">মূল্য</th>
+                <th className="p-3" />
               </tr>
             </thead>
             <tbody>
@@ -269,6 +293,11 @@ export default function PersonalUsePage() {
                   </td>
                   <td className="p-3">{toBnDigits(u.qty)}</td>
                   <td className="p-3">{formatMoney(Number(u.qty) * Number(u.unit_value))}</td>
+                  <td className="p-3 text-right">
+                    <Btn variant="ghost" aria-label="মুছুন" onClick={guard(() => void del(u.id))}>
+                      <Trash size={16} aria-hidden />
+                    </Btn>
+                  </td>
                 </tr>
               ))}
             </tbody>

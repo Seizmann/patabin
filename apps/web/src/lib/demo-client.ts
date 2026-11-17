@@ -68,7 +68,7 @@ const TABLES: Record<string, Row[]> = {
 const RPC_WRITES = new Set([
   'create_sale', 'update_sale', 'delete_sale', 'create_chalan', 'close_chalan', 'reopen_chalan',
   'adjust_chalan_purchase', 'create_packets', 'set_sell_priority', 'create_expense', 'update_expense',
-  'delete_expense', 'create_personal_use', 'create_adjustment', 'create_transfer', 'create_withdrawal',
+  'delete_expense', 'create_personal_use', 'delete_personal_use', 'create_adjustment', 'create_transfer', 'create_withdrawal',
   'create_customer_payment',
 ]);
 
