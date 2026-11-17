@@ -1,4 +1,5 @@
 import {
+  DEMO_UID,
   DEMO_AUDIT_LOG,
   DEMO_CHALAN_PURCHASES,
   DEMO_CHALANS,
@@ -34,8 +35,6 @@ type Filter = { op: string; col: string; val: unknown };
 
 const READ_ONLY_ERROR = { code: '42501', message: 'DEMO_READ_ONLY', details: null, hint: null };
 
-const DEMO_UID = 'd3bd0000-1111-4222-8333-444455556666';
-
 const TABLES: Record<string, Row[]> = {
   profiles: [{ id: DEMO_UID, role: 'patabin_demo_admin', display_name: 'Demo Admin', must_change_password: false, is_active: true, created_at: '2026-01-01T00:00:00Z' }],
   chalans: DEMO_CHALANS as unknown as Row[],
@@ -69,7 +68,7 @@ const TABLES: Record<string, Row[]> = {
 const RPC_WRITES = new Set([
   'create_sale', 'update_sale', 'delete_sale', 'create_chalan', 'close_chalan', 'reopen_chalan',
   'adjust_chalan_purchase', 'create_packets', 'set_sell_priority', 'create_expense', 'update_expense',
-  'delete_expense', 'create_personal_use', 'create_adjustment', 'create_transfer', 'create_withdrawal',
+  'delete_expense', 'create_personal_use', 'delete_personal_use', 'create_adjustment', 'create_transfer', 'create_withdrawal',
   'create_customer_payment',
 ]);
 
@@ -91,6 +90,7 @@ function matchFilter(row: Row, f: Filter): boolean {
     case 'in': return Array.isArray(f.val) && (f.val as unknown[]).some((x) => String(x) === String(v));
     case 'like':
     case 'ilike': return String(v ?? '').toLowerCase().includes(String(f.val).replaceAll('%', '').toLowerCase());
+    case 'contains': return Array.isArray(v) && Array.isArray(f.val) && (f.val as unknown[]).every((x) => v.some((y) => String(y) === String(x)));
     default: return true;
   }
 }
@@ -131,6 +131,7 @@ class DemoQuery {
   in(col: string, val: unknown[]) { this.filters.push({ op: 'in', col, val }); return this; }
   like(col: string, val: string) { this.filters.push({ op: 'like', col, val }); return this; }
   ilike(col: string, val: string) { this.filters.push({ op: 'ilike', col, val }); return this; }
+  contains(col: string, val: unknown[]) { this.filters.push({ op: 'contains', col, val }); return this; }
   not(col: string, op: string, val: unknown) { this.filters.push({ op: `not_${op}`, col, val }); return this; }
   or(expr: string) { this.filters.push({ op: 'or', col: '', val: expr }); return this; }
 

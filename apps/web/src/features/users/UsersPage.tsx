@@ -4,6 +4,7 @@ import { supabase } from 'lib/supabase';
 import { useAuth } from 'lib/auth';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Card, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { useDialog } from 'components/ui/Dialog';
 
 type ProfileRow = { id: string; role: 'su_admin' | 'patabin_admin' | 'patabin_partner' | 'patabin_demo_admin'; display_name: string; is_active: boolean; must_change_password: boolean };
 
@@ -33,6 +34,7 @@ export default function UsersPage() {
   usePageTitle('ব্যবহারকারী');
   const { session } = useAuth();
   const qc = useQueryClient();
+  const dialog = useDialog();
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
   const [busyId, setBusyId] = useState('');
@@ -88,7 +90,7 @@ export default function UsersPage() {
   };
 
   const resetPassword = async (id: string) => {
-    const pass = window.prompt('নতুন সাময়িক পাসওয়ার্ড (অন্তত ১০ অক্ষর):') ?? '';
+    const pass = await dialog.prompt({ title: 'সাময়িক পাসওয়ার্ড', message: 'নতুন সাময়িক পাসওয়ার্ড দিন (অন্তত ১০ অক্ষর)।', confirmText: 'সেট করুন' });
     if (!pass || pass.length < 10) {
       setError('পাসওয়ার্ড অন্তত ১০ অক্ষরের দিন।');
       return;

@@ -30,6 +30,8 @@ const seoPlugin: Plugin = {
       `<meta name="twitter:title" content="PataBin" />`,
       `<meta name="twitter:description" content="চকলেট ব্যবসার হিসাব — এক অ্যাপে।" />`,
       `<meta name="twitter:image" content="${abs('/og-image.webp')}" />`,
+      `<meta name="author" content="Mohammad Sijan" />`,
+      `<meta name="portfolio" content="https://sijan.pro.bd" />`,
       `<link rel="manifest" href="/manifest.webmanifest" />`,
     ].join('\n    ');
     const jsonLd = JSON.stringify({
@@ -40,6 +42,11 @@ const seoPlugin: Plugin = {
       operatingSystem: 'PWA',
       lang: 'bn',
       url: siteUrl,
+      author: {
+        '@type': 'Person',
+        name: 'Mohammad Sijan',
+        url: 'https://sijan.pro.bd',
+      },
     });
     return html.replace(
       '<title>পাতাবিন</title>',

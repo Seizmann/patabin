@@ -78,6 +78,44 @@ export async function fetchStockByPartner(): Promise<Record<string, number>> {
   return byPartner;
 }
 
+export async function fetchSelfCapital(start: string, end: string, partnerId: string): Promise<number> {
+  const [chalansRes, purchases] = await Promise.all([
+    supabase.from('chalans').select('id').is('deleted_at', null).gte('purchase_date', start.slice(0, 10)).lt('purchase_date', end.slice(0, 10)),
+    supabase.from('chalan_purchases').select('chalan_id, amount_paid').is('deleted_at', null).eq('partner_id', partnerId),
+  ]);
+  if (chalansRes.error) throw chalansRes.error;
+  if (purchases.error) throw purchases.error;
+  const ids = new Set((chalansRes.data ?? []).map((c) => c.id as string));
+  return ((purchases.data ?? []) as { chalan_id: string; amount_paid: number | string }[]).reduce(
+    (acc, p) => acc + (ids.has(p.chalan_id) ? Number(p.amount_paid) : 0),
+    0,
+  );
+}
+
+export async function fetchSelfDailyIncome(start: string, end: string, partnerId: string): Promise<DayRow[]> {
+  const [sales, allocations, packets] = await Promise.all([
+    supabase.from('sales').select('id, sold_at, amount_received, qty').is('deleted_at', null).gte('sold_at', start).lt('sold_at', end),
+    supabase.from('sale_allocations').select('sale_id, packet_id, qty'),
+    supabase.from('packets').select('id').eq('owner_partner_id', partnerId).is('deleted_at', null),
+  ]);
+  if (sales.error) throw sales.error;
+  if (allocations.error) throw allocations.error;
+  if (packets.error) throw packets.error;
+  const mine = new Set((packets.data ?? []).map((p) => p.id as string));
+  const saleById = new Map<string, { soldAt: string; received: number; qty: number }>();
+  for (const s of (sales.data ?? []) as { id: string; sold_at: string; amount_received: number | string; qty: number | string }[]) {
+    saleById.set(s.id, { soldAt: s.sold_at, received: Number(s.amount_received), qty: Number(s.qty) });
+  }
+  const byDay = new Map<string, number>();
+  for (const a of (allocations.data ?? []) as { sale_id: string; packet_id: string; qty: number | string }[]) {
+    const s = saleById.get(a.sale_id);
+    if (!s || !mine.has(a.packet_id) || s.qty === 0) continue;
+    const day = s.soldAt.slice(0, 10);
+    byDay.set(day, (byDay.get(day) ?? 0) + (s.received * Number(a.qty)) / s.qty);
+  }
+  return [...byDay.entries()].sort().map(([day, income]) => ({ day, income }));
+}
+
 export async function fetchWalletBalances(start: string, end: string): Promise<WalletBalance[]> {
   const { data, error } = await supabase.rpc('wallet_flows', { p_start: start, p_end: end });
   if (error) throw error;

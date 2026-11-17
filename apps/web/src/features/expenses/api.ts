@@ -4,14 +4,18 @@ export type ExpenseRow = { id: string; category_id: string; amount: string | num
 export type PartnerRow = { id: string; name: string };
 export type WalletRow = { id: string; type: string; name: string; label: string };
 
-export async function fetchExpenses(start: string, end: string): Promise<ExpenseRow[]> {
-  const { data, error } = await supabase
+export async function fetchExpenses(start: string, end: string, partnerId = ''): Promise<ExpenseRow[]> {
+  let q = supabase
     .from('expenses')
     .select('id, category_id, amount, paid_by_partner_id, attributed_to_partner_id, wallet_account_id, chalan_id, note, spent_at')
     .is('deleted_at', null)
     .gte('spent_at', start)
     .lt('spent_at', end)
     .order('spent_at', { ascending: false });
+  if (partnerId) {
+    q = q.eq('attributed_to_partner_id', partnerId);
+  }
+  const { data, error } = await q;
   if (error) throw error;
   return data ?? [];
 }

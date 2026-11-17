@@ -10,6 +10,7 @@ import { fetchPartners, myPartnerId } from 'lib/api';
 import { usePeriodFilter } from 'components/PeriodFilter';
 import { mapError } from 'lib/errors';
 import { useWriteGuard } from 'hooks/useWriteGuard';
+import { useViewMode } from 'lib/viewMode';
 import { formatDhakaDateTime, formatMoney } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 import offlineImg from 'assets/images/empty/offline.png';
@@ -173,10 +174,15 @@ function TransferCard({ wallets, partners }: { wallets: WalletBalance[]; partner
 
 function TransfersTable() {
   const { data: partners = [] } = useQuery({ queryKey: ['partners'], queryFn: fetchPartners });
+  const { myPartnerId: mine, isSelf } = useViewMode();
   const { data: rows } = useQuery({
-    queryKey: ['transfers'],
+    queryKey: ['transfers', isSelf ? mine : ''],
     queryFn: async () => {
-      const { data, error } = await supabase.from('wallet_transfers').select('*').is('deleted_at', null).order('at', { ascending: false });
+      let q = supabase.from('wallet_transfers').select('*').is('deleted_at', null).order('at', { ascending: false });
+      if (isSelf && mine) {
+        q = q.eq('attributed_to_partner_id', mine);
+      }
+      const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as { id: string; at: string; from_wallet_id: string; to_wallet_id: string; amount: number; charge: number; attributed_to_partner_id: string }[];
     },
@@ -353,10 +359,15 @@ type WithdrawalRow = { id: string; at: string; partner_id: string; wallet_accoun
 
 function WithdrawalsTable({ onOpen }: { onOpen: (w: WithdrawalRow) => void }) {
   const { data: partners = [] } = useQuery({ queryKey: ['partners'], queryFn: fetchPartners });
+  const { myPartnerId: mine, isSelf } = useViewMode();
   const { data: rows } = useQuery({
-    queryKey: ['withdrawals'],
+    queryKey: ['withdrawals', isSelf ? mine : ''],
     queryFn: async () => {
-      const { data, error } = await supabase.from('withdrawals').select('*').is('deleted_at', null).order('at', { ascending: false });
+      let q = supabase.from('withdrawals').select('*').is('deleted_at', null).order('at', { ascending: false });
+      if (isSelf && mine) {
+        q = q.eq('partner_id', mine);
+      }
+      const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as WithdrawalRow[];
     },

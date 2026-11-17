@@ -5,12 +5,14 @@ import { fetchSaleDetails, createSale, deleteSale, fetchSales, fetchWallets, upd
 import SaleForm from './SaleForm';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { useDialog } from 'components/ui/Dialog';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import { Plus, X } from '@phosphor-icons/react';
 import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 import { mapError } from 'lib/errors';
 import { useWriteGuard } from 'hooks/useWriteGuard';
+import { useViewMode } from 'lib/viewMode';
 import emptySales from 'assets/images/empty/empty-sales.png';
 
 const PAGE_SIZE = 20;
@@ -27,6 +29,7 @@ function useDebounced(value: string, delay = 300): string {
 export default function SalesPage() {
   usePageTitle('বিক্রির তালিকা');
   const qc = useQueryClient();
+  const dialog = useDialog();
   const { guard, denied } = useWriteGuard('sales');
   const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('chalan');
   const [error, setError] = useState('');
@@ -37,6 +40,7 @@ export default function SalesPage() {
   const [wallet, setWallet] = useState('');
   const [dueOnly, setDueOnly] = useState(false);
   const [enteredBy, setEnteredBy] = useState('');
+  const { myPartnerId: mine, isSelf } = useViewMode();
   const debouncedSearch = useDebounced(search);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
@@ -51,8 +55,8 @@ export default function SalesPage() {
   });
 
   const { data, isPending, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ['sales', start, end, debouncedSearch, wallet, dueOnly, enteredBy],
-    queryFn: ({ pageParam }) => fetchSales(start, end, pageParam, PAGE_SIZE, debouncedSearch, wallet, dueOnly, enteredBy),
+    queryKey: ['sales', start, end, debouncedSearch, wallet, dueOnly, enteredBy, isSelf ? mine : ''],
+    queryFn: ({ pageParam }) => fetchSales(start, end, pageParam, PAGE_SIZE, debouncedSearch, wallet, dueOnly, enteredBy, isSelf ? (mine ?? '') : ''),
     initialPageParam: 0,
     getNextPageParam: (last, pages) => (last.rows.length < PAGE_SIZE ? undefined : pages.length),
   });
@@ -73,7 +77,8 @@ export default function SalesPage() {
 
   const del = async (id: string) => {
     setError('');
-    if (!window.confirm('বিক্রিটি মুছে ফেলা হবে; স্টক ফিরবে। নিশ্চিত?')) return;
+    const ok = await dialog.confirm({ title: 'বিক্রি মুছে ফেলবেন?', message: 'বিক্রিটি মুছে ফেলা হবে; স্টক ফিরবে। নিশ্চিত?', destructive: true, confirmText: 'মুছুন' });
+    if (!ok) return;
     try {
       await deleteSale(id);
       await invalidate(qc);
@@ -118,6 +123,7 @@ export default function SalesPage() {
         </Btn>
       </div>
       {error && <Notice tone="error">{error}</Notice>}
+      {isSelf && <Notice tone="info">শুধু আপনার বিক্রি দেখানো হচ্ছে (self mode)।</Notice>}
       {isPending && <TableSkeleton />}
       {isError && <Notice tone="error">ডেটা আনতে সমস্যা হয়েছে</Notice>}
       {rows.length === 0 && !isPending && (

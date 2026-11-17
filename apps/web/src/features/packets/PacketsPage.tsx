@@ -12,6 +12,7 @@ import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
 import { mapError } from 'lib/errors';
 import { useWriteGuard } from 'hooks/useWriteGuard';
+import { useViewMode } from 'lib/viewMode';
 import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 
@@ -19,7 +20,8 @@ export default function PacketsPage() {
   usePageTitle('প্যাকেট');
   const qc = useQueryClient();
   const { pop, denied, canWrite } = useWriteGuard('packets');
-  const { data: all = [], isPending } = useQuery({ queryKey: ['packets'], queryFn: fetchPackets });
+  const { myPartnerId: mine, isSelf } = useViewMode();
+  const { data: all = [], isPending } = useQuery({ queryKey: ['packets', isSelf ? mine : ''], queryFn: () => fetchPackets(isSelf ? (mine ?? '') : '') });
   const { data: openChalans = [] } = useQuery({
     queryKey: ['open-chalan-pack'],
     queryFn: async () => {
@@ -79,6 +81,7 @@ export default function PacketsPage() {
     <div className="mx-auto flex max-w-3xl flex-col gap-5">
       <PageTitle tag="PataBin" title="প্যাকেট" />
       <Notice tone="info">টেনে উপর-নিচ করে বিক্রির ক্রম বদলান — বিক্রি এই ক্রমেই পরিমাণ কাটা হবে।</Notice>
+      {isSelf && <Notice tone="info">শুধু আপনার প্যাকেট দেখানো হচ্ছে (self mode)।</Notice>}
       {error && <Notice tone="error">{error}</Notice>}
       {ok && <Notice tone="ok">{ok}</Notice>}
 

@@ -8,6 +8,7 @@ import { Btn, Card, Field, Notice, PageTitle, Skeleton } from 'components/ui/bas
 import NumberInput from 'components/forms/NumberInput';
 import { mapError } from 'lib/errors';
 import { useWriteGuard } from 'hooks/useWriteGuard';
+import { useViewMode } from 'lib/viewMode';
 import { formatDhakaDate, formatMoney } from '@patabin/shared';
 
 export default function ChalanDetailPage() {
@@ -17,16 +18,36 @@ export default function ChalanDetailPage() {
   const { guard, denied } = useWriteGuard('chalans');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const { myPartnerId: mine, isSelf } = useViewMode();
+  const selfFilter = isSelf ? (mine ?? '') : '';
 
   const chalan = useQuery({ queryKey: ['chalan', code], queryFn: () => fetchChalanByCode(code) });
   const id = chalan.data?.id ?? null;
   const summary = useQuery({ queryKey: ['chalan-summary', id], queryFn: () => chalanSummary(id!), enabled: !!id });
-  const settlements = useQuery({ queryKey: ['chalan-settlements', id], queryFn: () => chalanSettlements(id!), enabled: !!id });
-  const purchases = useQuery({ queryKey: ['chalan-purchases', id], queryFn: () => chalanPurchases(id!), enabled: !!id });
+  const settlements = useQuery({
+    queryKey: ['chalan-settlements', id, selfFilter],
+    queryFn: async () => {
+      const rows = await chalanSettlements(id!);
+      return selfFilter ? rows.filter((r) => r.partner_id === selfFilter) : rows;
+    },
+    enabled: !!id,
+  });
+  const purchases = useQuery({
+    queryKey: ['chalan-purchases', id, selfFilter],
+    queryFn: async () => {
+      const rows = await chalanPurchases(id!);
+      return selfFilter ? rows.filter((r) => r.partner_id === selfFilter) : rows;
+    },
+    enabled: !!id,
+  });
   const { data: packets } = useQuery({
-    queryKey: ['packets', id],
+    queryKey: ['packets', id, selfFilter],
     queryFn: async (): Promise<{ packet_id: string; packet_code: string; owner_partner_id: string; owner_name: string; total_pcs: number; remaining: number }[]> => {
-      const { data, error } = await supabase.from('v_packet_stock').select('packet_id, packet_code, owner_partner_id, owner_name, total_pcs, remaining').eq('chalan_id', id).order('packet_code');
+      let q = supabase.from('v_packet_stock').select('packet_id, packet_code, owner_partner_id, owner_name, total_pcs, remaining').eq('chalan_id', id).order('packet_code');
+      if (selfFilter) {
+        q = q.eq('owner_partner_id', selfFilter);
+      }
+      const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as { packet_id: string; packet_code: string; owner_partner_id: string; owner_name: string; total_pcs: number; remaining: number }[];
     },
@@ -59,6 +80,8 @@ export default function ChalanDetailPage() {
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5">
       <PageTitle tag="চালান" title={`চালান ${code}`} right={<span className="p-caption">{closed ? 'বন্ধ' : 'চলছে'}</span>} />
+
+      {isSelf && <Notice tone="info">শুধু আপনার হিসাব দেখানো হচ্ছে (self mode)।</Notice>}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[

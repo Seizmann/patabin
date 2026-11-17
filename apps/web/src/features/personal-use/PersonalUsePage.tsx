@@ -1,14 +1,18 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Trash } from '@phosphor-icons/react';
 import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Card, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { useDialog } from 'components/ui/Dialog';
+import { useAuth } from 'lib/auth';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
-import { fetchPartners, fetchSettings, myPartnerId } from 'lib/api';
+import { fetchPartners, fetchSettings } from 'lib/api';
 import { mapError } from 'lib/errors';
 import { useWriteGuard } from 'hooks/useWriteGuard';
+import { useViewMode } from 'lib/viewMode';
 import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import offline from 'assets/images/empty/offline.png';
 
@@ -22,19 +26,24 @@ type PersonalUseRow = {
   note: string | null;
   packet_id: string | null;
   chalan_id: string | null;
+  eater_partner_id: string;
   partners: { name: string } | null;
   packets: { code: string; partners: { name: string } | null } | null;
   chalans: { code: string } | null;
 };
 
-async function fetchPersonalUses(start: string, end: string): Promise<PersonalUseRow[]> {
-  const { data, error } = await supabase
+async function fetchPersonalUses(start: string, end: string, partnerId = ''): Promise<PersonalUseRow[]> {
+  let q = supabase
     .from('personal_uses')
-    .select('id, at, qty, unit_value, note, packet_id, chalan_id, partners(name), packets(code, partners(name)), chalans(code)')
+    .select('id, at, qty, unit_value, note, packet_id, chalan_id, eater_partner_id, partners(name), packets(code, partners(name)), chalans(code)')
     .is('deleted_at', null)
     .gte('at', start)
     .lt('at', end)
     .order('at', { ascending: false });
+  if (partnerId) {
+    q = q.eq('eater_partner_id', partnerId);
+  }
+  const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as unknown as PersonalUseRow[];
 }
@@ -42,6 +51,8 @@ async function fetchPersonalUses(start: string, end: string): Promise<PersonalUs
 export default function PersonalUsePage() {
   usePageTitle('ব্যক্তিগত ব্যবহার');
   const qc = useQueryClient();
+  const dialog = useDialog();
+  const { suAdmin } = useAuth();
   const { guard, denied } = useWriteGuard('personal_use');
   const [ eater, setEater ] = useState('');
   const [packetId, setPacketId] = useState('');
@@ -56,7 +67,7 @@ export default function PersonalUsePage() {
 
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
   const { data: partners = [] } = useQuery({ queryKey: ['partners'], queryFn: fetchPartners });
-  const { data: myId } = useQuery({ queryKey: ['my-partner'], queryFn: myPartnerId });
+  const { myPartnerId: myId, isSelf } = useViewMode();
   const { data: packets = [] } = useQuery({
     queryKey: ['packets'],
     queryFn: async () => {
@@ -65,7 +76,7 @@ export default function PersonalUsePage() {
       return (data ?? []) as PacketRow[];
     },
   });
-  const { data: uses = [], isPending: usesPending } = useQuery({ queryKey: ['personal-uses', start, end], queryFn: () => fetchPersonalUses(start, end) });
+  const { data: uses = [], isPending: usesPending } = useQuery({ queryKey: ['personal-uses', start, end, isSelf ? myId : ''], queryFn: () => fetchPersonalUses(start, end, isSelf ? (myId ?? '') : '') });
 
   const chosen = packets.find((p) => p.packet_id === packetId) ?? null;
   const ownerIsOther = chosen && chosen.owner_partner_id !== (eater || myId);
@@ -123,10 +134,7 @@ export default function PersonalUsePage() {
         },
       });
       if (rpcErr) throw rpcErr;
-      await qc.invalidateQueries({ queryKey: ['packets'] });
-      await qc.invalidateQueries({ queryKey: ['personal-uses'] });
-      await qc.invalidateQueries({ queryKey: ['balances'] });
-      await qc.invalidateQueries({ queryKey: ['dashboard'] });
+      await invalidateAll();
       setOk('সংরক্ষিত');
       setQty('');
       setNote('');
@@ -134,6 +142,29 @@ export default function PersonalUsePage() {
       setError(mapError(err));
     }
     setBusy(false);
+  };
+
+  const invalidateAll = async () => {
+    await qc.invalidateQueries({ queryKey: ['packets'] });
+    await qc.invalidateQueries({ queryKey: ['personal-uses'] });
+    await qc.invalidateQueries({ queryKey: ['balances'] });
+    await qc.invalidateQueries({ queryKey: ['dashboard'] });
+    await qc.invalidateQueries({ queryKey: ['settlement'] });
+    await qc.invalidateQueries({ queryKey: ['partner-balances'] });
+  };
+
+  const del = async (id: string) => {
+    setError('');
+    const okDel = await dialog.confirm({ title: 'ব্যবহার মুছে ফেলবেন?', message: 'এই ব্যক্তিগত ব্যবহারের এন্ট্রি মুছে ফেলা হবে; স্টক ফিরবে। নিশ্চিত?', destructive: true, confirmText: 'মুছুন' });
+    if (!okDel) return;
+    try {
+      const { error: rpcErr } = await supabase.rpc('delete_personal_use', { p_id: id });
+      if (rpcErr) throw rpcErr;
+      await invalidateAll();
+      setOk('মুছে ফেলা হয়েছে');
+    } catch (err) {
+      setError(mapError(err));
+    }
   };
 
   return (
@@ -183,6 +214,7 @@ export default function PersonalUsePage() {
             <input className="field" value={note} onChange={(e) => setNote(e.target.value)} />
           </Field>
           {error && <Notice tone="error">{error}</Notice>}
+          {isSelf && <Notice tone="info">শুধু আপনার ব্যক্তিগত ব্যবহার দেখানো হচ্ছে (self mode)।</Notice>}
           {ok && <Notice tone="ok">{ok}</Notice>}
           <Btn type="submit" busy={busy} disabled={!Number(qty)}>
             সংরক্ষণ করুন
@@ -243,6 +275,7 @@ export default function PersonalUsePage() {
                 <th className="p-3 font-semibold">উৎস</th>
                 <th className="p-3 font-semibold">পরিমাণ</th>
                 <th className="p-3 font-semibold">মূল্য</th>
+                {suAdmin && <th className="p-3" />}
               </tr>
             </thead>
             <tbody>
@@ -262,6 +295,13 @@ export default function PersonalUsePage() {
                   </td>
                   <td className="p-3">{toBnDigits(u.qty)}</td>
                   <td className="p-3">{formatMoney(Number(u.qty) * Number(u.unit_value))}</td>
+                  {suAdmin && (
+                    <td className="p-3 text-right">
+                      <Btn variant="ghost" aria-label="মুছুন" onClick={guard(() => void del(u.id))}>
+                        <Trash size={16} aria-hidden />
+                      </Btn>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

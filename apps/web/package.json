@@ -3,6 +3,7 @@
   "name": "@patabin/web",
   "private": true,
   "type": "module",
+  "author": "Mohammad Sijan (https://sijan.pro.bd)",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
