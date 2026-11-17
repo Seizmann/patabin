@@ -36,9 +36,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const uid = session?.user.id;
-  useEffect(() => {
-    if (data && !data.is_active) void supabase.auth.signOut();
-  }, [data]);
   const { data, refetch } = useQuery<Profile>({
     queryKey: ['profile', uid],
     enabled: !!uid,
@@ -68,6 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
   const perms = useMemo(() => new Set(permRows ?? []), [permRows]);
+
+  useEffect(() => {
+    if (data && !data.is_active) void supabase.auth.signOut();
+  }, [data]);
 
   const value = useMemo<AuthState>(
     () => ({

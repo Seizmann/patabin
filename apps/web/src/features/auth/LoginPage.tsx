@@ -47,7 +47,7 @@ export default function LoginPage() {
     setFails(n);
     setError(authErrorText(error));
     if (n >= DELAYS.length) {
-      const delay = DELAYS[Math.min(n - DELAYS.length, DELAYS.length - 1)];
+      const delay = DELAYS[Math.min(n - DELAYS.length, DELAYS.length - 1)] ?? 120;
       setLockUntil(Date.now() + delay * 1000);
       setNow(Date.now());
     }
