@@ -8,6 +8,8 @@ const bn = {
   password: 'পাসওয়ার্ড',
   loginBtn: 'প্রবেশ করুন',
   loginFailed: 'ইমেইল বা পাসওয়ার্ড ভুল হয়েছে',
+  rateLimited: 'অনেকবার চেষ্টা হয়েছে; কিছুক্ষণ পর আবার চেষ্টা করুন।',
+  retryIn: 'সেকেন্ড পরে আবার চেষ্টা করুন',
   changePasswordTitle: 'পাসওয়ার্ড পরিবর্তন করুন',
   oldPassword: 'পুরনো পাসওয়ার্ড',
   newPassword: 'নতুন পাসওয়ার্ড',

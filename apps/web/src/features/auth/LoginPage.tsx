@@ -1,9 +1,13 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import bn from 'i18n/bn';
 import { supabase } from 'lib/supabase';
+import { authErrorText } from 'lib/errors';
 import { Btn, Card, Field, Notice, PageTitle } from 'components/ui/base';
+import { toBnDigits } from '@patabin/shared';
 import { usePageTitle } from 'hooks/usePageTitle';
 import loginBg from 'assets/images/backgrounds/login-bg.webp';
+
+const DELAYS = [30, 60, 120];
 
 export default function LoginPage() {
   usePageTitle(bn.login, 'পাতাবিনে প্রবেশ করে আপনার চকলেট ব্যবসার হিসাব রাখুন।');
@@ -11,14 +15,42 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [fails, setFails] = useState(0);
+  const [lockUntil, setLockUntil] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  const locked = lockUntil > now;
+  const waitSec = Math.ceil((lockUntil - now) / 1000);
+
+  useEffect(() => {
+    if (!locked) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [locked]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (locked) return;
     setError('');
     setBusy(true);
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setBusy(false);
-    if (error) setError(bn.loginFailed);
+    if (!error) {
+      setFails(0);
+      setLockUntil(0);
+      return;
+    }
+    if (error.status === 429 || error.code === 'over_request_rate_limit') {
+      setError(bn.rateLimited);
+      return;
+    }
+    const n = fails + 1;
+    setFails(n);
+    setError(authErrorText(error));
+    if (n >= DELAYS.length) {
+      const delay = DELAYS[Math.min(n - DELAYS.length, DELAYS.length - 1)];
+      setLockUntil(Date.now() + delay * 1000);
+      setNow(Date.now());
+    }
   };
 
   return (
@@ -50,7 +82,8 @@ export default function LoginPage() {
             />
           </Field>
           {error && <Notice tone="error">{error}</Notice>}
-          <Btn type="submit" busy={busy} disabled={!email || !password}>
+          {locked && <Notice tone="error">{`${toBnDigits(waitSec)} ${bn.retryIn}`}</Notice>}
+          <Btn type="submit" busy={busy} disabled={locked || !email || !password}>
             {bn.loginBtn}
           </Btn>
         </form>
