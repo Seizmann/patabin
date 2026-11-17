@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from 'lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 
-type Profile = { id: string; role: 'su_admin' | 'patabin_admin' | 'patabin_partner'; display_name: string; must_change_password: boolean; is_active: boolean };
+type Profile = { id: string; role: 'su_admin' | 'patabin_admin' | 'patabin_partner' | 'patabin_demo_admin'; display_name: string; must_change_password: boolean; is_active: boolean };
 
 type AuthState = {
   session: Session | null;
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile: data as AuthState['profile'] ?? null,
       loading: loading || (!!session && data === undefined),
       suAdmin: data?.role === 'su_admin',
-      readOnly: data?.role === 'patabin_partner',
+      readOnly: data?.role === 'patabin_partner' || data?.role === 'patabin_demo_admin',
       perms,
       can: (key: string) => data?.role === 'su_admin' || perms.has(key),
       refreshProfile: () => void refetch(),

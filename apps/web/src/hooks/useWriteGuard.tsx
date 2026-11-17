@@ -13,7 +13,7 @@ const AUTO_DISMISS_MS = 3200;
  * (e.g. 'sales') to also gate by DB-driven permissions.
  */
 export function useWriteGuard(perm?: string) {
-  const { readOnly, can } = useAuth();
+  const { readOnly, can, profile } = useAuth();
   const allowed = perm ? can(perm) : !readOnly;
   const [open, setOpen] = useState(false);
   const timer = useRef<number | undefined>(undefined);
@@ -35,7 +35,8 @@ export function useWriteGuard(perm?: string) {
     [allowed, pop],
   );
 
-  const denied: ReactNode = open ? <AccessDeniedPopup onClose={() => setOpen(false)} /> : null;
+  const deniedMessage = profile?.role === 'patabin_demo_admin' ? 'এই কাজের অনুমতি আপনার নেই — ডেমো অ্যাকাউন্ট শুধু নমুনা ডেটা দেখার জন্য।' : undefined;
+  const denied: ReactNode = open ? <AccessDeniedPopup onClose={() => setOpen(false)} message={deniedMessage} /> : null;
 
   return { guard, pop, denied, canWrite: allowed };
 }

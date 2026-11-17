@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { ShieldWarning } from '@phosphor-icons/react';
 import { Btn } from 'components/ui/base';
 
-export default function AccessDeniedPopup({ onClose }: { onClose: () => void }) {
+export default function AccessDeniedPopup({ onClose, message }: { onClose: () => void; message?: string }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -27,7 +27,7 @@ export default function AccessDeniedPopup({ onClose }: { onClose: () => void }) 
           <ShieldWarning weight="fill" size={26} />
         </span>
         <p className="p-title">অনুমতি নেই</p>
-        <p className="p-caption">এই কাজের অনুমতি আপনার নেই — ইনভেস্টর অ্যাকাউন্ট শুধু হিসাব দেখার জন্য।</p>
+        <p className="p-caption">{message ?? 'এই কাজের অনুমতি আপনার নেই — ইনভেস্টর অ্যাকাউন্ট শুধু হিসাব দেখার জন্য।'}</p>
         <Btn className="mt-2" onClick={onClose}>
           ঠিক আছে
         </Btn>

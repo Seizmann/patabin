@@ -31,6 +31,7 @@ const ERRORS: Record<string, string> = {
   NOT_ACTIVE: 'আপনার অ্যাকাউন্ট নিষ্ক্রিয়।',
   CHANGE_PASSWORD_REQUIRED: 'প্রথমে পাসওয়ার্ড পরিবর্তন করুন।',
   PARTNER_READ_ONLY: 'ইনভেস্টর অ্যাকাউন্ট শুধু দেখার জন্য; এই কাজটি করা যাবে না।',
+  DEMO_READ_ONLY: 'ডেমো অ্যাকাউন্ট শুধু নমুনা ডেটা দেখার জন্য; এই কাজটি করা যাবে না।',
   BALANCE_CHECK_REQUIRED: 'সোর্স ও গন্তব্য ওয়ালেট আলাদা করুন।',
 };
 
