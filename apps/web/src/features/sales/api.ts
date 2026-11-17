@@ -61,6 +61,7 @@ export async function fetchSales(
   search = '',
   walletName = '',
   dueOnly = false,
+  createdBy = '',
 ): Promise<{ rows: SaleRowV[]; total: number }> {
   const offset = page * pageSize;
   let q = supabase
@@ -80,6 +81,9 @@ export async function fetchSales(
   }
   if (dueOnly) {
     q = q.gt('due_amount', 0);
+  }
+  if (createdBy) {
+    q = q.eq('created_by', createdBy);
   }
   const { data, error, count } = await q;
   if (error) throw error;

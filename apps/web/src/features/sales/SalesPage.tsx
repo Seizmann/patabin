@@ -36,14 +36,23 @@ export default function SalesPage() {
   const [search, setSearch] = useState('');
   const [wallet, setWallet] = useState('');
   const [dueOnly, setDueOnly] = useState(false);
+  const [enteredBy, setEnteredBy] = useState('');
   const debouncedSearch = useDebounced(search);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const { data: wallets = [] } = useQuery({ queryKey: ['wallets'], queryFn: fetchWallets });
+  const { data: admins = [] } = useQuery({
+    queryKey: ['profiles-active'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('profiles').select('id, display_name').eq('is_active', true).order('display_name');
+      if (error) throw error;
+      return (data ?? []) as { id: string; display_name: string }[];
+    },
+  });
 
   const { data, isPending, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ['sales', start, end, debouncedSearch, wallet, dueOnly],
-    queryFn: ({ pageParam }) => fetchSales(start, end, pageParam, PAGE_SIZE, debouncedSearch, wallet, dueOnly),
+    queryKey: ['sales', start, end, debouncedSearch, wallet, dueOnly, enteredBy],
+    queryFn: ({ pageParam }) => fetchSales(start, end, pageParam, PAGE_SIZE, debouncedSearch, wallet, dueOnly, enteredBy),
     initialPageParam: 0,
     getNextPageParam: (last, pages) => (last.rows.length < PAGE_SIZE ? undefined : pages.length),
   });
@@ -96,6 +105,14 @@ export default function SalesPage() {
             </option>
           ))}
         </select>
+        <select className="field min-h-[44px] w-auto py-1.5" value={enteredBy} onChange={(e) => setEnteredBy(e.target.value)} aria-label="এন্ট্রি অ্যাডমিন">
+          <option value="">সব অ্যাডমিন</option>
+          {admins.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.display_name}
+            </option>
+          ))}
+        </select>
         <Btn variant={dueOnly ? 'solid' : 'ghost'} className="shrink-0" onClick={() => setDueOnly((v) => !v)}>
           শুধু বাকি
         </Btn>
@@ -107,7 +124,7 @@ export default function SalesPage() {
         <Empty
           img={emptySales}
           title="কোনো বিক্রি নেই"
-          caption={search || wallet || dueOnly ? 'ফিল্টার বদলে আবার দেখুন।' : 'নতুন বিক্রি যুক্ত করে শুরু করুন।'}
+          caption={search || wallet || dueOnly || enteredBy ? 'ফিল্টার বদলে আবার দেখুন।' : 'নতুন বিক্রি যুক্ত করে শুরু করুন।'}
         />
       )}
       {rows.length > 0 && (
