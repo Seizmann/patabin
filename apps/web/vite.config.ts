@@ -80,19 +80,6 @@ export default defineConfig({
       workbox: {
         navigateFallback: '/index.html',
         globPatterns: ['**/*.{js,css,html,svg,png,webp,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /\/rest\/v1\//,
-            handler: 'NetworkFirst',
-            method: 'GET',
-            options: {
-              cacheName: 'supabase-rest',
-              networkTimeoutSeconds: 4,
-              expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 7 },
-              cacheableResponse: { statuses: [200] },
-            },
-          },
-        ],
       },
     }),
   ],
