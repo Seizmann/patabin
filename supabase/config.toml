@@ -18,4 +18,5 @@ enable_confirmations = false
 
 [auth.rate_limit]
 email_sent = 2
+sign_in_attempts = 10
 token_refresh = 150

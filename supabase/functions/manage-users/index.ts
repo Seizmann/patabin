@@ -67,8 +67,8 @@ Deno.serve(async (req) => {
   if (!callerId) return json({ error: 'unauthorized' }, 401, originCheck.origin);
 
   const { data: me } = await service.from<Profile>('profiles').select('id, role, is_active').eq('id', callerId).maybeSingle();
-  if (!me?.is_active) return json({ error: 'unauthorized' }, 401, originCheck.origin);
-  const callerRole: 'su_admin' | 'patabin_admin' | 'patabin_partner' | 'patabin_demo_admin' = me.role;
+  if (!me?.is_active) return json({ error: 'forbidden' }, 403, originCheck.origin);
+  if (me.role !== 'su_admin') return json({ error: 'forbidden' }, 403, originCheck.origin);
 
   let body: unknown;
   try {
@@ -81,7 +81,6 @@ Deno.serve(async (req) => {
   try {
     if (action === 'create_user') {
       const p = createSchema.parse(body);
-      if (callerRole !== 'su_admin') return json({ error: 'forbidden' }, 403, originCheck.origin);
       const { data: created, error } = await service.auth.admin.createUser({
         email: p.email,
         password: p.temp_password,
@@ -89,7 +88,8 @@ Deno.serve(async (req) => {
       });
       if (error ?? !created?.user) return json({ error: 'email_taken' }, 409, originCheck.origin);
       const uid = created.user.id;
-      await service.from('profiles').upsert({ id: uid, role: p.role, display_name: p.display_name, must_change_password: true, is_active: true });
+      const { error: profileErr } = await service.from('profiles').upsert({ id: uid, role: p.role, display_name: p.display_name, must_change_password: true, is_active: true });
+      if (profileErr) return json({ error: 'update_failed' }, 500, originCheck.origin);
       if (p.partner_name) {
         const { data: partner } = await service.from('partners').select('id').eq('name', p.partner_name).maybeSingle();
         if (partner) await service.from('partners').update({ user_id: uid }).eq('id', partner.id);
@@ -101,7 +101,6 @@ Deno.serve(async (req) => {
       const p = resetSchema.parse(body);
       const { data: target } = await service.from<Profile>('profiles').select('id, role, is_active').eq('id', p.user_id).maybeSingle();
       if (!target?.is_active) return json({ error: 'user_not_found' }, 404, originCheck.origin);
-      if (target.role === 'su_admin' && callerRole !== 'su_admin') return json({ error: 'forbidden' }, 403, originCheck.origin);
       const { error: updErr } = await service.auth.admin.updateUserById(p.user_id, { password: p.temp_password });
       if (updErr) return json({ error: 'update_failed' }, 400, originCheck.origin);
       const { error: flagErr } = await service.from('profiles').update({ must_change_password: true }).eq('id', p.user_id);
@@ -115,7 +114,7 @@ Deno.serve(async (req) => {
       const p = activeSchema.parse(body);
       const { data: target } = await service.from<Profile>('profiles').select('id, role, is_active').eq('id', p.user_id).maybeSingle();
       if (!target) return json({ error: 'user_not_found' }, 404, originCheck.origin);
-      if (target.role === 'su_admin' && callerRole !== 'su_admin') return json({ error: 'forbidden' }, 403, originCheck.origin);
+      if (p.user_id === callerId && !p.is_active) return json({ error: 'conflict' }, 409, originCheck.origin);
       if (target.role === 'su_admin' && !p.is_active && target.is_active) {
         const { count: others } = await service.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'su_admin').eq('is_active', true).neq('id', target.id);
         if (!(others ?? 0)) return json({ error: 'conflict' }, 409, originCheck.origin);
@@ -127,7 +126,6 @@ Deno.serve(async (req) => {
 
     if (action === 'set_role') {
       const p = roleSchema.parse(body);
-      if (callerRole !== 'su_admin') return json({ error: 'forbidden' }, 403, originCheck.origin);
       if (p.user_id === callerId) return json({ error: 'forbidden' }, 403, originCheck.origin);
       const { data: target } = await service.from<Profile>('profiles').select('id, role').eq('id', p.user_id).maybeSingle();
       if (!target) return json({ error: 'user_not_found' }, 404, originCheck.origin);
@@ -142,7 +140,6 @@ Deno.serve(async (req) => {
 
     if (action === 'set_permissions') {
       const p = permSchema.parse(body);
-      if (callerRole !== 'su_admin') return json({ error: 'forbidden' }, 403, originCheck.origin);
       if (p.user_id === callerId) return json({ error: 'forbidden' }, 403, originCheck.origin);
       const { data: target } = await service.from<Profile>('profiles').select('id').eq('id', p.user_id).maybeSingle();
       if (!target) return json({ error: 'user_not_found' }, 404, originCheck.origin);

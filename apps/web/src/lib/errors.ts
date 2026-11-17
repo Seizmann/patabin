@@ -1,3 +1,5 @@
+import bn from 'i18n/bn';
+
 const ERRORS: Record<string, string> = {
   NO_STOCK: 'স্টকে তত পিস নেই; পরিমাণ কমিয়ে দিন।',
   CHALAN_CLOSED: 'চালানটি বন্ধ হয়ে গেছে; সম্পাদনা করা যাবে না।',
@@ -34,6 +36,11 @@ const ERRORS: Record<string, string> = {
   DEMO_READ_ONLY: 'ডেমো অ্যাকাউন্ট শুধু নমুনা ডেটা দেখার জন্য; এই কাজটি করা যাবে না।',
   BALANCE_CHECK_REQUIRED: 'সোর্স ও গন্তব্য ওয়ালেট আলাদা করুন।',
 };
+
+export function authErrorText(e: { status?: number; code?: string }): string {
+  if (e.status === 429 || e.code === 'over_request_rate_limit') return bn.rateLimited;
+  return bn.loginFailed;
+}
 
 export function mapError(e: unknown): string {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {

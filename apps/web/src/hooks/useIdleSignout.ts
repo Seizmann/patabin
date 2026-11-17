@@ -9,7 +9,7 @@ export function useIdleSignout() {
     const bump = () => {
       last = Date.now();
     };
-    const events = ['pointerdown', 'keydown', 'scroll', 'visibilitychange'];
+    const events = ['pointerdown', 'keydown', 'scroll'];
     events.forEach((e) => document.addEventListener(e, bump, { passive: true }));
     const t = window.setInterval(() => {
       if (Date.now() - last > LIMIT) void supabase.auth.signOut();

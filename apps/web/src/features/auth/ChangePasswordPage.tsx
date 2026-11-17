@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import bn from 'i18n/bn';
 import { supabase } from 'lib/supabase';
 import { useAuth } from 'lib/auth';
+import { authErrorText, mapError } from 'lib/errors';
 import { Btn, Card, Field, Notice, PageTitle } from 'components/ui/base';
 import { toBnDigits } from '@patabin/shared';
 import { usePageTitle } from 'hooks/usePageTitle';
@@ -33,7 +34,7 @@ export default function ChangePasswordPage() {
     const { error: currentError } = await supabase.auth.signInWithPassword({ email: session.user.email ?? '', password: current });
     if (currentError) {
       setBusy(false);
-      setError(bn.loginFailed);
+      setError(authErrorText(currentError));
       return;
     }
     const { error: updateError } = await supabase.auth.updateUser({ password: next });
@@ -45,9 +46,12 @@ export default function ChangePasswordPage() {
         setBusy(false);
         return;
       }
+      setBusy(false);
+      setError(mapError(rpcError));
+      return;
     }
     setBusy(false);
-    setError(bn.loginFailed);
+    setError(mapError(updateError));
   };
 
   return (

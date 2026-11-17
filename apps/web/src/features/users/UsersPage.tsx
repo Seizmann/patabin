@@ -114,7 +114,7 @@ export default function UsersPage() {
               <input className="field" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
             <Field label="সাময়িক পাসওয়ার্ড">
-              <input className="field" type="text" value={tempPassword} onChange={(e) => setTempPassword(e.target.value)} minLength={10} />
+              <input className="field" type="password" value={tempPassword} onChange={(e) => setTempPassword(e.target.value)} minLength={10} />
             </Field>
             <Field label="ভূমিকা">
               <select className="field" value={role} onChange={(e) => setRole(e.target.value)}>
