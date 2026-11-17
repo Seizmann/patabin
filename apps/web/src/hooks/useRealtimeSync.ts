@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { supabase } from 'lib/supabase';
+import { isDemoMode } from 'lib/demo-mode';
 
 const SALE_KEYS = [
   'sales', 'dashboard', 'stock', 'packets', 'packets-preview', 'balances',
@@ -33,6 +34,7 @@ const TABLE_KEYS: Record<string, string[]> = {
 export default function useRealtimeSync() {
   const qc = useQueryClient();
   useEffect(() => {
+    if (isDemoMode()) return;
     const sync = (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
       for (const key of TABLE_KEYS[payload.table] ?? []) {
         void qc.invalidateQueries({ queryKey: [key] });
