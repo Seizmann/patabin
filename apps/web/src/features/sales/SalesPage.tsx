@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from 'lib/supabase';
 import { fetchSaleDetails, createSale, deleteSale, fetchSales, updateSale, type SaleInput, type SaleRowV } from './api';
 import SaleForm from './SaleForm';
@@ -13,6 +13,8 @@ import { mapError } from 'lib/errors';
 import { useWriteGuard } from 'hooks/useWriteGuard';
 import emptySales from 'assets/images/empty/empty-sales.png';
 
+const PAGE_SIZE = 20;
+
 export default function SalesPage() {
   usePageTitle('বিক্রির তালিকা');
   const qc = useQueryClient();
@@ -22,11 +24,19 @@ export default function SalesPage() {
   const [editing, setEditing] = useState<SaleRowV | null>(null);
   const [detail, setDetail] = useState<SaleRowV | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [page, setPage] = useState(0);
 
-  const { data: rows, isPending, isError, refetch } = useQuery({
-    queryKey: ['sales', start, end],
-    queryFn: () => fetchSales(start, end),
+  useEffect(() => {
+    setPage(0);
+  }, [start, end]);
+
+  const { data, isPending, isError, isFetching, isPlaceholderData } = useQuery({
+    queryKey: ['sales', start, end, page],
+    queryFn: () => fetchSales(start, end, page, PAGE_SIZE),
+    placeholderData: keepPreviousData,
   });
+  const rows = data?.rows ?? [];
+  const pageCount = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE));
 
   const del = async (id: string) => {
     setError('');
@@ -49,8 +59,27 @@ export default function SalesPage() {
       {error && <Notice tone="error">{error}</Notice>}
       {isPending && <TableSkeleton />}
       {isError && <Notice tone="error">ডেটা আনতে সমস্যা হয়েছে</Notice>}
-      {rows?.length === 0 && <Empty img={emptySales} title="কোনো বিক্রি নেই" caption="নতুন বিক্রি যুক্ত করে শুরু করুন।" />}
-      {rows && rows.length > 0 && <SalesTable rows={rows} onEdit={guard((r: SaleRowV) => setEditing(r))} onDelete={guard((id: string) => void del(id))} onDetail={setDetail} />}
+      {rows.length === 0 && !isPending && <Empty img={emptySales} title="কোনো বিক্রি নেই" caption="নতুন বিক্রি যুক্ত করে শুরু করুন।" />}
+      {rows.length > 0 && (
+        <>
+          <div className={isPlaceholderData || (isFetching && !isPending) ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
+            <SalesTable rows={rows} onEdit={guard((r: SaleRowV) => setEditing(r))} onDelete={guard((id: string) => void del(id))} onDetail={setDetail} />
+          </div>
+          {pageCount > 1 && (
+            <div className="flex items-center justify-between">
+              <Btn variant="ghost" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+                আগের
+              </Btn>
+              <p className="p-caption p-num">
+                {toBnDigits(page + 1)} / {toBnDigits(pageCount)}
+              </p>
+              <Btn variant="ghost" disabled={page >= pageCount - 1} onClick={() => setPage((p) => p + 1)}>
+                পরের
+              </Btn>
+            </div>
+          )}
+        </>
+      )}
       {denied}
       <button
         type="button"
@@ -73,6 +102,7 @@ export default function SalesPage() {
               submitLabel="বিক্রি সংরক্ষণ"
               onSubmit={async (payload: SaleInput) => {
                 await createSale(payload);
+                setPage(0);
                 await invalidate(qc);
                 setSheetOpen(false);
               }}
@@ -87,7 +117,6 @@ export default function SalesPage() {
           onSaved={async () => {
             setEditing(null);
             await invalidate(qc);
-            await refetch();
           }}
         />
       )}

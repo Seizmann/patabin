@@ -45,10 +45,14 @@ export function usePeriodFilter(initial: PeriodId = 'chalan') {
 
   const [start, end] = useMemo(() => {
     const nowIso = new Date().toISOString();
+    // open-ended ranges must not end at "now": a sale entered after this
+    // page mounted would fall outside [start, end) and the list would
+    // look stale until a full page refresh
+    const farEnd = '2999-12-31T23:59:59+06:00';
     if (period === 'chalan') {
       // খোলা চালান না থাকলে "এই চালান" ফাঁকা — বন্ধ চালানের হিসাব এখানে দেখাবে না
       // (পুরনো চালান দেখতে "গত চালান" বাছুন)
-      return openChalan?.purchase_date ? [openChalan.purchase_date, nowIso] : [nowIso, nowIso];
+      return openChalan?.purchase_date ? [openChalan.purchase_date, farEnd] : [nowIso, nowIso];
     }
     if (period === 'prevChalan') {
       const newest = chalans[0];
@@ -58,13 +62,12 @@ export function usePeriodFilter(initial: PeriodId = 'chalan') {
         const prev = chalans[idx + 1];
         return prev?.purchase_date ? [prev.purchase_date, openChalan.purchase_date] : periodRange('today', nowIso);
       }
-      return newest.closed_at ? [newest.purchase_date, newest.closed_at] : [newest.purchase_date, nowIso];
+      return newest.closed_at ? [newest.purchase_date, newest.closed_at] : [newest.purchase_date, farEnd];
     }
     if (period === 'all') return periodRange('all', nowIso);
     if (period === 'custom') {
-      const now = new Date().toISOString();
-      const endIso = customTo ? `${customTo}T23:59:59+06:00` : now;
-      return [customFrom ? `${customFrom}T00:00:00+06:00` : `${dhakaDate(now)}T00:00:00+06:00`, endIso];
+      const endIso = customTo ? `${customTo}T23:59:59+06:00` : farEnd;
+      return [customFrom ? `${customFrom}T00:00:00+06:00` : `${dhakaDate(nowIso)}T00:00:00+06:00`, endIso];
     }
     return periodRange(period, nowIso);
   }, [period, customFrom, customTo, chalans, openChalan]);

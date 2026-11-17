@@ -53,10 +53,17 @@ export async function fetchPacketsPreview(): Promise<{ packet_id: string; packet
   return (data ?? []).filter((p) => Number(p.remaining) > 0);
 }
 
-export async function fetchSales(from: string, to: string): Promise<SaleRowV[]> {
-  const { data, error } = await supabase.from('v_sales_enriched').select('*').gte('sold_at', from).lt('sold_at', to).order('sold_at', { ascending: false });
+export async function fetchSales(from: string, to: string, page: number, pageSize: number): Promise<{ rows: SaleRowV[]; total: number }> {
+  const offset = page * pageSize;
+  const { data, error, count } = await supabase
+    .from('v_sales_enriched')
+    .select('*', { count: 'exact' })
+    .gte('sold_at', from)
+    .lt('sold_at', to)
+    .order('sold_at', { ascending: false })
+    .range(offset, offset + pageSize - 1);
   if (error) throw error;
-  return data as SaleRowV[];
+  return { rows: (data ?? []) as SaleRowV[], total: count ?? 0 };
 }
 
 export async function createSale(input: SaleInput): Promise<void> {
