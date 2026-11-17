@@ -5,6 +5,7 @@ import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Card, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import { useDialog } from 'components/ui/Dialog';
+import { useAuth } from 'lib/auth';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import NumberInput from 'components/forms/NumberInput';
 import TimeInput from 'components/forms/TimeInput';
@@ -51,6 +52,7 @@ export default function PersonalUsePage() {
   usePageTitle('ব্যক্তিগত ব্যবহার');
   const qc = useQueryClient();
   const dialog = useDialog();
+  const { suAdmin } = useAuth();
   const { guard, denied } = useWriteGuard('personal_use');
   const [ eater, setEater ] = useState('');
   const [packetId, setPacketId] = useState('');
@@ -273,7 +275,7 @@ export default function PersonalUsePage() {
                 <th className="p-3 font-semibold">উৎস</th>
                 <th className="p-3 font-semibold">পরিমাণ</th>
                 <th className="p-3 font-semibold">মূল্য</th>
-                <th className="p-3" />
+                {suAdmin && <th className="p-3" />}
               </tr>
             </thead>
             <tbody>
@@ -293,11 +295,13 @@ export default function PersonalUsePage() {
                   </td>
                   <td className="p-3">{toBnDigits(u.qty)}</td>
                   <td className="p-3">{formatMoney(Number(u.qty) * Number(u.unit_value))}</td>
-                  <td className="p-3 text-right">
-                    <Btn variant="ghost" aria-label="মুছুন" onClick={guard(() => void del(u.id))}>
-                      <Trash size={16} aria-hidden />
-                    </Btn>
-                  </td>
+                  {suAdmin && (
+                    <td className="p-3 text-right">
+                      <Btn variant="ghost" aria-label="মুছুন" onClick={guard(() => void del(u.id))}>
+                        <Trash size={16} aria-hidden />
+                      </Btn>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
