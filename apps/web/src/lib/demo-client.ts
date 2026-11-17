@@ -1,4 +1,5 @@
 import {
+  DEMO_UID,
   DEMO_AUDIT_LOG,
   DEMO_CHALAN_PURCHASES,
   DEMO_CHALANS,
@@ -33,8 +34,6 @@ type Row = Record<string, unknown>;
 type Filter = { op: string; col: string; val: unknown };
 
 const READ_ONLY_ERROR = { code: '42501', message: 'DEMO_READ_ONLY', details: null, hint: null };
-
-const DEMO_UID = 'd3bd0000-1111-4222-8333-444455556666';
 
 const TABLES: Record<string, Row[]> = {
   profiles: [{ id: DEMO_UID, role: 'patabin_demo_admin', display_name: 'Demo Admin', must_change_password: false, is_active: true, created_at: '2026-01-01T00:00:00Z' }],

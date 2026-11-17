@@ -5,6 +5,7 @@ import { AuthProvider } from 'lib/auth';
 import { useIdleSignout } from 'hooks/useIdleSignout';
 import AppShell from 'components/layout/AppShell';
 import { DialogProvider } from 'components/ui/Dialog';
+import { ViewModeProvider } from 'lib/viewMode';
 import { GuestOnly, RequireAuth, RequireSu, RequireWrite } from './guards';
 import Unknown from 'features/notfound/UnknownPage';
 
@@ -60,7 +61,8 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <DialogProvider>
+        <ViewModeProvider>
+          <DialogProvider>
           <BrowserRouter>
           <Routes>
             <Route element={<GuestOnly />}>
@@ -99,7 +101,8 @@ export default function App() {
             <Route path="*" element={<Page><Unknown /></Page>} />
           </Routes>
           </BrowserRouter>
-        </DialogProvider>
+          </DialogProvider>
+        </ViewModeProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

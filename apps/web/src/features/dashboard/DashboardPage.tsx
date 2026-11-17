@@ -7,7 +7,6 @@ import { Card, Notice, Skeleton } from 'components/ui/base';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
-import { myPartnerId } from 'lib/api';
 import { useViewMode, type ViewMode } from 'lib/viewMode';
 import heroImg from 'assets/images/backgrounds/dashboard-hero.webp';
 
@@ -17,7 +16,7 @@ const IncomeBar = lazy(() => import('components/ui/IncomeBar'));
 export default function DashboardPage() {
   usePageTitle('হোম', 'পাতাবিন হোম পাতা: আয়, খরচ, লাভ, স্টক ও হিসাবের সারসংক্ষেপ।');
   const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('chalan');
-  const [viewMode, setViewMode] = useViewMode();
+  const { viewMode, setViewMode, myPartnerId: mine, resolving: partnerResolving } = useViewMode();
 
   const totals = useQuery({ queryKey: ['dashboard', 'totals', start, end], queryFn: () => fetchTotals(start, end) });
   const stock = useQuery({ queryKey: ['stock'], queryFn: fetchStockCurrent, staleTime: 30_000 });
@@ -29,8 +28,6 @@ export default function DashboardPage() {
   const leaderboard = useQuery({ queryKey: ['dashboard', 'leaderboard', dhakaWeekStart()], queryFn: fetchCustomerLeaderboard, staleTime: 30_000 });
 
   const selfMode = viewMode === 'self';
-  const myPartner = useQuery({ queryKey: ['my-partner'], queryFn: myPartnerId, enabled: selfMode, staleTime: 60_000 });
-  const mine = selfMode ? (myPartner.data ?? null) : null;
   const showAll = !selfMode || !mine;
 
   const selfRow = mine ? (partnerBalances.data ?? []).find((r) => r.partner_id === mine) : undefined;
@@ -52,7 +49,7 @@ export default function DashboardPage() {
         <PeriodSelect period={period} setPeriod={setPeriod} customFrom={customFrom} customTo={customTo} setCustomFrom={setCustomFrom} setCustomTo={setCustomTo} />
       </div>
 
-      {selfMode && myPartner.isSuccess && !mine && (
+      {selfMode && !partnerResolving && !mine && (
         <Notice tone="info">আপনার সাথে কোনো পার্টনার প্রোফাইল যুক্ত নেই; সব ডেটা দেখানো হচ্ছে।</Notice>
       )}
 

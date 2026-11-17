@@ -8,6 +8,7 @@ function daysAgo(n: number, h = 10, m = 0): string {
 
 const P1 = '10000000-0000-4000-8000-000000000001';
 const P2 = '10000000-0000-4000-8000-000000000002';
+export const DEMO_UID = 'd3bd0000-1111-4222-8333-444455556666';
 const W_CASH = '20000000-0000-4000-8000-000000000001';
 const W_BKASH = '20000000-0000-4000-8000-000000000002';
 const W_NAGAD = '20000000-0000-4000-8000-000000000003';
@@ -27,7 +28,7 @@ export const DEMO_WALLETS = [
 ];
 
 export const DEMO_PARTNERS = [
-  { id: P1, name: 'রাকিব হাসান', user_id: null, deleted_at: null, created_at: daysAgo(90) },
+  { id: P1, name: 'রাকিব হাসান', user_id: DEMO_UID, deleted_at: null, created_at: daysAgo(90) },
   { id: P2, name: 'তানভীর আহমেদ', user_id: null, deleted_at: null, created_at: daysAgo(90) },
 ];
 
