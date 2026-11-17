@@ -1,4 +1,4 @@
-<img src="https://capsule-render.vercel.app/api?type=venom&color=0:4a2c12,50:8b5a2b,100:d2a679&height=200&section=header&text=PataBin&fontSize=68&fontColor=fff8f0&fontAlignY=33&desc=Bangla-first%20bookkeeping%20for%20chocolate%20resale&descSize=18&descAlignY=57&descColor=f3e3cf&animation=blinking" width="100%" />
+<img src="https://capsule-render.vercel.app/api?type=venom&color=0:4a2c12,50:8b5a2b,100:d2a679&height=200&section=header&text=PataBin&fontSize=68&fontColor=fff8f0&fontAlignY=33&desc=Bookkeeping%20for%20chocolate%20resale&descSize=18&descAlignY=57&descColor=f3e3cf&animation=blinking" width="100%" />
 
 <div align="center">
 
@@ -6,7 +6,7 @@
 
 <br />
 
-<img src="https://readme-typing-svg.demolab.com?font=Noto+Sans+Bengali:wght@600&size=24&duration=2600&pause=1100&color=C07343&center=true&vCenter=true&multiline=false&repeat=true&width=780&height=52&lines=%F0%9F%8D%AB+%E0%A6%B8%E0%A7%8D%E0%A6%9F%E0%A6%95+%C2%B7+%E0%A6%AC%E0%A6%BF%E0%A6%95%E0%A7%8D%E0%A6%B0%E0%A6%BF+%C2%B7+%E0%A6%AA%E0%A6%BE%E0%A6%B0%E0%A7%8D%E0%A6%9F%E0%A6%A8%E0%A6%BE%E0%A6%B0+%E0%A6%B9%E0%A6%BF%E0%A6%B8%E0%A6%BE%E0%A6%AC;%F0%9F%93%A6+%E0%A6%AA%E0%A7%8D%E0%A6%AF%E0%A6%BE%E0%A6%95%E0%A7%87%E0%A6%9F+%E0%A6%AD%E0%A6%BE%E0%A6%99%E0%A6%BF+%E0%A6%AA%E0%A6%BF%E0%A6%B6+%E0%A6%AC%E0%A6%BF%E0%A6%95%E0%A7%8D%E0%A6%B0%E0%A6%BF;%F0%9F%92%B0+%E0%A6%BD%E0%A6%BE%E0%A6%93%E0%A6%B2+%E0%A6%AA%E0%A6%BE%E0%A6%B0%E0%A7%8D%E0%A6%9F%E0%A6%A8%E0%A6%BE%E0%A6%B0%E0%A7%87%E0%A6%B0+%E0%A6%B8%E0%A7%8D%E0%A6%AA%E0%A6%B7%E0%A7%8D%E0%A6%9F+%E0%A6%B9%E0%A6%BF%E0%A6%B8%E0%A6%BE%E0%A6%AC;Bangla-first+bookkeeping%2C+built+for+chocolate+resale;Own-stock+model+%E2%80%94+clear+partner+balances;Installable+PWA+%E2%80%94+works+offline" alt="Animated tagline" />
+<img src="https://readme-typing-svg.demolab.com?font=Noto+Sans+Bengali:wght@600&size=24&duration=2600&pause=1100&color=C07343&center=true&vCenter=true&multiline=false&repeat=true&width=780&height=52&lines=Stock+%C2%B7+Sales+%C2%B7+Partner+balances;Break+bulk+into+packets%2C+sell+piece+by+piece;Own-stock+model+%E2%80%94+clear+partner+balances;Installable+PWA+%E2%80%94+works+offline" alt="Animated tagline" />
 
 <br />
 
@@ -50,7 +50,7 @@ PataBin is a mobile-first PWA built for partners who buy chocolates in bulk, bre
 | 💰 **Own-stock model** | Each partner pays for their own pieces from their own pocket. Whatever sells from a partner's packet — revenue and profit — belongs to that partner. |
 | 📊 **Clear balances** | Per-partner balances ("who gets what from the cash pool") alongside shared wallet balances, with a full per-chalan settlement view. |
 | 🧾 **Price snapshots** | Sales capture the listed sell price, the free-form final amount, and the derived discount — every entry stays auditable. |
-| 🇧🇩 **Bangla UI** | The entire interface is in Bangla, with all strings collected in a single module so an English locale can be added later. |
+| 👤 **Per-user view modes** | Every user can switch the whole app between the full workspace view and a personal *self mode* that shows only their own sales, expenses, investment, stock, and balances. |
 
 <img src="docs/img/dashboard-hero.webp" alt="PataBin dashboard" width="100%" />
 
@@ -159,6 +159,12 @@ pnpm build
 | `pnpm gen:icons` | Regenerate PWA icons and brand assets with `sharp` |
 | `pnpm gen:vercel` | Generate `apps/web/vercel.json` (headers, routes, caching) |
 | `pnpm test:sql` / `pnpm check:routes` | SQL smoke tests / route integrity checks |
+
+---
+
+## 🔒 Security
+
+Found a vulnerability? Please **do not open a public issue**. Read [SECURITY.md](./SECURITY.md) for how to report it responsibly, what's in scope, and how disclosures are handled.
 
 ---
 
