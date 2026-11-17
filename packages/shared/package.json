@@ -2,6 +2,7 @@
   "name": "@patabin/shared",
   "private": true,
   "type": "module",
+  "author": "Mohammad Sijan (https://sijan.pro.bd)",
   "exports": {
     ".": "./src/index.ts",
     "./database.types": "./src/database.types.ts"

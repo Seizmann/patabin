@@ -3,6 +3,7 @@
   "name": "patabin",
   "private": true,
   "type": "module",
+  "author": "Mohammad Sijan (https://sijan.pro.bd)",
   "packageManager": "pnpm@11.2.2",
   "engines": {
     "node": ">=20"
