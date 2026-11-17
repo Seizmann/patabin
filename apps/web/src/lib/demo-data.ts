@@ -59,12 +59,12 @@ const packetSeeds: PacketSeed[] = [
   { chalan_id: C2, code: 'P-006', owner: P1, total: 20, remaining: 0, pos: 8, days: 32 },
   { chalan_id: C2, code: 'P-007', owner: P1, total: 20, remaining: 0, pos: 9, days: 32 },
   { chalan_id: C2, code: 'P-008', owner: P2, total: 20, remaining: 0, pos: 10, days: 32 },
-  { chalan_id: C3, code: 'P-101', owner: P1, total: 20, remaining: 18, pos: 1, days: 12 },
-  { chalan_id: C3, code: 'P-102', owner: P1, total: 20, remaining: 12, pos: 2, days: 12 },
-  { chalan_id: C3, code: 'P-103', owner: P1, total: 20, remaining: 20, pos: 3, days: 12 },
-  { chalan_id: C3, code: 'P-104', owner: P2, total: 20, remaining: 6, pos: 4, days: 12 },
-  { chalan_id: C3, code: 'P-105', owner: P2, total: 20, remaining: 9, pos: 5, days: 12 },
-  { chalan_id: C3, code: 'P-106', owner: P2, total: 20, remaining: 15, pos: 6, days: 12 },
+  { chalan_id: C3, code: 'P-101', owner: P1, total: 20, remaining: 2, pos: 1, days: 12 },
+  { chalan_id: C3, code: 'P-102', owner: P1, total: 20, remaining: 7, pos: 2, days: 12 },
+  { chalan_id: C3, code: 'P-103', owner: P1, total: 20, remaining: 8, pos: 3, days: 12 },
+  { chalan_id: C3, code: 'P-104', owner: P2, total: 20, remaining: 9, pos: 4, days: 12 },
+  { chalan_id: C3, code: 'P-105', owner: P2, total: 20, remaining: 8, pos: 5, days: 12 },
+  { chalan_id: C3, code: 'P-106', owner: P2, total: 20, remaining: 12, pos: 6, days: 12 },
 ];
 
 export const DEMO_PACKETS = packetSeeds.map((p, i) => ({
@@ -138,11 +138,15 @@ function walletInfo(id: string) {
   return { type: w.type, name: w.name, label: w.label };
 }
 
+const packetIdByCode = new Map(packetSeeds.map((p, i) => [p.code, `40000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`]));
+const partnerName = (id: string) => (id === P1 ? 'রাকিব হাসান' : 'তানভীর আহমেদ');
+
 export const DEMO_SALES = saleSeeds.map((s) => {
   const gross = s.qty * SELL_PRICE;
   const received = s.received;
   const discount = gross - received - s.due;
   const w = walletInfo(s.wallet);
+  const [, packetCode = ''] = s.packets.split('/');
   return {
     id: s.id,
     sold_at: daysAgo(s.days, s.hour),
@@ -166,6 +170,48 @@ export const DEMO_SALES = saleSeeds.map((s) => {
     deleted_at: null,
     packet_codes: s.packets,
     owner_names: s.owners,
+    sale_allocations: [{ packet_id: packetIdByCode.get(packetCode), qty: s.qty }],
+    sale_receives: [{ wallet_account_id: s.wallet, amount: received }],
+  };
+});
+
+export const DEMO_SALE_ALLOCATIONS = saleSeeds.map((s, i) => {
+  const [chalanCode = '', packetCode = ''] = s.packets.split('/');
+  const seed = packetSeeds.find((p) => p.code === packetCode)!;
+  const w = walletInfo(s.wallet);
+  return {
+    id: `65000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`,
+    sale_id: s.id,
+    packet_id: packetIdByCode.get(packetCode),
+    qty: s.qty,
+    created_at: daysAgo(s.days, s.hour),
+    packets: { code: packetCode, partners: { name: partnerName(seed.owner) }, chalans: { code: chalanCode } },
+    sales: {
+      id: s.id,
+      qty: s.qty,
+      sold_at: daysAgo(s.days, s.hour),
+      list_unit_price: SELL_PRICE,
+      customer_id: s.customer?.id ?? null,
+      customer_name: s.customer?.name ?? null,
+      customer_phone: s.customer?.phone ?? null,
+      amount_received: s.received,
+      due_amount: s.due,
+      deleted_at: null,
+      sale_receives: [{ amount: s.received, wallets: { type: w.type, name: w.name, label: w.label } }],
+    },
+  };
+});
+
+export const DEMO_SALE_RECEIVES = saleSeeds.map((s, i) => {
+  const w = walletInfo(s.wallet);
+  return {
+    id: `66000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`,
+    sale_id: s.id,
+    wallet_account_id: s.wallet,
+    amount: s.received,
+    created_by: 'demo',
+    created_at: daysAgo(s.days, s.hour),
+    wallets: { type: w.type, name: w.name, label: w.label },
   };
 });
 
@@ -201,6 +247,33 @@ export const DEMO_CUSTOMER_PAYMENTS = [
     deleted_at: null,
     created_at: daysAgo(27),
     customer_payment_allocations: [],
+  },
+];
+
+export const DEMO_CUSTOMER_PAYMENT_ALLOCATIONS = [
+  {
+    id: '91000000-0000-4000-8000-000000000001',
+    payment_id: '90000000-0000-4000-8000-000000000001',
+    sale_id: '60000000-0000-4000-8000-000000000003',
+    packet_id: packetIdByCode.get('P-102'),
+    amount: 200,
+    customer_payments: {
+      at: daysAgo(6, 19),
+      deleted_at: null,
+      wallets: { type: 'bkash', name: '01712-345678', label: 'বিকাশ' },
+    },
+  },
+  {
+    id: '91000000-0000-4000-8000-000000000002',
+    payment_id: '90000000-0000-4000-8000-000000000002',
+    sale_id: '60000000-0000-4000-8000-000000000012',
+    packet_id: packetIdByCode.get('P-005'),
+    amount: 100,
+    customer_payments: {
+      at: daysAgo(27, 20),
+      deleted_at: null,
+      wallets: { type: 'cash', name: '', label: 'ক্যাশ' },
+    },
   },
 ];
 
