@@ -1,6 +1,8 @@
 -- v_sales_enriched: expose the owning partner ids of each sale so the
 -- sales list can filter "self mode" rows per signed-in partner.
 
+drop view if exists public.v_sales_enriched;
+
 create or replace view public.v_sales_enriched with (security_invoker = true) as
  SELECT s.id,
     s.sold_at,

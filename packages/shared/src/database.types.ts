@@ -196,6 +196,69 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_payment_allocations: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          packet_id: string
+          payment_id: string
+          sale_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          packet_id: string
+          payment_id: string
+          sale_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          packet_id?: string
+          payment_id?: string
+          sale_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_payment_allocations_packet_id_fkey"
+            columns: ["packet_id"]
+            isOneToOne: false
+            referencedRelation: "packets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_payment_allocations_packet_id_fkey"
+            columns: ["packet_id"]
+            isOneToOne: false
+            referencedRelation: "v_packet_stock"
+            referencedColumns: ["packet_id"]
+          },
+          {
+            foreignKeyName: "customer_payment_allocations_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "customer_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_payment_allocations_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_payment_allocations_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "v_sales_enriched"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_payments: {
         Row: {
           amount: number
@@ -530,6 +593,24 @@ export type Database = {
           },
         ]
       }
+      permissions: {
+        Row: {
+          key: string
+          label_bn: string
+          sort: number
+        }
+        Insert: {
+          key: string
+          label_bn: string
+          sort?: number
+        }
+        Update: {
+          key?: string
+          label_bn?: string
+          sort?: number
+        }
+        Relationships: []
+      }
       personal_uses: {
         Row: {
           at: string
@@ -618,6 +699,39 @@ export type Database = {
           },
         ]
       }
+      profile_permissions: {
+        Row: {
+          allowed: boolean
+          permission_key: string
+          profile_id: string
+        }
+        Insert: {
+          allowed: boolean
+          permission_key: string
+          profile_id: string
+        }
+        Update: {
+          allowed?: boolean
+          permission_key?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_permissions_permission_key_fkey"
+            columns: ["permission_key"]
+            isOneToOne: false
+            referencedRelation: "permissions"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "profile_permissions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -650,6 +764,29 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      role_permissions: {
+        Row: {
+          permission_key: string
+          role: Database["public"]["Enums"]["user_role"]
+        }
+        Insert: {
+          permission_key: string
+          role: Database["public"]["Enums"]["user_role"]
+        }
+        Update: {
+          permission_key?: string
+          role?: Database["public"]["Enums"]["user_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_permission_key_fkey"
+            columns: ["permission_key"]
+            isOneToOne: false
+            referencedRelation: "permissions"
+            referencedColumns: ["key"]
+          },
+        ]
       }
       sale_allocations: {
         Row: {
@@ -1284,16 +1421,19 @@ export type Database = {
         Row: {
           amount_received: number | null
           created_at: string | null
+          created_by: string | null
           customer_id: string | null
           customer_name: string | null
           customer_phone: string | null
           discount: number | null
           discount_pct: number | null
           due_amount: number | null
+          entered_by: string | null
           id: string | null
           list_unit_price: number | null
           note: string | null
           owner_names: string | null
+          owner_partner_ids: string[] | null
           packet_codes: string | null
           qty: number | null
           sold_at: string | null
@@ -1363,11 +1503,23 @@ export type Database = {
       }
     }
     Functions: {
+      adjust_chalan_purchase: {
+        Args: {
+          p_chalan_id: string
+          p_delta: number
+          p_packets?: Json
+          p_partner_id: string
+        }
+        Returns: undefined
+      }
       allocate_by_priority: {
         Args: { p_qty: number; p_sale_id: string }
         Returns: undefined
       }
-      assert_writeable: { Args: never; Returns: undefined }
+      assert_writeable:
+        | { Args: never; Returns: undefined }
+        | { Args: { p_perm?: string }; Returns: undefined }
+      can_write: { Args: never; Returns: boolean }
       close_chalan: { Args: { p_chalan_id: string }; Returns: undefined }
       complete_password_change: { Args: never; Returns: undefined }
       create_adjustment: { Args: { p_adj: Json }; Returns: string }
@@ -1394,6 +1546,7 @@ export type Database = {
       }
       delete_expense: { Args: { p_id: string }; Returns: undefined }
       delete_sale: { Args: { p_id: string }; Returns: undefined }
+      has_permission: { Args: { p_key: string }; Returns: boolean }
       income_by_period_breakdown: {
         Args: { p_end: string; p_start: string }
         Returns: {
@@ -1403,7 +1556,28 @@ export type Database = {
       }
       is_active_user: { Args: never; Returns: boolean }
       is_su_admin: { Args: never; Returns: boolean }
+      my_permissions: { Args: never; Returns: string[] }
       packet_remaining: { Args: { p_packet_id: string }; Returns: number }
+      partner_balance_flows: {
+        Args: { p_end: string; p_start: string }
+        Returns: {
+          balance: number
+          partner_id: string
+          partner_name: string
+        }[]
+      }
+      partner_sell_summary: {
+        Args: { p_end: string; p_start: string }
+        Returns: {
+          balance: number
+          khoroch: number
+          partner_id: string
+          partner_name: string
+          personal_use: number
+          remaining_pcs: number
+          sell_revenue: number
+        }[]
+      }
       password_gate: { Args: never; Returns: boolean }
       reopen_chalan: { Args: { p_chalan_id: string }; Returns: undefined }
       server_now: { Args: never; Returns: string }
@@ -1413,9 +1587,24 @@ export type Database = {
         Returns: undefined
       }
       update_sale: { Args: { p_id: string; p_sale: Json }; Returns: undefined }
+      wallet_flows: {
+        Args: { p_end: string; p_start: string }
+        Returns: {
+          amount: number
+          is_active: boolean
+          label: string
+          name: string
+          type: string
+          wallet_id: string
+        }[]
+      }
     }
     Enums: {
-      user_role: "su_admin" | "patabin_admin" | "patabin_partner" | "patabin_demo_admin"
+      user_role:
+        | "su_admin"
+        | "patabin_admin"
+        | "patabin_partner"
+        | "patabin_demo_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1543,7 +1732,12 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      user_role: ["su_admin", "patabin_admin", "patabin_partner", "patabin_demo_admin"],
+      user_role: [
+        "su_admin",
+        "patabin_admin",
+        "patabin_partner",
+        "patabin_demo_admin",
+      ],
     },
   },
 } as const
