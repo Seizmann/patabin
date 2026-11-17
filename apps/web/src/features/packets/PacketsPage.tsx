@@ -18,7 +18,7 @@ import { walletDisplay } from 'lib/wallet';
 export default function PacketsPage() {
   usePageTitle('প্যাকেট');
   const qc = useQueryClient();
-  const { pop, denied, canWrite } = useWriteGuard();
+  const { pop, denied, canWrite } = useWriteGuard('packets');
   const { data: all = [], isPending } = useQuery({ queryKey: ['packets'], queryFn: fetchPackets });
   const { data: openChalans = [] } = useQuery({
     queryKey: ['open-chalan-pack'],
@@ -339,7 +339,7 @@ function PacketDetailSheet({ p, onClose }: { p: PacketRow; onClose: () => void }
 }
 
 function PackSheet({ chalanId, code, size, onDone }: { chalanId: string; code: string; size: number; onDone: () => void }) {
-  const { guard, denied } = useWriteGuard();
+  const { guard, denied } = useWriteGuard('packets');
   const [open, setOpen] = useState(false);
   const [sz, setSz] = useState(String(size));
   const [rows, setRows] = useState<{ id: string; name: string; pcs: string }[]>([]);

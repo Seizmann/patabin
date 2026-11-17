@@ -25,6 +25,9 @@ const TABLE_KEYS: Record<string, string[]> = {
   customers: ['customers', 'customer-balances', 'customer-detail', 'audit'],
   wallets: ['wallets', 'wallets-all', 'wallets-names', 'balances', 'dashboard'],
   partners: ['partners', 'my-partner', 'report-data'],
+  profiles: ['profile', 'my-permissions', 'users'],
+  profile_permissions: ['my-permissions', 'users'],
+  role_permissions: ['users'],
 };
 
 export default function useRealtimeSync() {

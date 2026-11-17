@@ -17,7 +17,7 @@ import emptyExpenses from 'assets/images/empty/empty-expenses.png';
 export default function ExpensesPage() {
   usePageTitle('খরচ');
   const qc = useQueryClient();
-  const { guard, denied } = useWriteGuard();
+  const { guard, denied } = useWriteGuard('expenses');
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
   const [paidBy, setPaidBy] = useState('');

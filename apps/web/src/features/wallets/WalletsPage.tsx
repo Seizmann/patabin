@@ -57,7 +57,7 @@ export default function WalletsPage() {
 
 function TransferCard({ wallets, partners }: { wallets: WalletBalance[]; partners: { id: string; name: string }[]; myId: string | null }) {
   const qc = useQueryClient();
-  const { guard, denied } = useWriteGuard();
+  const { guard, denied } = useWriteGuard('wallets');
   const [fromId, setFromId] = useState('');
   const [toId, setToId] = useState('');
   const [amount, setAmount] = useState('');
@@ -224,7 +224,7 @@ function TransfersTable() {
 
 function WithdrawCard({ wallets, partners, myId }: { wallets: WalletBalance[]; partners: { id: string; name: string }[]; myId: string | null }) {
   const qc = useQueryClient();
-  const { guard, denied } = useWriteGuard();
+  const { guard, denied } = useWriteGuard('wallets');
   const [wallet, setWallet] = useState('');
   const [amount, setAmount] = useState('');
   const [partnerId, setPartnerId] = useState('');
@@ -452,7 +452,7 @@ function WithdrawalDetailSheet({ w, partners, onClose }: { w: WithdrawalRow; par
 
 function AccountsCard({ wallets, suAdmin }: { wallets: { id: string; type: string; name: string; label: string; is_active: boolean }[]; suAdmin: boolean }) {
   const qc = useQueryClient();
-  const { guard, denied } = useWriteGuard();
+  const { guard, denied } = useWriteGuard('wallets');
   const [type, setType] = useState('bkash');
   const [name, setName] = useState('');
   const [label, setLabel] = useState('');

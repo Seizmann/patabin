@@ -69,12 +69,12 @@ export default function App() {
               <Route element={<AppShell />}>
                 <Route path="/" element={<Page><DashboardPage /></Page>} />
                 <Route path="/sales" element={<Page><SalesPage /></Page>} />
-                <Route element={<RequireWriteRoute to="/sales" />}>
+                <Route element={<RequireWriteRoute to="/sales" perm="sales" />}>
                   <Route path="/sales/new" element={<Page><NewSalePage /></Page>} />
                 </Route>
                 <Route path="/personal-use" element={<Page><PersonalUsePage /></Page>} />
                 <Route path="/chalans" element={<Page><ChalansPage /></Page>} />
-                <Route element={<RequireWriteRoute to="/chalans" />}>
+                <Route element={<RequireWriteRoute to="/chalans" perm="chalans" />}>
                   <Route path="/chalans/new" element={<Page><NewChalanPage /></Page>} />
                 </Route>
                 <Route path="/chalans/:code" element={<Page><ChalanDetailPage /></Page>} />
@@ -110,6 +110,6 @@ function RequireSuRoute() {
   return <RequireSu />;
 }
 
-function RequireWriteRoute({ to }: { to: string }) {
-  return <RequireWrite fallback={to} />;
+function RequireWriteRoute({ to, perm }: { to: string; perm?: string }) {
+  return <RequireWrite fallback={to} perm={perm} />;
 }

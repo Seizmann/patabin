@@ -17,6 +17,7 @@ const createSchema = z.object({
 const resetSchema = z.object({ user_id: z.string().uuid(), temp_password: z.string().min(10).max(72) });
 const activeSchema = z.object({ user_id: z.string().uuid(), is_active: z.boolean() });
 const roleSchema = z.object({ user_id: z.string().uuid(), role: z.enum(['su_admin', 'patabin_admin', 'patabin_partner']) });
+const permSchema = z.object({ user_id: z.string().uuid(), permission_key: z.string().min(1), allowed: z.boolean().nullable() });
 
 type Profile = { id: string; role: 'su_admin' | 'patabin_admin' | 'patabin_partner'; is_active: boolean; display_name: string };
 
@@ -136,6 +137,26 @@ Deno.serve(async (req) => {
       }
       const { error: roleErr } = await service.from('profiles').update({ role: p.role }).eq('id', p.user_id);
       if (roleErr) return json({ error: 'update_failed' }, 400, originCheck.origin);
+      return json({ ok: true }, 200, originCheck.origin);
+    }
+
+    if (action === 'set_permissions') {
+      const p = permSchema.parse(body);
+      if (callerRole !== 'su_admin') return json({ error: 'forbidden' }, 403, originCheck.origin);
+      if (p.user_id === callerId) return json({ error: 'forbidden' }, 403, originCheck.origin);
+      const { data: target } = await service.from<Profile>('profiles').select('id').eq('id', p.user_id).maybeSingle();
+      if (!target) return json({ error: 'user_not_found' }, 404, originCheck.origin);
+      const { data: cat } = await service.from('permissions').select('key').eq('key', p.permission_key).maybeSingle();
+      if (!cat) return json({ error: 'unknown_permission' }, 400, originCheck.origin);
+      if (p.allowed === null) {
+        const { error: delErr } = await service.from('profile_permissions').delete().eq('profile_id', p.user_id).eq('permission_key', p.permission_key);
+        if (delErr) return json({ error: 'update_failed' }, 400, originCheck.origin);
+      } else {
+        const { error: upErr } = await service
+          .from('profile_permissions')
+          .upsert({ profile_id: p.user_id, permission_key: p.permission_key, allowed: p.allowed });
+        if (upErr) return json({ error: 'update_failed' }, 400, originCheck.origin);
+      }
       return json({ ok: true }, 200, originCheck.origin);
     }
 

@@ -11,10 +11,12 @@ type AuthState = {
   loading: boolean;
   suAdmin: boolean;
   readOnly: boolean;
+  perms: Set<string>;
+  can: (key: string) => boolean;
   refreshProfile: () => void;
 };
 
-const Ctx = createContext<AuthState>({ session: null, profile: null, loading: true, suAdmin: false, readOnly: false, refreshProfile: () => {} });
+const Ctx = createContext<AuthState>({ session: null, profile: null, loading: true, suAdmin: false, readOnly: false, perms: new Set(), can: () => false, refreshProfile: () => {} });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -50,6 +52,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  const { data: permRows } = useQuery<string[]>({
+    queryKey: ['my-permissions', uid],
+    enabled: !!uid,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('my_permissions');
+      if (error) throw error;
+      return (data ?? []) as string[];
+    },
+  });
+  const perms = useMemo(() => new Set(permRows ?? []), [permRows]);
+
   const value = useMemo<AuthState>(
     () => ({
       session,
@@ -57,9 +70,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading: loading || (!!session && data === undefined),
       suAdmin: data?.role === 'su_admin',
       readOnly: data?.role === 'patabin_partner',
+      perms,
+      can: (key: string) => data?.role === 'su_admin' || perms.has(key),
       refreshProfile: () => void refetch(),
     }),
-    [session, data, loading, uid, refetch],
+    [session, data, loading, uid, perms, refetch],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -27,7 +27,7 @@ type AdjustmentRow = {
 export default function AdjustmentsPage() {
   usePageTitle('নষ্ট/ফ্রি');
   const qc = useQueryClient();
-  const { guard, denied } = useWriteGuard();
+  const { guard, denied } = useWriteGuard('adjustments');
   const [packetId, setPacketId] = useState('');
   const [qty, setQty] = useState('');
   const [reason, setReason] = useState('gift');

@@ -132,16 +132,39 @@ withdrawn_p      = Σ withdrawals by p
 
 ## 3. Roles and permissions
 
-Two app roles (enum `user_role`): `su_admin` (Sijan), `patabin_admin` (Bappy).
+Three app roles (enum `user_role`): `su_admin`, `patabin_admin`, `patabin_partner` (investor, read-only).
+
+### DB-driven module permissions
+
+Write access is permission-driven, stored in the DB (tables `permissions`, `role_permissions`, `profile_permissions`):
+
+| Permission key | Covers |
+|---|---|
+| `sales` | বিক্রি — sales, allocations |
+| `chalans` | চালান ও প্যাকিং — chalans, purchases, close/reopen, sell priority |
+| `packets` | প্যাকেট — packets, packing |
+| `customers` | কাস্টমার — customers, payments, dues |
+| `expenses` | খরচ — expenses (+ category add is open to all active users) |
+| `adjustments` | সমন্বয় |
+| `wallets` | ওয়ালেট — transfers, withdrawals, accounts |
+| `personal_use` | ব্যক্তিগত ব্যবহার |
+
+- **Role defaults** (`role_permissions`): `su_admin` and `patabin_admin` get all 8; `patabin_partner` gets none.
+- **Per-user overrides** (`profile_permissions`): set from the ব্যবহারকারী page by `su_admin` only (edge function `set_permissions`); `allowed = true/false` overrides the role default, deleting the row returns to the default.
+- **Locked to `su_admin`, not delegate-able**: user management (create/deactivate/role/password), settings, expense-category rename. Not part of the catalog.
+- Enforcement: write RPCs call `assert_writeable('<perm>')`; direct table writes need `can_write() and has_permission('<perm>')`; frontend gates via `useWriteGuard('<perm>')` / `RequireWrite perm`. Helper: `has_permission()`, effective set via `my_permissions()` RPC.
+- Read access unchanged: every active user sees everything.
+
+Legacy capability reference:
 
 | Capability | `su_admin` | `patabin_admin` |
 |---|---|---|
 | View everything (dashboard, reports, audit log, both partners' numbers) | yes | yes |
-| Create/edit/soft-delete chalan, packing, priority order, sales, personal use, adjustments, expenses, transfers, withdrawals | yes | yes |
-| Close / reopen a chalan | yes | yes |
+| Create/edit/soft-delete chalan, packing, priority order, sales, personal use, adjustments, expenses, transfers, withdrawals | yes | yes (module permission) |
+| Close / reopen a chalan | yes | yes (`chalans` permission) |
 | Change settings (default buy rate, default sell price, default packet size) | yes | no (read-only) |
-| Add expense categories | yes | no |
-| Create / deactivate users, reset passwords | yes | no |
+| Rename expense categories | yes | no |
+| Create / deactivate users, reset passwords, edit permissions | yes | no |
 
 Rules:
 - Public signup is **disabled**. Verify by attempting a signup with the anon key; it must fail.

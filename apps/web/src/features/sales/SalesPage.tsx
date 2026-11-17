@@ -27,7 +27,7 @@ function useDebounced(value: string, delay = 300): string {
 export default function SalesPage() {
   usePageTitle('বিক্রির তালিকা');
   const qc = useQueryClient();
-  const { guard, denied } = useWriteGuard();
+  const { guard, denied } = useWriteGuard('sales');
   const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('chalan');
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<SaleRowV | null>(null);

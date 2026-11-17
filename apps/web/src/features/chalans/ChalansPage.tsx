@@ -13,7 +13,7 @@ import emptyChalan from 'assets/images/empty/empty-expenses.png';
 export default function ChalansPage() {
   usePageTitle('চালান');
   const qc = useQueryClient();
-  const { guard, pop, denied, canWrite } = useWriteGuard();
+  const { guard, pop, denied, canWrite } = useWriteGuard('chalans');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
