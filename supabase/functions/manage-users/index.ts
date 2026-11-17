@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
   try {
     if (action === 'create_user') {
       const p = createSchema.parse(body);
-      if (p.role === 'su_admin' && callerRole !== 'su_admin') return json({ error: 'forbidden' }, 403, originCheck.origin);
+      if (callerRole !== 'su_admin') return json({ error: 'forbidden' }, 403, originCheck.origin);
       const { data: created, error } = await service.auth.admin.createUser({
         email: p.email,
         password: p.temp_password,

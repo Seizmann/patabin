@@ -67,8 +67,8 @@ export default function UsersPage() {
     e.preventDefault();
     setError('');
     setOk('');
-    if (!email || !displayName) {
-      setError('ইমেইল ও নাম দিন');
+    if (!email || !displayName || tempPassword.length < 10) {
+      setError('ইমেইল, নাম দিন আর সাময়িক পাসওয়ার্ড অন্তত ১০ অক্ষরের দিন');
       return;
     }
     setBusyId('create');
@@ -160,9 +160,9 @@ export default function UsersPage() {
                   disabled={busyId === p.id}
                   onChange={(e) => void run(p.id, 'set_role', { user_id: p.id, role: e.target.value })}
                 >
-                  {p.role !== 'patabin_admin' && <option value="patabin_admin">অ্যাডমিন</option>}
-                  {p.role !== 'su_admin' && <option value="su_admin">অ্যাডমিন (সুপার)</option>}
-                  {p.role !== 'patabin_partner' && <option value="patabin_partner">ইনভেস্টর</option>}
+                  <option value="patabin_admin">অ্যাডমিন</option>
+                  <option value="su_admin">অ্যাডমিন (সুপার)</option>
+                  <option value="patabin_partner">ইনভেস্টর</option>
                 </select>
               </Field>
             )}
