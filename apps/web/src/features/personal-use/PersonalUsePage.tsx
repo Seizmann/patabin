@@ -60,7 +60,7 @@ export default function PersonalUsePage() {
   const { data: packets = [] } = useQuery({
     queryKey: ['packets'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('v_packet_stock').select('packet_id, packet_code, owner_partner_id, owner_name, remaining').gt('remaining', 0);
+      const { data, error } = await supabase.from('v_packet_stock').select('packet_id, packet_code, owner_partner_id, owner_name, remaining').eq('chalan_status', 'open').gt('remaining', 0);
       if (error) throw error;
       return (data ?? []) as PacketRow[];
     },
