@@ -5,6 +5,7 @@ import { fetchChalans } from 'features/chalans/api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { supabase } from 'lib/supabase';
 import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { useDialog } from 'components/ui/Dialog';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import TimeInput from 'components/forms/TimeInput';
 import NumberInput from 'components/forms/NumberInput';
@@ -17,6 +18,7 @@ import emptyExpenses from 'assets/images/empty/empty-expenses.png';
 export default function ExpensesPage() {
   usePageTitle('খরচ');
   const qc = useQueryClient();
+  const dialog = useDialog();
   const { guard, denied } = useWriteGuard('expenses');
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
@@ -117,7 +119,8 @@ export default function ExpensesPage() {
 
   const del = async (id: string) => {
     setError('');
-    if (!window.confirm('খরচটি মুছে ফেলা হবে; নিশ্চিত?')) return;
+    const ok = await dialog.confirm({ title: 'খরচ মুছে ফেলবেন?', message: 'খরচটি মুছে ফেলা হবে; নিশ্চিত?', destructive: true, confirmText: 'মুছুন' });
+    if (!ok) return;
     try {
       await supabase.rpc('delete_expense', { p_id: id });
       await qc.invalidateQueries({ queryKey: ['expenses'] });

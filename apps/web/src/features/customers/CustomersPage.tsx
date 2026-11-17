@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createCustomer, createPayment, deleteCustomer, fetchCustomerBalances, fetchCustomerDetails, fetchCustomers, fetchPayments, fetchSaleReceivedByCustomer, fetchWallets, updateCustomer, type CustomerRow, type WalletRow } from './api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { useDialog } from 'components/ui/Dialog';
 import { mapError } from 'lib/errors';
 import { useWriteGuard } from 'hooks/useWriteGuard';
 import { walletDisplay } from 'lib/wallet';
@@ -17,6 +18,7 @@ type Line = { wallet: string; amount: string };
 export default function CustomersPage() {
   usePageTitle('কাস্টমার');
   const qc = useQueryClient();
+  const dialog = useDialog();
   const { guard, denied } = useWriteGuard('customers');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -103,7 +105,8 @@ export default function CustomersPage() {
 
   const del = async (id: string) => {
     setError('');
-    if (!window.confirm('কাস্টমার মুছে ফেলা হবে; নিশ্চিত?')) return;
+    const ok = await dialog.confirm({ title: 'কাস্টমার মুছে ফেলবেন?', message: 'কাস্টমার মুছে ফেলা হবে; নিশ্চিত?', destructive: true, confirmText: 'মুছুন' });
+    if (!ok) return;
     try {
       await deleteCustomer(id);
       await qc.invalidateQueries({ queryKey: ['customers'] });
