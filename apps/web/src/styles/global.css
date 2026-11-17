@@ -107,3 +107,27 @@ input, select, textarea { outline: none; }
 @media (prefers-reduced-motion: reduce) {
   .skeleton::after { animation: none; }
 }
+
+.chart-bar {
+  background: color-mix(in srgb, var(--color-good) 36%, var(--color-surface));
+  transform-origin: bottom;
+  animation: bar-grow .7s cubic-bezier(.22, 1, .36, 1) both;
+  transition: background-color .2s ease;
+}
+.chart-bar:hover,
+.chart-bar:focus-visible,
+.chart-bar-max { background: var(--color-good); }
+.chart-bar:active,
+.chart-bar-max:active { background: color-mix(in srgb, var(--color-good) 78%, var(--color-espresso)); }
+.chart-value { animation: value-rise .4s ease-out both; }
+@keyframes bar-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+@keyframes value-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chart-bar, .chart-value { animation: none; }
+}
