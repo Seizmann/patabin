@@ -148,6 +148,7 @@ export const DEMO_SALES = saleSeeds.map((s) => {
   const discount = gross - received - s.due;
   const w = walletInfo(s.wallet);
   const [, packetCode = ''] = s.packets.split('/');
+  const packetSeed = packetSeeds.find((p) => p.code === packetCode);
   return {
     id: s.id,
     sold_at: daysAgo(s.days, s.hour),
@@ -171,6 +172,7 @@ export const DEMO_SALES = saleSeeds.map((s) => {
     deleted_at: null,
     packet_codes: s.packets,
     owner_names: s.owners,
+    owner_partner_ids: packetSeed ? [packetSeed.owner] : [],
     sale_allocations: [{ packet_id: packetIdByCode.get(packetCode), qty: s.qty }],
     sale_receives: [{ wallet_account_id: s.wallet, amount: received }],
   };

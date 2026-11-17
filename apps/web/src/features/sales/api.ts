@@ -62,6 +62,7 @@ export async function fetchSales(
   walletName = '',
   dueOnly = false,
   createdBy = '',
+  ownerPartnerId = '',
 ): Promise<{ rows: SaleRowV[]; total: number }> {
   const offset = page * pageSize;
   let q = supabase
@@ -84,6 +85,9 @@ export async function fetchSales(
   }
   if (createdBy) {
     q = q.eq('created_by', createdBy);
+  }
+  if (ownerPartnerId) {
+    q = q.contains('owner_partner_ids', [ownerPartnerId]);
   }
   const { data, error, count } = await q;
   if (error) throw error;

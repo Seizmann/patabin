@@ -90,6 +90,7 @@ function matchFilter(row: Row, f: Filter): boolean {
     case 'in': return Array.isArray(f.val) && (f.val as unknown[]).some((x) => String(x) === String(v));
     case 'like':
     case 'ilike': return String(v ?? '').toLowerCase().includes(String(f.val).replaceAll('%', '').toLowerCase());
+    case 'contains': return Array.isArray(v) && Array.isArray(f.val) && (f.val as unknown[]).every((x) => v.some((y) => String(y) === String(x)));
     default: return true;
   }
 }
@@ -130,6 +131,7 @@ class DemoQuery {
   in(col: string, val: unknown[]) { this.filters.push({ op: 'in', col, val }); return this; }
   like(col: string, val: string) { this.filters.push({ op: 'like', col, val }); return this; }
   ilike(col: string, val: string) { this.filters.push({ op: 'ilike', col, val }); return this; }
+  contains(col: string, val: unknown[]) { this.filters.push({ op: 'contains', col, val }); return this; }
   not(col: string, op: string, val: unknown) { this.filters.push({ op: `not_${op}`, col, val }); return this; }
   or(expr: string) { this.filters.push({ op: 'or', col: '', val: expr }); return this; }
 

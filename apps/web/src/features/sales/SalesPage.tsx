@@ -12,6 +12,7 @@ import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import { walletDisplay } from 'lib/wallet';
 import { mapError } from 'lib/errors';
 import { useWriteGuard } from 'hooks/useWriteGuard';
+import { useViewMode } from 'lib/viewMode';
 import emptySales from 'assets/images/empty/empty-sales.png';
 
 const PAGE_SIZE = 20;
@@ -39,6 +40,7 @@ export default function SalesPage() {
   const [wallet, setWallet] = useState('');
   const [dueOnly, setDueOnly] = useState(false);
   const [enteredBy, setEnteredBy] = useState('');
+  const { myPartnerId: mine, isSelf } = useViewMode();
   const debouncedSearch = useDebounced(search);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
@@ -53,8 +55,8 @@ export default function SalesPage() {
   });
 
   const { data, isPending, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ['sales', start, end, debouncedSearch, wallet, dueOnly, enteredBy],
-    queryFn: ({ pageParam }) => fetchSales(start, end, pageParam, PAGE_SIZE, debouncedSearch, wallet, dueOnly, enteredBy),
+    queryKey: ['sales', start, end, debouncedSearch, wallet, dueOnly, enteredBy, isSelf ? mine : ''],
+    queryFn: ({ pageParam }) => fetchSales(start, end, pageParam, PAGE_SIZE, debouncedSearch, wallet, dueOnly, enteredBy, isSelf ? (mine ?? '') : ''),
     initialPageParam: 0,
     getNextPageParam: (last, pages) => (last.rows.length < PAGE_SIZE ? undefined : pages.length),
   });
@@ -121,6 +123,7 @@ export default function SalesPage() {
         </Btn>
       </div>
       {error && <Notice tone="error">{error}</Notice>}
+      {isSelf && <Notice tone="info">শুধু আপনার বিক্রি দেখানো হচ্ছে (self mode)।</Notice>}
       {isPending && <TableSkeleton />}
       {isError && <Notice tone="error">ডেটা আনতে সমস্যা হয়েছে</Notice>}
       {rows.length === 0 && !isPending && (
