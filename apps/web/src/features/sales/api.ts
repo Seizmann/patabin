@@ -53,10 +53,37 @@ export async function fetchPacketsPreview(): Promise<{ packet_id: string; packet
   return (data ?? []).filter((p) => Number(p.remaining) > 0);
 }
 
-export async function fetchSales(from: string, to: string): Promise<SaleRowV[]> {
-  const { data, error } = await supabase.from('v_sales_enriched').select('*').gte('sold_at', from).lt('sold_at', to).order('sold_at', { ascending: false });
+export async function fetchSales(
+  from: string,
+  to: string,
+  page: number,
+  pageSize: number,
+  search = '',
+  walletName = '',
+  dueOnly = false,
+): Promise<{ rows: SaleRowV[]; total: number }> {
+  const offset = page * pageSize;
+  let q = supabase
+    .from('v_sales_enriched')
+    .select('*', { count: 'exact' })
+    .gte('sold_at', from)
+    .lt('sold_at', to)
+    .order('sold_at', { ascending: false })
+    .range(offset, offset + pageSize - 1);
+  const term = search.trim().replace(/[,()%\\]/g, '');
+  if (term) {
+    q = q.or(`customer_name.ilike.%${term}%,customer_phone.ilike.%${term}%,note.ilike.%${term}%`);
+  }
+  const wallet = walletName.trim();
+  if (wallet) {
+    q = q.or(`wallet_name.ilike.%${wallet}%,wallet_details.ilike.%${wallet}%`);
+  }
+  if (dueOnly) {
+    q = q.gt('due_amount', 0);
+  }
+  const { data, error, count } = await q;
   if (error) throw error;
-  return data as SaleRowV[];
+  return { rows: (data ?? []) as SaleRowV[], total: count ?? 0 };
 }
 
 export async function createSale(input: SaleInput): Promise<void> {

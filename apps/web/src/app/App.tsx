@@ -18,6 +18,7 @@ const NewChalanPage = lazy(() => import('features/chalans/NewChalanPage'));
 const ChalanDetailPage = lazy(() => import('features/chalans/ChalanDetailPage'));
 const PacketsPage = lazy(() => import('features/packets/PacketsPage'));
 const CustomersPage = lazy(() => import('features/customers/CustomersPage'));
+const CustomerLedgerPage = lazy(() => import('features/customers/CustomerLedgerPage'));
 const ExpensesPage = lazy(() => import('features/expenses/ExpensesPage'));
 const AdjustmentsPage = lazy(() => import('features/adjustments/AdjustmentsPage'));
 const WalletsPage = lazy(() => import('features/wallets/WalletsPage'));
@@ -30,7 +31,7 @@ const ProfilePage = lazy(() => import('features/profile/ProfilePage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 60_000, retry: 1, refetchOnWindowFocus: false },
+    queries: { staleTime: 60_000, gcTime: 30 * 60_000, retry: 1, refetchOnWindowFocus: false },
   },
 });
 
@@ -79,6 +80,7 @@ export default function App() {
                 <Route path="/chalans/:code" element={<Page><ChalanDetailPage /></Page>} />
                 <Route path="/packets" element={<Page><PacketsPage /></Page>} />
                 <Route path="/customers" element={<Page><CustomersPage /></Page>} />
+                <Route path="/customers/:id" element={<Page><CustomerLedgerPage /></Page>} />
                 <Route path="/expenses" element={<Page><ExpensesPage /></Page>} />
                 <Route path="/adjustments" element={<Page><AdjustmentsPage /></Page>} />
                 <Route path="/wallets" element={<Page><WalletsPage /></Page>} />

@@ -60,7 +60,7 @@ export default function PersonalUsePage() {
   const { data: packets = [] } = useQuery({
     queryKey: ['packets'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('v_packet_stock').select('packet_id, packet_code, owner_partner_id, owner_name, remaining').gt('remaining', 0);
+      const { data, error } = await supabase.from('v_packet_stock').select('packet_id, packet_code, owner_partner_id, owner_name, remaining').eq('chalan_status', 'open').gt('remaining', 0);
       if (error) throw error;
       return (data ?? []) as PacketRow[];
     },
@@ -70,6 +70,36 @@ export default function PersonalUsePage() {
   const chosen = packets.find((p) => p.packet_id === packetId) ?? null;
   const ownerIsOther = chosen && chosen.owner_partner_id !== (eater || myId);
   const value = Number(qty || '0') * Number(unit || settings?.default_sell_price || 300);
+
+  const summaries = (() => {
+    const groups = new Map<string, { code: string; rows: { eater: string; owner: string | null; pcs: number; amount: number }[]; owed: { from: string; to: string; amount: number }[] }>();
+    for (const u of uses) {
+      const code = u.chalans?.code ?? 'মজুদ';
+      let g = groups.get(code);
+      if (!g) {
+        g = { code, rows: [], owed: [] };
+        groups.set(code, g);
+      }
+      const eater = u.partners?.name ?? '-';
+      const owner = u.packets?.partners?.name ?? null;
+      let row = g.rows.find((r) => r.eater === eater && (r.owner ?? null) === owner);
+      if (!row) {
+        row = { eater, owner, pcs: 0, amount: 0 };
+        g.rows.push(row);
+      }
+      row.pcs += Number(u.qty);
+      row.amount += Number(u.qty) * Number(u.unit_value);
+      if (owner && owner !== eater) {
+        let o = g.owed.find((x) => x.from === eater && x.to === owner);
+        if (!o) {
+          o = { from: eater, to: owner, amount: 0 };
+          g.owed.push(o);
+        }
+        o.amount += Number(u.qty) * Number(u.unit_value);
+      }
+    }
+    return [...groups.values()];
+  })();
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -168,6 +198,40 @@ export default function PersonalUsePage() {
           ))}
         </div>
       )}
+      {uses.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <p className="p-label">চালান অনুযায়ী হিসাব</p>
+          {summaries.map((g) => (
+            <div key={g.code} className="card p-5">
+              <p className="p-title mb-3">{g.code === 'মজুদ' ? 'মজুদ' : `চালান ${g.code}`}</p>
+              <div className="flex flex-col divide-y divide-hairline">
+                {g.rows.map((r) => (
+                  <div key={`${r.eater}-${r.owner ?? 'মজুদ'}`} className="flex items-center justify-between gap-3 py-2 first:pt-0">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{r.eater}</p>
+                      <p className="p-caption text-ink-mute">{r.owner ? `${r.owner}-এর প্যাকেট থেকে` : 'মজুদ থেকে'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="p-num text-sm font-bold">{toBnDigits(r.pcs)} পিস</p>
+                      <p className="p-caption p-num text-ink-mute">{formatMoney(r.amount)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {g.owed.length > 0 && (
+                <div className="mt-3 flex flex-col gap-1 rounded-xl bg-canvas px-4 py-3">
+                  {g.owed.map((o) => (
+                    <p key={`${o.from}-${o.to}`} className="p-caption">
+                      <b>{o.from}</b> → <b>{o.to}</b> : {formatMoney(o.amount)} দিবে
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {uses.length === 0 && !usesPending && <Empty img={offline} title="কোনো ব্যক্তিগত ব্যবহার নেই" caption="খাওয়া/নিজের ব্যবহার যোগ করলে এখানে দেখা যাবে।" />}
       {uses.length > 0 && (
         <div className="card overflow-x-auto">

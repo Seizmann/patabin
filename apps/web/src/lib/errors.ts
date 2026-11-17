@@ -35,6 +35,9 @@ const ERRORS: Record<string, string> = {
 };
 
 export function mapError(e: unknown): string {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return 'অফলাইন — ইন্টারনেট সংযোগ নেই; সংযোগ ফিরলে আবার করুন।';
+  }
   const msg = e instanceof Error ? e.message : String(e);
   const code = Object.keys(ERRORS).find((k) => msg.includes(k));
   return code ? ERRORS[code]! : 'সমস্যা হয়েছে; আবার চেষ্টা করুন।';

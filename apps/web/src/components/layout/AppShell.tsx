@@ -16,6 +16,7 @@ import bn from 'i18n/bn';
 import { supabase } from 'lib/supabase';
 import { useAuth } from 'lib/auth';
 import useRealtimeSync from 'hooks/useRealtimeSync';
+import useOnline from 'hooks/useOnline';
 
 type Icon = (p: IconProps) => ReactNode;
 
@@ -57,6 +58,7 @@ const SWIPE_DIRECTION_RATIO = 1.5;
 export default function AppShell() {
   const { suAdmin, profile } = useAuth();
   useRealtimeSync();
+  const online = useOnline();
   const [moreOpen, setMoreOpen] = useState(false);
   const navigate = useNavigate();
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -135,6 +137,11 @@ export default function AppShell() {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
+        {!online && (
+          <div role="status" className="border-b border-hairline bg-canvas px-4 py-2 text-center text-sm font-semibold text-bad">
+            অফলাইন — ইন্টারনেট নেই; আগে লোড হওয়া ডেটা দেখা যাচ্ছে
+          </div>
+        )}
         <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-10">
           <Outlet />
         </main>
