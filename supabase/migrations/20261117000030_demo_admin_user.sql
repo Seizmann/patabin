@@ -6,14 +6,16 @@
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password,
   email_confirmed_at, created_at, updated_at,
+  confirmation_token, recovery_token, email_change_token_new, email_change,
   raw_app_meta_data, raw_user_meta_data
 )
 select
   '00000000-0000-0000-0000-000000000000',
   'd3bd0000-1111-4222-8333-444455556666',
   'authenticated', 'authenticated', 'demo@patabin.rexio.pro',
-  crypt('demo1234', gen_salt('bf')),
+  extensions.crypt('demo1234', extensions.gen_salt('bf')),
   now(), now(), now(),
+  '', '', '', '',
   '{"provider":"email","providers":["email"]}'::jsonb,
   '{"display_name":"Demo Admin"}'::jsonb
 where not exists (select 1 from auth.users where email = 'demo@patabin.rexio.pro');
