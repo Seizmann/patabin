@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from 'lib/supabase';
-import { fetchSaleDetails, createSale, deleteSale, fetchSales, updateSale, type SaleInput, type SaleRowV } from './api';
+import { fetchSaleDetails, createSale, deleteSale, fetchSales, fetchWallets, updateSale, type SaleInput, type SaleRowV } from './api';
 import SaleForm from './SaleForm';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Notice, PageTitle, Skeleton } from 'components/ui/base';
@@ -15,6 +15,15 @@ import emptySales from 'assets/images/empty/empty-sales.png';
 
 const PAGE_SIZE = 20;
 
+function useDebounced(value: string, delay = 300): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
+
 export default function SalesPage() {
   usePageTitle('বিক্রির তালিকা');
   const qc = useQueryClient();
@@ -25,14 +34,20 @@ export default function SalesPage() {
   const [detail, setDetail] = useState<SaleRowV | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [page, setPage] = useState(0);
+  const [search, setSearch] = useState('');
+  const [wallet, setWallet] = useState('');
+  const [dueOnly, setDueOnly] = useState(false);
+  const debouncedSearch = useDebounced(search);
 
   useEffect(() => {
     setPage(0);
-  }, [start, end]);
+  }, [start, end, debouncedSearch, wallet, dueOnly]);
+
+  const { data: wallets = [] } = useQuery({ queryKey: ['wallets'], queryFn: fetchWallets });
 
   const { data, isPending, isError, isFetching, isPlaceholderData } = useQuery({
-    queryKey: ['sales', start, end, page],
-    queryFn: () => fetchSales(start, end, page, PAGE_SIZE),
+    queryKey: ['sales', start, end, page, debouncedSearch, wallet, dueOnly],
+    queryFn: () => fetchSales(start, end, page, PAGE_SIZE, debouncedSearch, wallet, dueOnly),
     placeholderData: keepPreviousData,
   });
   const rows = data?.rows ?? [];
@@ -56,10 +71,36 @@ export default function SalesPage() {
         title="বিক্রির তালিকা"
         right={<PeriodSelect period={period} setPeriod={setPeriod} customFrom={customFrom} customTo={customTo} setCustomFrom={setCustomFrom} setCustomTo={setCustomTo} showAll />}
       />
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <input
+          className="field"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="নাম, ফোন বা নোট দিয়ে খুঁজুন"
+          aria-label="বিক্রি খুঁজুন"
+        />
+        <select className="field min-h-[44px] w-auto py-1.5" value={wallet} onChange={(e) => setWallet(e.target.value)} aria-label="মাধ্যম">
+          <option value="">সব মাধ্যম</option>
+          {wallets.map((w) => (
+            <option key={w.id} value={w.name}>
+              {walletDisplay(w)}
+            </option>
+          ))}
+        </select>
+        <Btn variant={dueOnly ? 'solid' : 'ghost'} className="shrink-0" onClick={() => setDueOnly((v) => !v)}>
+          শুধু বাকি
+        </Btn>
+      </div>
       {error && <Notice tone="error">{error}</Notice>}
       {isPending && <TableSkeleton />}
       {isError && <Notice tone="error">ডেটা আনতে সমস্যা হয়েছে</Notice>}
-      {rows.length === 0 && !isPending && <Empty img={emptySales} title="কোনো বিক্রি নেই" caption="নতুন বিক্রি যুক্ত করে শুরু করুন।" />}
+      {rows.length === 0 && !isPending && (
+        <Empty
+          img={emptySales}
+          title="কোনো বিক্রি নেই"
+          caption={search || wallet || dueOnly ? 'ফিল্টার বদলে আবার দেখুন।' : 'নতুন বিক্রি যুক্ত করে শুরু করুন।'}
+        />
+      )}
       {rows.length > 0 && (
         <>
           <div className={isPlaceholderData || (isFetching && !isPending) ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
