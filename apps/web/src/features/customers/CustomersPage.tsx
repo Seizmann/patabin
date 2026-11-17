@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createCustomer, createPayment, deleteCustomer, fetchCustomerBalances, fetchCustomerDetails, fetchCustomers, fetchPayments, fetchSaleReceivedByCustomer, fetchWallets, updateCustomer, type CustomerRow, type WalletRow } from './api';
 import { usePageTitle } from 'hooks/usePageTitle';
@@ -205,6 +206,9 @@ export default function CustomersPage() {
                   </td>
                   <td className="p-3">
                     <div className="flex justify-end gap-2">
+                      <Link to={`/customers/${c.id}`} className="btn btn-ghost min-h-[44px]">
+                        খাতা
+                      </Link>
                       <Btn variant="ghost" onClick={guard(() => setPayOpen(c))}>
                         শোধ নিন
                       </Btn>

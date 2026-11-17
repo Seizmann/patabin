@@ -40,6 +40,53 @@ export async function fetchWallets(): Promise<WalletRow[]> {
   return (data ?? []) as WalletRow[];
 }
 
+export type LedgerEvent =
+  | { kind: 'sale'; at: string; qty: number; listValue: number; received: number; due: number; chalanCodes: string[] }
+  | { kind: 'payment'; at: string; amount: number; walletAccountId: string; note: string | null };
+
+export async function fetchCustomerLedger(customerId: string): Promise<{ customer: CustomerRow; balance: number; events: LedgerEvent[] }> {
+  const [cusRes, balRes, salesRes, payRes] = await Promise.all([
+    supabase.from('customers').select('id, name, phone').eq('id', customerId).single(),
+    supabase.from('v_customer_balance').select('balance').eq('customer_id', customerId).maybeSingle(),
+    supabase
+      .from('sales')
+      .select('id, sold_at, qty, list_unit_price, amount_received, due_amount, sale_allocations(qty, packets(chalans(code))), customer_payment_allocations(sale_id, amount)')
+      .eq('customer_id', customerId)
+      .is('deleted_at', null)
+      .order('sold_at', { ascending: false }),
+    supabase.from('customer_payments').select('id, at, amount, wallet_account_id, note').eq('customer_id', customerId).is('deleted_at', null).order('at', { ascending: false }),
+  ]);
+  if (cusRes.error) throw cusRes.error;
+  type RawSale = { id: string; sold_at: string; qty: number; list_unit_price: string | number; amount_received: string | number; due_amount: string | number; sale_allocations: { qty: number; packets: { chalans: { code: string } | null } | null }[] | null; customer_payment_allocations: { amount: string | number }[] | null };
+  type RawPay = { id: string; at: string; amount: string | number; wallet_account_id: string; note: string | null };
+  const rawSales = (salesRes.data ?? []) as unknown as RawSale[];
+  const rawPays = (payRes.data ?? []) as unknown as RawPay[];
+  const events: LedgerEvent[] = rawSales.map((s) => {
+    const allocated = (s.customer_payment_allocations ?? []).reduce((sum, a) => sum + Number(a.amount), 0);
+    const codes = (s.sale_allocations ?? [])
+      .map((a) => a.packets?.chalans?.code)
+      .filter((c): c is string => Boolean(c));
+    return {
+      kind: 'sale' as const,
+      at: s.sold_at,
+      qty: s.qty,
+      listValue: Number(s.qty) * Number(s.list_unit_price),
+      received: Number(s.amount_received),
+      due: Math.max(Number(s.due_amount) - allocated, 0),
+      chalanCodes: [...new Set(codes)],
+    };
+  });
+  for (const p of rawPays) {
+    events.push({ kind: 'payment', at: p.at, amount: Number(p.amount), walletAccountId: p.wallet_account_id, note: p.note });
+  }
+  events.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+  return {
+    customer: cusRes.data as CustomerRow,
+    balance: Number((balRes.data as { balance: string | number } | null)?.balance ?? 0),
+    events,
+  };
+}
+
 export async function createCustomer(name: string, phone: string | null): Promise<string> {
   const { data, error } = await supabase.from('customers').insert({ name, phone }).select('id').single();
   if (error) throw error;
