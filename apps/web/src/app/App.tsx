@@ -31,7 +31,7 @@ const ProfilePage = lazy(() => import('features/profile/ProfilePage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 60_000, retry: 1, refetchOnWindowFocus: false },
+    queries: { staleTime: 60_000, gcTime: 30 * 60_000, retry: 1, refetchOnWindowFocus: false },
   },
 });
 
