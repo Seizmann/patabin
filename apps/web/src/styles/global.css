@@ -111,7 +111,7 @@ input, select, textarea { outline: none; }
 .chart-bar {
   background: color-mix(in srgb, var(--color-good) 36%, var(--color-surface));
   transform-origin: bottom;
-  animation: bar-grow .7s cubic-bezier(.22, 1, .36, 1) both;
+  animation: bar-grow .8s cubic-bezier(.3, 1.25, .5, 1) both;
   transition: background-color .2s ease;
 }
 .chart-bar:hover,
@@ -120,6 +120,8 @@ input, select, textarea { outline: none; }
 .chart-bar:active,
 .chart-bar-max:active { background: color-mix(in srgb, var(--color-good) 78%, var(--color-espresso)); }
 .chart-value { animation: value-rise .4s ease-out both; }
+.chart-grid { animation: chart-fade .5s ease-out both; }
+.chart-day { animation: value-rise .4s ease-out both; }
 @keyframes bar-grow {
   from { transform: scaleY(0); }
   to { transform: scaleY(1); }
@@ -128,6 +130,10 @@ input, select, textarea { outline: none; }
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
+@keyframes chart-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .chart-bar, .chart-value { animation: none; }
+  .chart-bar, .chart-value, .chart-grid, .chart-day { animation: none; }
 }
