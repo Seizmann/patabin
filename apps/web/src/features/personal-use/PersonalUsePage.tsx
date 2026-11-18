@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Minus, Plus, Trash } from '@phosphor-icons/react';
 import { supabase } from 'lib/supabase';
@@ -16,7 +16,7 @@ import { useViewMode } from 'lib/viewMode';
 import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import offline from 'assets/images/empty/offline.png';
 
-type PacketRow = { packet_id: string; packet_code: string; owner_partner_id: string; owner_name: string; remaining: number };
+type PacketRow = { packet_id: string; packet_code: string; owner_partner_id: string; owner_name: string; remaining: number; position: number | null };
 
 type PersonalUseRow = {
   id: string;
@@ -79,11 +79,26 @@ export default function PersonalUsePage() {
   const { data: packets = [] } = useQuery({
     queryKey: ['packets'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('v_packet_stock').select('packet_id, packet_code, owner_partner_id, owner_name, remaining').eq('chalan_status', 'open').gt('remaining', 0);
+      const { data, error } = await supabase.from('v_packet_stock').select('packet_id, packet_code, owner_partner_id, owner_name, remaining, position').eq('chalan_status', 'open').gt('remaining', 0);
       if (error) throw error;
       return (data ?? []) as PacketRow[];
     },
   });
+  const sortedPackets = useMemo(
+    () =>
+      [...packets].sort((a, b) => {
+        if (a.position == null && b.position == null) return a.packet_code.localeCompare(b.packet_code);
+        if (a.position == null) return 1;
+        if (b.position == null) return -1;
+        return a.position - b.position;
+      }),
+    [packets],
+  );
+  const [packetTouched, setPacketTouched] = useState(false);
+  useEffect(() => {
+    if (packetTouched || packetId || sortedPackets.length === 0) return;
+    setPacketId(sortedPackets[0]!.packet_id);
+  }, [packetTouched, packetId, sortedPackets]);
   const { data: uses = [], isPending: usesPending } = useQuery({ queryKey: ['personal-uses', start, end, isSelf ? myId : ''], queryFn: () => fetchPersonalUses(start, end, isSelf ? (myId ?? '') : '') });
 
   const chosen = packets.find((p) => p.packet_id === packetId) ?? null;
@@ -194,9 +209,9 @@ export default function PersonalUsePage() {
             </select>
           </Field>
           <Field label="কোথা থেকে (প্যাকেট না বাছলে মজুদ ধরা হবে)">
-            <select className="field" value={packetId} onChange={(e) => setPacketId(e.target.value)}>
+            <select className="field" value={packetId} onChange={(e) => { setPacketTouched(true); setPacketId(e.target.value); }}>
               <option value="">প্যাকেট নেই (মজুদ)</option>
-              {packets.map((p) => (
+              {sortedPackets.map((p) => (
                 <option key={p.packet_id} value={p.packet_id}>
                   {p.packet_code} · {p.owner_name} · {toBnDigits(p.remaining)} বাকি
                 </option>
