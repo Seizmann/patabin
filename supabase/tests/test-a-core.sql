@@ -19,6 +19,13 @@ delete from public.customers;
 set local session_replication_role = DEFAULT;
 update public.profiles set must_change_password = false where id = (select id from public.profiles where role = 'su_admin');
 update public.profiles set must_change_password = false where id = (select id from public.profiles where role = 'patabin_admin');
+update public.profiles set role = 'patabin_admin'
+where not exists (select 1 from public.profiles where role = 'patabin_admin')
+  and id = coalesce(
+    (select user_id from public.partners where name = 'Bappy' and user_id is not null limit 1),
+    (select user_id from public.partners where user_id is not null limit 1));
+delete from public.profile_permissions
+where profile_id in (select id from public.profiles where role = 'patabin_admin');
 select set_config('request.jwt.claims', '{"sub":"' || (select id::text from public.profiles where role = 'su_admin') || '","role":"authenticated"}', true);
 set local role authenticated;
 
@@ -69,6 +76,10 @@ begin
       jsonb_build_object('partner_id', p_b, 'pcs', 200),
       jsonb_build_object('partner_id', p_su, 'pcs', 80)
     )
+  ));
+  perform public.set_sell_priority(array(
+    select packet_id from public.v_packet_stock where chalan_id = v_chalan
+    order by (owner_partner_id = p_su), packet_code
   ));
 
   v_sale1 := public.create_sale(jsonb_build_object('qty', 275, 'list_unit_price', 300, 'amount_received', 82250, 'wallet_account_id', v_wallet));

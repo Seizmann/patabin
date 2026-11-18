@@ -19,6 +19,13 @@ delete from public.customers;
 set local session_replication_role = DEFAULT;
 update public.profiles set must_change_password = false where id = (select id from public.profiles where role = 'su_admin');
 update public.profiles set must_change_password = false where id = (select id from public.profiles where role = 'patabin_admin');
+update public.profiles set role = 'patabin_admin'
+where not exists (select 1 from public.profiles where role = 'patabin_admin')
+  and id = coalesce(
+    (select user_id from public.partners where name = 'Bappy' and user_id is not null limit 1),
+    (select user_id from public.partners where user_id is not null limit 1));
+delete from public.profile_permissions
+where profile_id in (select id from public.profiles where role = 'patabin_admin');
 select set_config('request.jwt.claims', '{"sub":"' || (select id::text from public.profiles where role = 'su_admin') || '","role":"authenticated"}', true);
 set local role authenticated;
 
@@ -63,9 +70,14 @@ begin
     )
   ));
 
-  select packet_id into v_p1 from public.v_packet_stock where chalan_id = v_chalan and packet_code = 'P-001';
-  select packet_id into v_p3 from public.v_packet_stock where chalan_id = v_chalan and packet_code = 'P-003';
-  perform public.set_sell_priority(array[v_p1, v_p3, (select packet_id from public.v_packet_stock where chalan_id = v_chalan and packet_code = 'P-002'), (select packet_id from public.v_packet_stock where chalan_id = v_chalan and packet_code = 'P-004')]);
+  select packet_id into v_p1 from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_b order by packet_code limit 1;
+  select packet_id into v_p3 from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_su order by packet_code limit 1;
+  perform public.set_sell_priority(array[
+    v_p1,
+    v_p3,
+    (select packet_id from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_b order by packet_code offset 1 limit 1),
+    (select packet_id from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_su order by packet_code offset 1 limit 1)
+  ]);
 
   select position into v_pos_1 from public.v_packet_stock where packet_id = v_p1;
   select position into v_pos_2 from public.v_packet_stock where packet_id = v_p3;
@@ -77,7 +89,10 @@ begin
   from public.sale_allocations sa
   join public.v_packet_stock pk on pk.packet_id = sa.packet_id
   where sa.sale_id = v_sale;
-  assert v_b_pkg = 'P-001,P-003', 'allocations ' || coalesce(v_b_pkg::text, 'null');
+  assert v_b_pkg = (
+    select string_agg(packet_code, ',' order by packet_code)
+    from public.v_packet_stock where packet_id in (v_p1, v_p3)
+  ), 'allocations ' || coalesce(v_b_pkg::text, 'null');
 
   select ext_rev into v_ext from public.v_partner_chalan_settlement where chalan_id = v_chalan and partner_id = p_b;
   assert v_ext = 6000.00, 'B share ' || coalesce(v_ext::text, 'null');
@@ -99,9 +114,9 @@ begin
 
   assert (select count(*) from public.sales) = v_sales_before, 'oversell left rows';
 
-  select packet_id into v_pkg from public.v_packet_stock where chalan_id = v_chalan and packet_code = 'P-002';
+  select packet_id into v_pkg from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_b order by packet_code offset 1 limit 1;
   perform public.create_adjustment(jsonb_build_object('packet_id', v_pkg, 'qty', 5, 'reason', 'gift', 'person', 'শাকিল', 'at', now()));
-  select packet_id into v_pkg from public.v_packet_stock where chalan_id = v_chalan and packet_code = 'P-004';
+  select packet_id into v_pkg from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_su order by packet_code offset 1 limit 1;
   perform public.create_adjustment(jsonb_build_object('packet_id', v_pkg, 'qty', 20, 'reason', 'damage'));
 
   perform public.close_chalan(v_chalan);

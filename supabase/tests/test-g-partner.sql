@@ -20,6 +20,13 @@ delete from public.customers;
 set local session_replication_role = DEFAULT;
 update public.profiles set must_change_password = false where id = (select id from public.profiles where role = 'su_admin');
 update public.profiles set must_change_password = false where id = (select id from public.profiles where role = 'patabin_admin');
+update public.profiles set role = 'patabin_admin'
+where not exists (select 1 from public.profiles where role = 'patabin_admin')
+  and id = coalesce(
+    (select user_id from public.partners where name = 'Bappy' and user_id is not null limit 1),
+    (select user_id from public.partners where user_id is not null limit 1));
+delete from public.profile_permissions
+where profile_id in (select id from public.profiles where role = 'patabin_admin');
 
 -- seed one customer so the partner read test has a row
 insert into public.customers (name) values ('read-test-customer');
@@ -94,9 +101,13 @@ end $$;
 do $$
 declare v_rows integer;
 begin
-  update public.profiles set role = 'su_admin' where id = (select id from public.profiles where display_name = 'PT');
-  get diagnostics v_rows = row_count;
-  assert v_rows = 0, 'partner must not change own role (updated ' || v_rows || ')';
+  begin
+    update public.profiles set role = 'su_admin' where id = (select id from public.profiles where display_name = 'PT');
+    get diagnostics v_rows = row_count;
+    assert v_rows = 0, 'partner must not change own role (updated ' || v_rows || ')';
+  exception
+    when insufficient_privilege then perform 1;
+  end;
   assert (select role from public.profiles where display_name = 'PT') = 'patabin_partner', 'partner role must stay unchanged';
 end $$;
 
