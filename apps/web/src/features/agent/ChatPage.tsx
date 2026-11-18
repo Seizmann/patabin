@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePageTitle } from 'hooks/usePageTitle';
+import useOnline from 'hooks/useOnline';
 import { Btn, Card, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import bn from 'i18n/bn';
 import { ApproveAllButton, ProposalCard } from './ProposalCard';
@@ -65,6 +66,7 @@ function reducer(state: State, action: Action): State {
 export default function ChatPage() {
   usePageTitle(bn.agentChat);
   const qc = useQueryClient();
+  const online = useOnline();
   const [state, dispatch] = useReducer(reducer, {
     conversationId: null,
     messages: [],
@@ -122,6 +124,10 @@ export default function ChatPage() {
   const send = async (text: string, answerTo: string | null) => {
     const message = text.trim();
     if (!message || state.status === 'streaming') return;
+    if (!online) {
+      dispatch({ type: 'ERROR', message: bn.agentOffline });
+      return;
+    }
     setInput('');
     dispatch({ type: 'STREAM_START' });
     const controller = new AbortController();
@@ -170,7 +176,7 @@ export default function ChatPage() {
       }
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
-        dispatch({ type: 'ERROR', message: bn.agentTestUnreachable });
+        dispatch({ type: 'ERROR', message: (err as Error).message === 'AGENT_UNREACHABLE' ? bn.agentServiceOffline : bn.agentTestUnreachable });
       }
     }
     dispatch({ type: 'STREAM_END' });
@@ -221,6 +227,7 @@ export default function ChatPage() {
   return (
     <div className="mx-auto flex h-[calc(100dvh-8rem)] max-w-5xl flex-col gap-3 lg:h-[calc(100dvh-6rem)]">
       <PageTitle tag="PataBin" title={bn.agentChat} />
+      {!online && <Notice tone="info">{bn.agentOffline}</Notice>}
       {state.error && <Notice tone="error">{state.error}</Notice>}
       {state.fallbackNote && <Notice tone="info">{state.fallbackNote}</Notice>}
 

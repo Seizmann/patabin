@@ -118,6 +118,8 @@ const bn = {
   agentAnswerSend: 'উত্তর পাঠান',
   agentFallbackNote: 'উত্তর দেয়নি, দিয়ে উত্তর এসেছে —',
   agentErrorGeneric: 'সমস্যা হয়েছে; আবার চেষ্টা করুন।',
+  agentOffline: 'আপনার ডিভাইস অফলাইনে আছে; সংযোগ ফিরে এলে আবার চেষ্টা করুন।',
+  agentServiceOffline: 'এজেন্ট সার্ভারে সংযোগ হচ্ছে না; কম্পিউটার বা টানেল চালু আছে কি না দেখুন।',
   agentProposals: 'প্রস্তাব',
   agentProposalAwaiting: 'অনুমোদনের অপেক্ষায়',
   agentProposalExecuted: 'হয়ে গেছে',

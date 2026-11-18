@@ -7,6 +7,7 @@ for (const line of readFileSync('SECRETS.md', 'utf8').split('\n')) {
 }
 
 const site = secrets.VITE_SITE_URL || secrets.SITE_URL || 'http://localhost:5173';
+const agentUrl = secrets.VITE_AGENT_URL || 'http://localhost:8787';
 const supabaseUrl = secrets.SUPABASE_URL;
 const anon = secrets.SUPABASE_ANON_KEY;
 if (!supabaseUrl || !anon) {
@@ -22,7 +23,7 @@ if (existsSync(path)) {
 
 writeFileSync(
   path,
-  `VITE_SUPABASE_URL=${supabaseUrl}\nVITE_SUPABASE_ANON_KEY=${anon}\nVITE_SITE_URL=${site}\n`,
+  `VITE_SUPABASE_URL=${supabaseUrl}\nVITE_SUPABASE_ANON_KEY=${anon}\nVITE_SITE_URL=${site}\nVITE_AGENT_URL=${agentUrl}\n`,
 );
 
 console.log(`${path} created for local dev`);

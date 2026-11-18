@@ -17,8 +17,21 @@ The project deploys manually from GitHub; no CI deploy exists and no Vercel CLI 
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
    - `VITE_SITE_URL` (the production URL, e.g. `https://patabin.vercel.app`; used for canonical/OG tags; `apps/web/vercel.json` was generated with the Supabase URL baked into the CSP `connect-src`, regenerate it with `pnpm gen:vercel` if the project URL changes)
+   - `VITE_AGENT_URL` (`https://patabin-ai.vabo.top` in production, `http://localhost:8787` in development; the agent origin is already in the CSP `connect-src`)
 
 5. Deploy manually (Deploy button / `vercel --prod` from a machine you control). The build must never include `SUPABASE_SERVICE_ROLE_KEY`; a committed check ensures the bundle is clean.
+
+## 1b. Patabin Agent service (apps/patabin-ai, Docker Compose)
+
+The Go agent service runs on the owner's Linux Mint machine, not in the cloud:
+
+1. Docker must be enabled at boot (`sudo systemctl enable docker`).
+2. `pnpm agent:env` generates `apps/patabin-ai/.env` from `SECRETS.md` (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `ALLOWED_ORIGINS`). It never receives the service role key or any LLM provider key.
+3. `pnpm agent:up` builds the distroless image and starts the container bound to `127.0.0.1:8787` only.
+4. `pnpm agent:logs` follows logs; `pnpm agent:down` stops it.
+5. LLM provider keys are not set anywhere on the machine: the owner enters them in the web app at `/settings/agent`, and they are stored in Supabase Vault only.
+6. `https://patabin-ai.vabo.top` is served by a host-level Cloudflare Tunnel (`cloudflared`) that forwards to `http://localhost:8787`; the tunnel is a root systemd service the owner sets up separately.
+7. Healthcheck: `curl http://127.0.0.1:8787/healthz` must return `{"ok":"true"}` after `pnpm agent:up`.
 
 ## 2. Supabase Auth Site URL
 
