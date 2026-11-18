@@ -6,6 +6,7 @@ import {
   Money,
   Package,
   Receipt,
+  Sparkle,
   UserCircle,
   Wallet,
   X,
@@ -47,6 +48,7 @@ const moreItems = (suAdmin: boolean): Omit<Section, 'end'>[] => [
     ? [
         { to: '/users', label: bn.users, Icon: UserCircle },
         { to: '/settings', label: bn.settings, Icon: Calculator },
+        { to: '/settings/agent', label: bn.agentSettings, Icon: Sparkle },
       ]
     : []),
   { to: '/profile', label: bn.profile, Icon: UserCircle },

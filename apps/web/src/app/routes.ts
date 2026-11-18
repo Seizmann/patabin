@@ -18,5 +18,6 @@ export const ROUTES = [
   '/audit-trail',
   '/users',
   '/settings',
+  '/settings/agent',
   '/profile',
 ] as const;

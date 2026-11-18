@@ -3,6 +3,7 @@ package supa
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -34,6 +35,22 @@ func (c *Client) RPCBool(ctx context.Context, name, token string) (bool, error) 
 		return false, err
 	}
 	return strings.TrimSpace(string(body)) == "true", nil
+}
+
+func (c *Client) RPCString(ctx context.Context, name, token string, args map[string]string) (string, error) {
+	payload, err := json.Marshal(args)
+	if err != nil {
+		return "", fmt.Errorf("rpc args: %w", err)
+	}
+	body, err := c.do(ctx, http.MethodPost, "/rest/v1/rpc/"+name, token, bytes.NewReader(payload))
+	if err != nil {
+		return "", err
+	}
+	var out string
+	if err := json.Unmarshal(bytes.TrimSpace(body), &out); err != nil {
+		return "", fmt.Errorf("rpc response: %w", err)
+	}
+	return out, nil
 }
 
 func (c *Client) do(ctx context.Context, method, path, token string, body io.Reader) ([]byte, error) {

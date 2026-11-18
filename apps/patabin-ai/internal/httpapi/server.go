@@ -25,6 +25,7 @@ func New(cfg config.Config, log *slog.Logger) *server {
 		authenticator: auth.New(cfg.SupabaseURL, cfg.SupabaseAnonKey, cfg.AuthCacheTTL, client, nil),
 		preAuth:       newLimiterMap(),
 		authFail:      newLimiterMap(),
+		providerTest:  newLimiterMap(),
 	}
 	return s
 }
@@ -33,6 +34,7 @@ func (s *server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
 	mux.Handle("GET /v1/me", s.requireAuth(http.HandlerFunc(s.handleMe)))
+	mux.Handle("POST /v1/providers/{id}/test", s.requireAuth(http.HandlerFunc(s.handleProviderTest)))
 
 	h := s.recoverMiddleware(mux)
 	h = s.loggingMiddleware(h)

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math"
@@ -42,6 +43,7 @@ type server struct {
 	supaClient    *supa.Client
 	preAuth       *limiterMap
 	authFail      *limiterMap
+	providerTest  *limiterMap
 }
 
 type statusWriter struct {
@@ -137,14 +139,7 @@ func retryAfter(d time.Duration) string {
 func writeJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	fmt.Fprintf(w, `{"error":%q}`, bodyString(body))
-}
-
-func bodyString(v any) string {
-	if m, ok := v.(map[string]string); ok {
-		return m["error"]
-	}
-	return "internal"
+	_ = json.NewEncoder(w).Encode(body)
 }
 
 func (s *server) recoverMiddleware(next http.Handler) http.Handler {
