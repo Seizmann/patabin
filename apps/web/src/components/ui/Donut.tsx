@@ -57,14 +57,14 @@ export default function Donut({
 
   return (
     <div className="card p-5">
-      <div className="mb-2 flex items-baseline justify-between gap-3">
+      <div className="mb-2">
         <p className="p-label">{title}</p>
-        <div className="text-right">
+      </div>
+      <div className="relative mx-auto h-56 w-full max-w-sm">
+        <div className="absolute right-0 top-0 z-10 text-right">
           <p className="p-label">{centerLabel}</p>
           <p className="p-num text-xl font-extrabold">{centerValue}</p>
         </div>
-      </div>
-      <div className="relative mx-auto h-56 w-full max-w-sm">
         <ul className="absolute left-0 top-5 z-10 flex max-w-[42%] flex-col gap-1.5" role="list">
           {rows.map((d, i) => (
             <li key={d.name} className="flex items-center justify-between gap-2">
