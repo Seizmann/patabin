@@ -272,6 +272,50 @@ begin
   select count(*) into v_count from public.expenses where pending_action_id = v_action;
   assert v_count = 0, 'expired action must not execute';
 
+  v_res := public.agent_create_action(v_conv, null, 'propose_sale', jsonb_build_object(
+    'qty', 10, 'list_unit_price', 300, 'amount_received', 3000, 'wallet_account_id', v_wallet
+  ), '{}'::text[], 'test-model');
+  assert v_res ->> 'ok' = 'true', 'spanning sale create failed';
+  v_action := (v_res ->> 'action_id')::uuid;
+  v_hash := v_res ->> 'preview_hash';
+  select preview -> 'detail' -> 'allocations' into v_alloc
+    from public.agent_pending_actions where id = v_action;
+  assert v_alloc is not null and jsonb_typeof(v_alloc) = 'array', 'spanning sale preview must carry allocations';
+  assert (select count(*) from jsonb_array_elements(v_alloc) a) >= 2, 'spanning sale must touch several packets';
+  v_res := public.agent_approve_action(v_action, v_hash);
+  assert v_res ->> 'status' = 'executed', 'spanning sale approve failed: ' || coalesce(v_res ->> 'error', 'null');
+  v_sale := (v_res ->> 'result_id')::uuid;
+  select coalesce(jsonb_agg(jsonb_build_object('packet_id', a.packet_id, 'qty', a.qty) order by a.qty desc), '[]'::jsonb)
+    into v_alloc from public.sale_allocations a where a.sale_id = v_sale;
+  assert (
+    select count(*) from jsonb_array_elements(v_alloc) a
+    where not exists (
+      select 1 from jsonb_array_elements(
+        (select preview -> 'detail' -> 'allocations' from public.agent_pending_actions where id = v_action)
+      ) p
+      where p ->> 'packet_id' = a ->> 'packet_id' and p ->> 'qty' = a ->> 'qty'
+    )
+  ) = 0, 'executed allocations must match the preview rows';
+
+  v_res := public.agent_create_action(v_conv, null, 'propose_sale', jsonb_build_object(
+    'qty', 5, 'list_unit_price', 300, 'amount_received', 1500, 'wallet_account_id', v_wallet
+  ), '{}'::text[], 'test-model');
+  assert v_res ->> 'ok' = 'true', 'failed-approval create failed';
+  v_action := (v_res ->> 'action_id')::uuid;
+  v_hash := v_res ->> 'preview_hash';
+  select sum(remaining)::integer into v_stock_before from public.v_packet_stock;
+  assert v_stock_before = 55, 'stock before failing approval ' || coalesce(v_stock_before::text, 'null');
+  execute 'reset role';
+  perform public.create_sale(jsonb_build_object(
+    'qty', 50, 'list_unit_price', 300, 'amount_received', 15000, 'wallet_account_id', v_wallet
+  ));
+  perform set_config('request.jwt.claims', '{"sub":"' || (select id::text from public.profiles where role = 'su_admin') || '","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  v_res := public.agent_approve_action(v_action, v_hash);
+  assert v_res ->> 'status' in ('stale', 'failed'), 'stock consumed at approval must not execute, got ' || coalesce(v_res ->> 'status', 'null');
+  select count(*) into v_count from public.sales where pending_action_id = v_action;
+  assert v_count = 0, 'failed approval must leave no sale';
+
   v_res := public.agent_create_action(v_conv, null, 'propose_personal_use', jsonb_build_object(
     'eater_partner_id', p_su, 'qty', 2, 'chalan_id', v_chalan, 'unit_value', 300
   ), '{}'::text[], 'test-model');
@@ -303,7 +347,7 @@ begin
   assert v_count = 1 and v_bool, 'executed action must survive purge with conversation null';
 
   perform public.create_sale(jsonb_build_object(
-    'qty', 65, 'list_unit_price', 300, 'amount_received', 19500, 'wallet_account_id', v_wallet
+    'qty', 5, 'list_unit_price', 300, 'amount_received', 1500, 'wallet_account_id', v_wallet
   ));
   select sum(remaining)::integer into v_stock_after from public.v_packet_stock;
   assert v_stock_after = 0, 'stock before close ' || v_stock_after::text;

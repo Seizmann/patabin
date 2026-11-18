@@ -19,12 +19,15 @@ import (
 )
 
 type fakeSupaState struct {
-	mu         sync.Mutex
-	convs      []string
-	msgs       []map[string]any
-	msgSeq     int64
-	modelsBody string
-	lastErr    string
+	mu          sync.Mutex
+	convs       []string
+	msgs        []map[string]any
+	msgSeq      int64
+	modelsBody  string
+	lastErr     string
+	rpcCalls    []map[string]any
+	rpcResps    []string
+	partnerBody string
 }
 
 type fakeLLM struct {
@@ -98,7 +101,10 @@ func mustJSON(v any) string {
 
 func newLoopFixture(t *testing.T, llmResps []string, modelsBody string) (*Loop, *fakeSupaState, *fakeLLM) {
 	t.Helper()
-	state := &fakeSupaState{modelsBody: modelsBody}
+	state := &fakeSupaState{
+		modelsBody:  modelsBody,
+		partnerBody: `[{"id":"aaaaaaaa-1111-1111-1111-111111111111","name":"Sijan","user_id":"user-1"},{"id":"bbbbbbbb-2222-2222-2222-222222222222","name":"Bappy"}]`,
+	}
 	llmFake := &fakeLLM{resps: llmResps}
 	llmTS := httptest.NewServer(llmFake.handler())
 	t.Cleanup(llmTS.Close)
@@ -153,7 +159,38 @@ func newLoopFixture(t *testing.T, llmResps []string, modelsBody string) (*Loop, 
 		w.Write([]byte(mustJSON(state.msgs)))
 	})
 	supaMux.HandleFunc("GET /rest/v1/partners", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`[{"id":"pa-1","name":"Sijan"},{"id":"pa-2","name":"Bappy"}]`))
+		state.mu.Lock()
+		defer state.mu.Unlock()
+		if strings.Contains(r.URL.RawQuery, "user_id=eq.") {
+			w.Write([]byte(`[{"id":"aaaaaaaa-1111-1111-1111-111111111111","name":"Sijan","user_id":"user-1"}]`))
+			return
+		}
+		w.Write([]byte(state.partnerBody))
+	})
+	supaMux.HandleFunc("POST /rest/v1/rpc/agent_create_action", func(w http.ResponseWriter, r *http.Request) {
+		state.mu.Lock()
+		defer state.mu.Unlock()
+		var body map[string]any
+		raw, _ := io.ReadAll(r.Body)
+		if err := json.Unmarshal(raw, &body); err != nil {
+			http.Error(w, "decode", http.StatusBadRequest)
+			return
+		}
+		idx := len(state.rpcCalls)
+		state.rpcCalls = append(state.rpcCalls, body)
+		if idx < len(state.rpcResps) {
+			resp := state.rpcResps[idx]
+			if resp == "HTTP 500" {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.Write([]byte(resp))
+			return
+		}
+		w.Write([]byte(`{"ok":true,"action_id":"act-1","status":"pending","preview_hash":"h","preview":{"detail":{}},"expires_at":"2030-01-01T00:00:00Z"}`))
+	})
+	supaMux.HandleFunc("GET /rest/v1/v_packet_stock", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`[]`))
 	})
 	supaMux.HandleFunc("GET /rest/v1/settings", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`[{"default_buy_rate":190,"default_sell_price":300,"default_packet_size":20}]`))

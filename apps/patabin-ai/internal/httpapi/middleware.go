@@ -48,6 +48,7 @@ type server struct {
 	authFail      *limiterMap
 	providerTest  *limiterMap
 	chatRate      *limiterMap
+	actionRate    *limiterMap
 	chatSem       *semaphoreMap
 	llmClient     *llm.Client
 	keyCache      *secrets.Cache

@@ -20,6 +20,8 @@ export type SaleRowV = {
   created_at: string;
   packet_codes: string;
   owner_names: string;
+  source?: string | null;
+  agent_model?: string | null;
 };
 
 export type ReceiveInput = { wallet_account_id: string; amount: number };
@@ -67,7 +69,7 @@ export async function fetchSales(
   const offset = page * pageSize;
   let q = supabase
     .from('v_sales_enriched')
-    .select('*', { count: 'exact' })
+    .select('*, source, agent_model', { count: 'exact' })
     .gte('sold_at', from)
     .lt('sold_at', to)
     .order('sold_at', { ascending: false })
@@ -112,11 +114,11 @@ export async function deleteSale(id: string): Promise<void> {
 export type SalePacketShare = { label: string; owner_name: string; qty: number };
 export type SaleReceiveShare = { type: string; label: string; amount: number };
 
-export async function fetchSaleDetails(saleId: string): Promise<{ packets: SalePacketShare[]; receives: SaleReceiveShare[]; enteredBy: string }> {
+export async function fetchSaleDetails(saleId: string): Promise<{ packets: SalePacketShare[]; receives: SaleReceiveShare[]; enteredBy: string; agentModel: string | null }> {
   const [allocRes, recRes, saleRes] = await Promise.all([
     supabase.from('sale_allocations').select('qty, packets(code, partners(name), chalans(code))').eq('sale_id', saleId),
     supabase.from('sale_receives').select('amount, wallets(type, name, label)').eq('sale_id', saleId),
-    supabase.from('sales').select('created_by').eq('id', saleId).single(),
+    supabase.from('sales').select('created_by, agent_model').eq('id', saleId).single(),
   ]);
   if (allocRes.error) throw allocRes.error;
   if (recRes.error) throw recRes.error;
@@ -125,7 +127,8 @@ export async function fetchSaleDetails(saleId: string): Promise<{ packets: SaleP
   type RawRec = { amount: string | number; wallets: { type: string; name: string; label: string } | null };
   const allocs = (allocRes.data ?? []) as unknown as RawAlloc[];
   const recs = (recRes.data ?? []) as unknown as RawRec[];
-  const createdBy = (saleRes.data as { created_by: string | null } | null)?.created_by;
+  const sale = saleRes.data as { created_by: string | null; agent_model: string | null } | null;
+  const createdBy = sale?.created_by;
   let enteredBy = '';
   if (createdBy) {
     const { data } = await supabase.from('profiles').select('display_name').eq('id', createdBy).maybeSingle();
@@ -138,5 +141,6 @@ export async function fetchSaleDetails(saleId: string): Promise<{ packets: SaleP
       .sort((a, b) => a.label.localeCompare(b.label) || b.qty - a.qty),
     receives: recs.filter((r) => r.wallets).map((r) => ({ type: r.wallets!.type, label: r.wallets!.label, amount: Number(r.amount) })),
     enteredBy,
+    agentModel: sale?.agent_model ?? null,
   };
 }

@@ -114,10 +114,18 @@ func (l *Loop) Run(ctx context.Context, token, uid string, in ChatInput, emit Em
 	}
 
 	emit("meta", map[string]any{"conversation_id": conversationID, "model": candidates[0].ModelID})
+	modelID := candidates[0].ModelID
+	modelRef := func() string { return modelID }
 
 	registry := map[string]Tool{}
 	var defs []llm.ToolDef
-	for _, t := range Registry() {
+	allTools := append(Registry(),
+		proposeSaleTool(modelRef),
+		proposeExpenseTool(modelRef),
+		proposePersonalUseTool(modelRef),
+		proposeAdjustmentTool(modelRef),
+	)
+	for _, t := range allTools {
 		registry[t.Name] = t
 		defs = append(defs, llm.ToolDef{Name: t.Name, Description: t.Description, Schema: t.Schema})
 	}
@@ -141,10 +149,11 @@ func (l *Loop) Run(ctx context.Context, token, uid string, in ChatInput, emit Em
 		}, []string{"questions"}),
 	})
 
-	tc := &ToolContext{Supa: l.Supa, Token: token}
+	tc := &ToolContext{Supa: l.Supa, Token: token, UserID: uid}
 	rounds := 0
 	failKey := ""
 	failCount := 0
+	proposals := 0
 
 	for {
 		if rounds >= l.Limits.MaxRounds {
@@ -248,6 +257,19 @@ func (l *Loop) Run(ctx context.Context, token, uid string, in ChatInput, emit Em
 			}
 
 			tool, known := registry[call.Name]
+			if known && strings.HasPrefix(call.Name, "propose_") {
+				if proposals >= l.Limits.MaxProposals {
+					result := map[string]any{"error": "PROPOSAL_CAP", "message_bn": "এক বার্তায় সর্বোচ্চ " + fmt.Sprint(l.Limits.MaxProposals) + "টি প্রস্তাব করা যায়।"}
+					payload, _ := json.Marshal(map[string]any{"source": "database", "note": "untrusted data", "data": result})
+					if err := l.appendToolResult(ctx, token, conversationID, call, string(payload)); err != nil {
+						return err
+					}
+					emit("tool_result", map[string]any{"name": call.Name, "summary": summarize(payload)})
+					messages = append(messages, llm.Message{Role: "tool", Content: string(payload), ToolCallID: call.ID, ToolName: call.Name})
+					continue
+				}
+				proposals++
+			}
 			emit("tool_call", map[string]any{"name": call.Name, "args": shortArgs(call.Args)})
 			var result any
 			if !known {
@@ -258,6 +280,9 @@ func (l *Loop) Run(ctx context.Context, token, uid string, in ChatInput, emit Em
 					result = map[string]any{"error": runErr.Error()}
 				} else {
 					result = res
+				}
+				if resMap, ok := res.(map[string]any); ok && resMap["status"] == "awaiting_approval" {
+					emit("proposal", map[string]any{"action_id": resMap["action_id"], "tool": call.Name})
 				}
 			}
 			payload, _ := json.Marshal(map[string]any{"source": "database", "note": "untrusted data", "data": result})

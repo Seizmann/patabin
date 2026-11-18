@@ -13,7 +13,84 @@ export type ChatMessageRow = {
   event: { type?: string; questions?: unknown[] } | null;
 };
 
+export type PendingAction = {
+  id: string;
+  conversation_id: string | null;
+  tool: string;
+  payload: Record<string, unknown>;
+  defaults_used: string[] | null;
+  preview: Record<string, unknown> | null;
+  preview_hash: string;
+  status: string;
+  model_id: string;
+  expires_at: string;
+  result_table: string | null;
+  result_id: string | null;
+  error: string | null;
+};
+
+export async function listPendingActions(): Promise<PendingAction[]> {
+  const { data, error } = await supabase
+    .from('agent_pending_actions')
+    .select('id, conversation_id, tool, payload, defaults_used, preview, preview_hash, status, model_id, expires_at, result_table, result_id, error')
+    .in('status', ['pending', 'executed', 'rejected', 'expired', 'failed', 'stale'])
+    .gte('expires_at', new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString())
+    .order('created_at', { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  return (data ?? []) as PendingAction[];
+}
+
+export async function approveAction(id: string, previewHash: string): Promise<Record<string, unknown>> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new Error('NO_SESSION');
+  const base = (import.meta.env.VITE_AGENT_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
+  const res = await fetch(`${base}/v1/actions/${id}/approve`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ preview_hash: previewHash }),
+  });
+  if (res.status === 429) throw new Error('RATE_LIMITED');
+  if (!res.ok) throw new Error('AGENT_UNREACHABLE');
+  return (await res.json()) as Record<string, unknown>;
+}
+
+export async function rejectAction(id: string): Promise<void> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new Error('NO_SESSION');
+  const base = (import.meta.env.VITE_AGENT_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
+  const res = await fetch(`${base}/v1/actions/${id}/reject`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  if (res.status === 429) throw new Error('RATE_LIMITED');
+  if (!res.ok) throw new Error('AGENT_UNREACHABLE');
+}
+
+export async function approveAllActions(items: { id: string; preview_hash: string }[]): Promise<Record<string, unknown>[]> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new Error('NO_SESSION');
+  const base = (import.meta.env.VITE_AGENT_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
+  const res = await fetch(`${base}/v1/actions/approve-all`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ actions: items }),
+  });
+  if (res.status === 429) throw new Error('RATE_LIMITED');
+  if (!res.ok) throw new Error('AGENT_UNREACHABLE');
+  const out = (await res.json()) as { results?: Record<string, unknown>[] };
+  return out.results ?? [];
+}
+
 export type Question = { id: string; text: string; kind: string; options?: { label: string; value: string }[] };
+
+export type ProposalEventPayload = { action_id?: string; tool?: string };
 
 export type ChatModel = { model_id: string; display_name: string; is_default: boolean };
 

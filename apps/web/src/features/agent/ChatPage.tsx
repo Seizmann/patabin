@@ -3,12 +3,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Card, Notice, PageTitle, Skeleton } from 'components/ui/base';
 import bn from 'i18n/bn';
+import { ApproveAllButton, ProposalCard } from './ProposalCard';
 import {
   createConversation,
   deleteConversation,
   listChatModels,
   listConversations,
   listMessages,
+  listPendingActions,
   renameConversation,
   streamChat,
   type ChatMessageRow,
@@ -80,6 +82,11 @@ export default function ChatPage() {
 
   const { data: conversations = [], isPending: convsPending } = useQuery({ queryKey: ['agent-conversations'], queryFn: listConversations });
   const { data: models = [] } = useQuery({ queryKey: ['agent-chat-models'], queryFn: listChatModels });
+  const { data: pendingActions = [] } = useQuery({
+    queryKey: ['agent-pending-actions'],
+    queryFn: listPendingActions,
+    refetchInterval: 60_000,
+  });
 
   useEffect(() => {
     if (!modelId && models.length > 0) {
@@ -139,6 +146,9 @@ export default function ChatPage() {
                 type: 'APPEND_MESSAGE',
                 message: { id: `live-tool-${Date.now()}-${Math.random()}`, seq: 0, role: 'tool', content: null, tool_name: String(e.payload.name ?? ''), tool_call_id: null, model_id: null, event: null },
               });
+              break;
+            case 'proposal':
+              void qc.invalidateQueries({ queryKey: ['agent-pending-actions'] });
               break;
             case 'question':
               sawQuestion = (e.payload.questions as Question[]) ?? [];
@@ -252,7 +262,7 @@ export default function ChatPage() {
             <Btn variant="ghost" onClick={() => setDrawerOpen(true)}>{bn.agentChats}</Btn>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-            {state.messages.length === 0 && !state.streamingText && !state.activeQuestion && (
+            {state.messages.length === 0 && !state.streamingText && !state.activeQuestion && pendingActions.length === 0 && (
               <p className="p-caption text-center text-ink-mute">{bn.agentEmptyChat}</p>
             )}
             <div className="flex flex-col gap-3">
@@ -261,6 +271,17 @@ export default function ChatPage() {
               ))}
               {state.streamingText && (
                 <div className="max-w-[85%] self-start rounded-2xl bg-surface px-4 py-2 text-sm whitespace-pre-wrap">{state.streamingText}</div>
+              )}
+              {pendingActions.length > 0 && (
+                <div className="flex flex-col gap-3 self-stretch">
+                  <ApproveAllButton
+                    actions={pendingActions.filter((a) => a.status === 'pending')}
+                    onDone={() => void refreshMessages(state.conversationId)}
+                  />
+                  {pendingActions.map((a) => (
+                    <ProposalCard key={a.id} action={a} onDecided={() => void refreshMessages(state.conversationId)} />
+                  ))}
+                </div>
               )}
               {state.activeQuestion && <QuestionCard questions={state.activeQuestion} onSubmit={(a) => void submitAnswer(a)} />}
               <div ref={bottomRef} />
@@ -315,7 +336,10 @@ function MessageRow({ message }: { message: ChatMessageRow }) {
   }
   if (message.role === 'event') {
     const ev = message.event;
-    const note = ev?.type === 'answer' ? message.content : ev?.type === 'question' ? bn.agentQuestionSent : message.content;
+    if (ev?.type === 'question') return <p className="p-caption self-center text-ink-mute">{bn.agentQuestionSent}</p>;
+    if (ev?.type === 'approved') return <p className="p-caption self-center text-ink-mute">{bn.agentEventExecuted}</p>;
+    if (ev?.type === 'rejected') return <p className="p-caption self-center text-ink-mute">{bn.agentEventRejected}</p>;
+    const note = ev?.type === 'answer' ? message.content : message.content;
     return <p className="p-caption self-center text-ink-mute">{note}</p>;
   }
   if (message.role === 'user') {

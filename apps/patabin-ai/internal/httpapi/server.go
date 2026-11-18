@@ -34,6 +34,7 @@ func New(cfg config.Config, log *slog.Logger) *server {
 		authFail:      newLimiterMap(),
 		providerTest:  newLimiterMap(),
 		chatRate:      newLimiterMap(),
+		actionRate:    newLimiterMap(),
 		chatSem:       newSemaphoreMap(),
 		llmClient:     llm.NewClient(0),
 		keyCache:      keyCache,
@@ -48,6 +49,9 @@ func (s *server) Handler() http.Handler {
 	mux.Handle("GET /v1/me", s.requireAuth(http.HandlerFunc(s.handleMe)))
 	mux.Handle("POST /v1/providers/{id}/test", s.requireAuth(http.HandlerFunc(s.handleProviderTest)))
 	mux.Handle("POST /v1/chat", s.requireAuth(http.HandlerFunc(s.handleChat)))
+	mux.Handle("POST /v1/actions/{id}/approve", s.requireAuth(http.HandlerFunc(s.handleActionApprove)))
+	mux.Handle("POST /v1/actions/{id}/reject", s.requireAuth(http.HandlerFunc(s.handleActionReject)))
+	mux.Handle("POST /v1/actions/approve-all", s.requireAuth(http.HandlerFunc(s.handleActionApproveAll)))
 
 	h := s.recoverMiddleware(mux)
 	h = s.loggingMiddleware(h)

@@ -4,6 +4,7 @@ import { Minus, Plus, Trash } from '@phosphor-icons/react';
 import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Card, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { AgentChip } from 'components/ui/AgentChip';
 import { useDialog } from 'components/ui/Dialog';
 import { useAuth } from 'lib/auth';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
@@ -27,6 +28,7 @@ type PersonalUseRow = {
   packet_id: string | null;
   chalan_id: string | null;
   eater_partner_id: string;
+  agent_model?: string | null;
   partners: { name: string } | null;
   packets: { code: string; partners: { name: string } | null } | null;
   chalans: { code: string } | null;
@@ -35,7 +37,7 @@ type PersonalUseRow = {
 async function fetchPersonalUses(start: string, end: string, partnerId = ''): Promise<PersonalUseRow[]> {
   let q = supabase
     .from('personal_uses')
-    .select('id, at, qty, unit_value, note, packet_id, chalan_id, eater_partner_id, partners(name), packets(code, partners(name)), chalans(code)')
+    .select('id, at, qty, unit_value, note, packet_id, chalan_id, eater_partner_id, agent_model, partners(name), packets(code, partners(name)), chalans(code)')
     .is('deleted_at', null)
     .gte('at', start)
     .lt('at', end)
@@ -323,6 +325,7 @@ export default function PersonalUsePage() {
                   <td className="p-3">
                     {u.partners?.name ?? '-'}
                     {u.note ? <p className="p-caption text-ink-mute">{u.note}</p> : null}
+                    <AgentChip model={u.agent_model} />
                   </td>
                   <td className="p-3 text-xs">
                     {u.packets

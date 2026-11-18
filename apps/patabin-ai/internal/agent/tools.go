@@ -17,8 +17,9 @@ const defaultLimit = 50
 const maxLimit = 200
 
 type ToolContext struct {
-	Supa  *supa.Client
-	Token string
+	Supa   *supa.Client
+	Token  string
+	UserID string
 }
 
 type Tool struct {

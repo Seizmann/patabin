@@ -3,9 +3,17 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Field, PageTitle, Skeleton } from 'components/ui/base';
+import { AgentChip } from 'components/ui/AgentChip';
 import { formatDhakaDateTime } from '@patabin/shared';
 
 type AuditRow = { id: number; at: string; table_name: string; row_id: string | null; action: string; old_data: unknown; new_data: unknown };
+
+function agentModelOf(row: AuditRow): string | null {
+  const data = (row.action === 'D' ? row.old_data : row.new_data) as Record<string, unknown> | null;
+  if (!data || typeof data !== 'object') return null;
+  const model = data.agent_model;
+  return typeof model === 'string' && model ? model : null;
+}
 
 const TABLE_BN: Record<string, string> = {
   profiles: 'প্রোফাইল',
@@ -78,6 +86,7 @@ export default function AuditTrailPage() {
                 <th className="p-3 font-semibold">সময়</th>
                 <th className="p-3 font-semibold">টেবিল</th>
                 <th className="p-3 font-semibold">কাজ</th>
+                <th className="p-3 font-semibold">উৎস</th>
                 <th className="p-3 font-semibold">বিস্তারিত</th>
               </tr>
             </thead>
@@ -87,6 +96,9 @@ export default function AuditTrailPage() {
                   <td className="whitespace-nowrap p-3">{formatDhakaDateTime(x.at)}</td>
                   <td className="p-3">{TABLE_BN[x.table_name] ?? x.table_name}</td>
                   <td className="p-3">{ACTION_BN[x.action] ?? x.action}</td>
+                  <td className="p-3">
+                    <AgentChip model={agentModelOf(x)} />
+                  </td>
                   <td className="p-3">
                     <details className="p-caption">
                       <summary className="cursor-pointer font-semibold">দেখুন</summary>
