@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from 'lib/supabase';
-import { fetchSaleDetails, createSale, deleteSale, fetchSales, fetchWallets, updateSale, type SaleInput, type SaleRowV } from './api';
+import { fetchSaleDetails, createSale, deleteSale, fetchSales, fetchWallets, fetchPacketsPreview, updateSale, type SaleInput, type SaleRowV } from './api';
 import SaleForm from './SaleForm';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Empty, Notice, PageTitle, Skeleton } from 'components/ui/base';
@@ -45,6 +45,7 @@ export default function SalesPage() {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const { data: wallets = [] } = useQuery({ queryKey: ['wallets'], queryFn: fetchWallets });
+  const { data: stockPackets = [] } = useQuery({ queryKey: ['packets-preview'], queryFn: fetchPacketsPreview });
   const { data: admins = [] } = useQuery({
     queryKey: ['profiles-active'],
     queryFn: async () => {
@@ -154,7 +155,13 @@ export default function SalesPage() {
         type="button"
         aria-label="নতুন বিক্রি"
         className="fixed bottom-[calc(max(12px,env(safe-area-inset-bottom))+76px)] right-4 z-30 grid h-14 w-14 place-items-center rounded-full bg-gradient-to-b from-cocoa to-espresso text-white shadow-[0_10px_28px_rgba(74,44,29,0.45)] transition-transform hover:scale-105 active:scale-95 lg:bottom-8 lg:right-8"
-        onClick={guard(() => setSheetOpen(true))}
+        onClick={guard(() => {
+          if (stockPackets.length === 0) {
+            void dialog.alert({ title: 'স্টক নেই', message: 'চালু চালানে কোনো স্টক বাকি নেই। নতুন চালান এলে বিক্রি করা যাবে।' });
+            return;
+          }
+          setSheetOpen(true);
+        })}
       >
         <Plus weight="bold" size={24} />
       </button>
