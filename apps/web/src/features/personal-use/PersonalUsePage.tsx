@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Trash } from '@phosphor-icons/react';
 import { supabase } from 'lib/supabase';
@@ -52,7 +52,7 @@ export default function PersonalUsePage() {
   usePageTitle('ব্যক্তিগত ব্যবহার');
   const qc = useQueryClient();
   const dialog = useDialog();
-  const { suAdmin } = useAuth();
+  const { suAdmin, profile } = useAuth();
   const { guard, denied } = useWriteGuard('personal_use');
   const [ eater, setEater ] = useState('');
   const [packetId, setPacketId] = useState('');
@@ -68,6 +68,11 @@ export default function PersonalUsePage() {
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
   const { data: partners = [] } = useQuery({ queryKey: ['partners'], queryFn: fetchPartners });
   const { myPartnerId: myId, isSelf } = useViewMode();
+  useEffect(() => {
+    if (eater || partners.length === 0) return;
+    const selfPartner = myId ?? partners.find((p) => p.name === profile?.display_name)?.id;
+    if (selfPartner) setEater(selfPartner);
+  }, [eater, partners, myId, profile?.display_name]);
   const { data: packets = [] } = useQuery({
     queryKey: ['packets'],
     queryFn: async () => {
@@ -178,7 +183,6 @@ export default function PersonalUsePage() {
         <form onSubmit={guard(submit)} className="flex flex-col gap-5" noValidate>
           <Field label="কে খাচ্ছে">
             <select className="field" value={eater} onChange={(e) => setEater(e.target.value)}>
-              <option value="">{myId ? partners.find((p) => p.id === myId)?.name ?? 'নিজে' : 'নিজে'}</option>
               {partners.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
