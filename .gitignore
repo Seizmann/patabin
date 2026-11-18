@@ -17,3 +17,4 @@ supabase/.branches/
 .idea/
 .vscode/
 tsconfig.tsbuildinfo
+.hallmark/
