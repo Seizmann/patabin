@@ -23,6 +23,19 @@ export default function DashboardPage() {
   const walletBalances = useQuery({ queryKey: ['dashboard', 'wallet-flows', start, end], queryFn: () => fetchWalletBalances(start, end) });
   const breakdown = useQuery({ queryKey: ['dashboard', 'breakdown', start, end], queryFn: () => fetchBreakdown(start, end) });
   const daily = useQuery({ queryKey: ['dashboard', 'daily', start, end], queryFn: () => fetchDailyIncome(start, end) });
+  const dailyPrev = useQuery({
+    queryKey: ['dashboard', 'daily-prev', daily.data?.[0]?.day, daily.data?.length],
+    queryFn: () => {
+      const days = daily.data!;
+      const first = days[0]!.day;
+      const [yy, mm, dd] = first.split('-').map(Number) as [number, number, number];
+      const fmt = (t: number) => new Date(t).toISOString().slice(0, 10);
+      return fetchDailyIncome(fmt(Date.UTC(yy, mm - 1, dd - days.length)), fmt(Date.UTC(yy, mm - 1, dd)));
+    },
+    enabled: (daily.data?.length ?? 0) > 0,
+    staleTime: 30_000,
+  });
+  const prevDailyPoints = (dailyPrev.data ?? []).map((d) => ({ day: d.day, income: Number(d.income) }));
   const donutData = (breakdown.data ?? []).map((s) => ({ name: s.slice, value: s.amount })).filter((d) => d.value !== 0);
   const partnerBalances = useQuery({ queryKey: ['dashboard', 'partner-sell-summary', start, end], queryFn: () => fetchPartnerSellSummary(start, end) });
   const [leaderMode, setLeaderMode] = useState<'week' | 'chalan'>('week');
@@ -86,7 +99,7 @@ export default function DashboardPage() {
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {breakdown.isPending ? <ChartSkeleton /> : <Suspense fallback={<ChartSkeleton />}><Donut title="পেমেন্ট মাধ্যম অনুসারে আয়" data={donutData} centerLabel="আয়" centerValue={formatMoney(totals.data?.income ?? 0)} /></Suspense>}
-            {daily.isPending ? <ChartSkeleton /> : <Suspense fallback={<ChartSkeleton />}><IncomeBar data={(daily.data ?? []).map((d) => ({ day: d.day, income: Number(d.income) }))} /></Suspense>}
+            {daily.isPending ? <ChartSkeleton /> : <Suspense fallback={<ChartSkeleton />}><IncomeBar data={(daily.data ?? []).map((d) => ({ day: d.day, income: Number(d.income) }))} prevData={prevDailyPoints} /></Suspense>}
           </div>
 
           {partnerBalances.isPending ? <ChartSkeleton /> : <PartnerSummaryCard rows={partnerBalances.data ?? []} />}
@@ -136,7 +149,7 @@ export default function DashboardPage() {
           )}
         </>
       ) : (
-        <SelfView row={selfRow} capital={selfCapital.data} capitalPending={selfCapital.isPending} daily={selfDaily.data} dailyPending={selfDaily.isPending} summaryPending={partnerBalances.isPending} />
+        <SelfView row={selfRow} capital={selfCapital.data} capitalPending={selfCapital.isPending} daily={selfDaily.data} dailyPending={selfDaily.isPending} dailyPrev={prevDailyPoints} summaryPending={partnerBalances.isPending} />
       )}
 
       {totals.isError && <Notice tone="error">ডেটা আনতে সমস্যা হয়েছে।</Notice>}
@@ -163,12 +176,13 @@ function ViewModeToggle({ mode, setMode }: { mode: ViewMode; setMode: (m: ViewMo
   );
 }
 
-function SelfView({ row, capital, capitalPending, daily, dailyPending, summaryPending }: {
+function SelfView({ row, capital, capitalPending, daily, dailyPending, dailyPrev, summaryPending }: {
   row?: PartnerSellSummary;
   capital?: number;
   capitalPending: boolean;
   daily?: DayRow[];
   dailyPending: boolean;
+  dailyPrev?: { day: string; income: number }[];
   summaryPending: boolean;
 }) {
   const sell = row?.sell_revenue ?? 0;
@@ -199,7 +213,7 @@ function SelfView({ row, capital, capitalPending, daily, dailyPending, summaryPe
         <ChartSkeleton />
       ) : (
         <Suspense fallback={<ChartSkeleton />}>
-          <IncomeBar data={(daily ?? []).map((d) => ({ day: d.day, income: Number(d.income) }))} />
+          <IncomeBar data={(daily ?? []).map((d) => ({ day: d.day, income: Number(d.income) }))} prevData={dailyPrev} />
         </Suspense>
       )}
     </>
