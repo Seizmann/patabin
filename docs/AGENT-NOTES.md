@@ -1,0 +1,20 @@
+# AGENT-NOTES
+
+Working notes for AI coding agents building the Patabin Agent feature. Phase 0 finding: differences between `Patabin-AGENT.md` and the live schema (verified against `supabase/migrations/` and the generated types in `packages/shared/src/database.types.ts`). Per `Patabin-AGENT.md` §0, live objects are never renamed or guessed; new work adapts to what exists.
+
+## Schema differences (live vs Patabin-AGENT.md)
+
+1. **Customers feature exists live.** `Patabin-AGENT.md` says customers are out of scope and the permission catalog has 7 keys, but the live database has the `customers`, `customer_payments` and `customer_payment_allocations` tables, the `v_customer_balance` view, the `create_customer_payment` RPC, and an 8th permission key `customers`. Sales also carry `customer_id` and `customer_phone`. Do not drop these; do not extend them either.
+2. **Credit sales exist live.** `Patabin-AGENT.md` says "no credit sales", but live `sales` has a `due_amount` column (defaulting to 0) and sales can be partially paid through `customer_payments` allocations. The agent's propose_sale work must account for `due_amount` in previews.
+3. **Split payments exist live.** `Patabin-AGENT.md` describes a single mandatory `wallet_account_id` per sale, but the live schema records payments in the `sale_receives` table (one row per wallet, created by `create_sale` / `update_sale`); `sales.wallet_account_id` remains as the primary wallet. The agent's preview must show per-wallet receives, not a single wallet delta.
+4. **Fourth role exists live.** `Patabin-AGENT.md` lists three roles; the live `user_role` enum also has `patabin_demo_admin` (migrations `20261117000020_demo_admin_role.sql`, `...000025_demo_admin_guards.sql`, `...000030_demo_admin_user.sql`). Agent access checks must stay `su_admin`-only and must not accidentally grant demo admins.
+5. **`v_dashboard_totals` does not exist.** `Patabin-AGENT.md` §7.2 and the `get_overview` tool back onto `v_dashboard_totals`, but the live dashboard numbers come from the `dashboard_totals()` function (plus `income_by_period_breakdown()`, `partner_balance_flows()`, `partner_sell_summary()`, `wallet_flows()`). The `get_overview` tool should call these functions, or Phase 1 creates a `v_dashboard_totals` view wrapping them.
+6. **Extra live RPCs not listed in `Patabin-AGENT.md` §7.2:** `adjust_chalan_purchase`, `delete_chalan`, `delete_personal_use`, `allocate_by_priority`, `packet_remaining`, `server_now`, `password_gate`, `complete_password_change`. The agent must not expose `delete_*` or `adjust_chalan_purchase` as tools (v1 is create-only).
+7. **Generated types may be stale.** Migrations `20261119000000_delete_personal_use.sql` and `20261122000000_delete_chalan.sql` (and later fixes) create RPCs that are absent from `packages/shared/src/database.types.ts`. Run `pnpm db:types` and commit refreshed types before Phase 1.
+8. **`v_sales_enriched` has more columns than the spec**, including `entered_by` (migration `20261117000011_sales_enriched_entered_by.sql`) and the customer fields. The `list_sales` tool result shape must match the live view.
+
+## Non-schema notes
+
+- `SECRETS.example.md` already matches the required key list in `Patabin-AGENT.md` §6; no new keys needed (LLM provider keys never live there, and `VITE_AGENT_URL` is not a secret).
+- `.gitignore` already covers `SECRETS.md`, `.env`, `.env.*`, and `backups/`, so `apps/patabin-ai/.env` is covered too.
+- REQUIREMENT.md was rewritten in Phase 0 per `Patabin-AGENT.md` §0: pointer paragraph added, `customers` permission removed from the catalog (7 keys), legacy capability table removed, stack section names the Go service, revision-2 pivot section (old §15) removed, old build order replaced with a pointer to `Patabin-AGENT.md` §12, agent pages added to the page list, agent origin added to the CSP and rewrite requirements.

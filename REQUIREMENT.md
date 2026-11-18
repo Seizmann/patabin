@@ -1,8 +1,8 @@
 # PataBin — REQUIREMENT.md (revision 2)
 
-Build spec for AI coding agents. Read this whole file before writing any code. When this file and your assumptions disagree, this file wins.
+Build spec for AI coding agents. Read this whole file before writing any code. When this file and your assumptions disagree, this file wins, except where `Patabin-AGENT.md` overrides it (see below).
 
-**Revision 2 — own-stock model.** The earlier batch-contribution model (shared profit split by contribution %, FIFO across all batches) is REPLACED. Each partner owns their own stock; profit from a partner's packets belongs to that partner alone. This file is consolidated: previous session-override sections are merged here.
+**This file is the historical reference for the existing web app and backend.** The integrated build plan for the AI agent feature ("Patabin Agent") lives in `Patabin-AGENT.md` at the repo root. `Patabin-AGENT.md` is the single source of truth for the AI-integrated version of PataBin: when this file and `Patabin-AGENT.md` disagree on any overlapping point, `Patabin-AGENT.md` wins, with the single exception that the migrations in `supabase/migrations/` and the generated types in `packages/shared` describe what is actually live.
 
 ---
 
@@ -13,7 +13,7 @@ Build spec for AI coding agents. Read this whole file before writing any code. W
 3. You run everything yourself: git, Supabase CLI (login, link, migrations, config push, edge function deploy, type generation), seed scripts, Vercel steps that are scripted. Do not ask the human to run commands. Stop and ask only when a required key in `SECRETS.md` is missing or a step fails twice for a reason you cannot fix. When you stop, list exactly which keys or actions are missing.
 4. Safety on the live database (one cloud project, treated as production):
    - Never run `supabase db reset`, `TRUNCATE` or destructive statements against the linked project after seeding.
-   - Revision 2 is a model pivot (see §15). Schema replacement requires a `db:backup` first and explicit user confirmation before any DROP of v1 tables.
+   - The revision-2 own-stock migration is already applied to the live database; there is no v1-to-v2 migration work left. Migrations are forward-only and additive: run `pnpm db:backup` before every migration applied to the linked project, and never DROP, TRUNCATE or destructively ALTER existing business tables without explicit user confirmation (see `Patabin-AGENT.md` §1).
    - SQL tests must run inside `BEGIN; ... ROLLBACK;` so they never leave data behind.
    - Never `git push --force`.
 5. Commit after each phase in §13 with clear conventional-commit messages, and push to `origin main`.
@@ -143,28 +143,16 @@ Write access is permission-driven, stored in the DB (tables `permissions`, `role
 | `sales` | বিক্রি — sales, allocations |
 | `chalans` | চালান ও প্যাকিং — chalans, purchases, close/reopen, sell priority |
 | `packets` | প্যাকেট — packets, packing |
-| `customers` | কাস্টমার — customers, payments, dues |
 | `expenses` | খরচ — expenses (+ category add is open to all active users) |
-| `adjustments` | সমন্বয় |
+| `adjustments` | সমন্যয় |
 | `wallets` | ওয়ালেট — transfers, withdrawals, accounts |
 | `personal_use` | ব্যক্তিগত ব্যবহার |
 
-- **Role defaults** (`role_permissions`): `su_admin` and `patabin_admin` get all 8; `patabin_partner` gets none.
+- **Role defaults** (`role_permissions`): `su_admin` and `patabin_admin` get all 7; `patabin_partner` gets none.
 - **Per-user overrides** (`profile_permissions`): set from the ব্যবহারকারী page by `su_admin` only (edge function `set_permissions`); `allowed = true/false` overrides the role default, deleting the row returns to the default.
 - **Locked to `su_admin`, not delegate-able**: user management (create/deactivate/role/password), settings, expense-category rename. Not part of the catalog.
 - Enforcement: write RPCs call `assert_writeable('<perm>')`; direct table writes need `can_write() and has_permission('<perm>')`; frontend gates via `useWriteGuard('<perm>')` / `RequireWrite perm`. Helper: `has_permission()`, effective set via `my_permissions()` RPC.
 - Read access unchanged: every active user sees everything.
-
-Legacy capability reference:
-
-| Capability | `su_admin` | `patabin_admin` |
-|---|---|---|
-| View everything (dashboard, reports, audit log, both partners' numbers) | yes | yes |
-| Create/edit/soft-delete chalan, packing, priority order, sales, personal use, adjustments, expenses, transfers, withdrawals | yes | yes (module permission) |
-| Close / reopen a chalan | yes | yes (`chalans` permission) |
-| Change settings (default buy rate, default sell price, default packet size) | yes | no (read-only) |
-| Rename expense categories | yes | no |
-| Create / deactivate users, reset passwords, edit permissions | yes | no |
 
 Rules:
 - Public signup is **disabled**. Verify by attempting a signup with the anon key; it must fail.
@@ -178,32 +166,33 @@ Rules:
 
 - **Package manager**: pnpm workspace monorepo (`packageManager` field set, Node 20+ LTS).
 - **Web**: React + TypeScript (strict) + Vite + Tailwind CSS v4 (`@tailwindcss/vite`) + React Router + TanStack Query + react-hook-form + zod + `vite-plugin-pwa` + `@supabase/supabase-js` + `@phosphor-icons/react` (light/regular inactive, fill active; named imports) + `@dnd-kit/core` + `@dnd-kit/sortable` for the priority drag & drop. Charts: `recharts` only if needed. Font: Noto Sans Bengali self-hosted via `@fontsource`.
-- **Backend**: Supabase cloud (free): Postgres, Auth, one Edge Function. Business logic in Postgres (views, functions, triggers), not in the frontend.
-- **Lint/format/test**: ESLint, Prettier, Vitest (shared helpers), SQL tests via `psql`.
+- **Backend**: Supabase cloud: Postgres, Auth, one Edge Function. Business logic in Postgres (views, functions, triggers), not in the frontend. Additionally there is one Go service at `apps/patabin-ai` (the Patabin Agent backend, standard library `net/http`, no web framework), deployed via Docker Compose behind Cloudflare Tunnel — see `Patabin-AGENT.md`.
+- **Lint/format/test**: ESLint, Prettier, Vitest (shared helpers), SQL tests via `psql`, `go vet`, `gofmt`, `golangci-lint`, `go test -race`.
 - **Deploy**: Vercel, manual (see §11).
 
-```
+```text
 patabin/
   apps/web/                 # @patabin/web  (React PWA)
+  apps/patabin-ai/          # Go agent backend (Patabin Agent, see Patabin-AGENT.md)
   packages/shared/          # @patabin/shared (zod schemas, money + Bangla digit helpers, generated DB types)
   supabase/
     config.toml
     migrations/             # timestamped .sql, forward-only
     functions/manage-users/ # edge function (Deno)
     tests/                  # *.sql tests (BEGIN ... ROLLBACK)
-  scripts/                  # seed, db push, types, tests, backup, secrets loader, icon generation (tsx)
+  scripts/                  # seed, db push, types, tests, backup, secrets loader, icon generation (tsx), agent env
   docs/img/                 # generated image assets
   vercel.json               # none at root; apps/web/vercel.json only (§11)
   pnpm-workspace.yaml
   package.json
   SECRETS.md                # gitignored
   SECRETS.example.md
-  AGENT.md
+  Patabin-AGENT.md
   REQUIREMENT.md
   README.md
 ```
 
-Root scripts: `dev`, `build`, `typecheck`, `lint`, `test`, `test:sql`, `db:link`, `db:push`, `db:types`, `db:seed`, `db:backup`, `check:secrets`.
+Root scripts: `dev`, `build`, `typecheck`, `lint`, `test`, `test:sql`, `db:link`, `db:push`, `db:types`, `db:seed`, `db:backup`, `check:secrets`, plus the agent scripts `agent:env`, `agent:dev`, `agent:lint`, `agent:test`, `agent:build`, `agent:up`, `agent:down`, `agent:logs` (see `Patabin-AGENT.md` §5).
 
 Git: branch `main`, remote `origin` = `https://github.com/Seizmann/patabin.git` (private). Authenticate with the token from `SECRETS.md` without writing it into `.git/config`.
 
@@ -238,7 +227,7 @@ VERCEL_PROJECT_ID=
 
 Notes:
 - `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` may hold either the legacy JWT keys or the newer publishable / secret keys; support both.
-- **Frontend gets only** `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SITE_URL`. Generate `apps/web/.env.local` from `SECRETS.md` (gitignored). Service role key, DB password and access token must never reach the web bundle. CI check: after build, grep `apps/web/dist` for the service role key and the string `service_role`; fail if found.
+- **Frontend gets only** `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SITE_URL`, and `VITE_AGENT_URL` (the Patabin Agent service URL, see `Patabin-AGENT.md` §6). Generate `apps/web/.env.local` from `SECRETS.md` (gitignored). Service role key, DB password and access token must never reach the web bundle. CI check: after build, grep `apps/web/dist` for the service role key and the string `service_role`; fail if found.
 - `pnpm check:secrets`: fail if `SECRETS.md` or `.env*` is tracked or staged, or if any value from `SECRETS.md` appears in a tracked file.
 - Default admin passwords are temporary: both accounts are created with `must_change_password = true`.
 - Do not rely on email: Supabase free SMTP is rate-limited. No email confirmation, magic links, or "forgot password" emails. Create users with `email_confirm: true` through the admin API.
@@ -330,7 +319,7 @@ Auth config (via `supabase/config.toml` + `supabase config push`, or the Managem
 General:
 - All strings in `apps/web/src/i18n/bn.ts` (no hardcoded UI text in components).
 - Money and dates: Bangla digits and lakh grouping (`Intl.NumberFormat('bn-BD')`), ৳, dates in `Asia/Dhaka`. **Inputs accept both Bangla and English digits** (normalise on input; `type="text" inputMode="decimal"`).
-- Bottom tab bar on mobile with 6 icon-only tabs (`@phosphor-icons/react` outline; fill when active; Bangla `aria-label`s): হোম, বিক্রি, প্যাকেট, খরচ, হিসাব, আরও. "আরও" opens a sheet with: রিপোর্ট, চালান, ব্যক্তিগত ব্যবহার, নষ্ট/ফ্রি, ওয়ালেট, পরিবর্তনের ইতিহাস, ব্যবহারকারী (su_admin only), সেটিংস (su_admin only), প্রোফাইল, লগআউট.
+- Bottom tab bar on mobile with 6 icon-only tabs (`@phosphor-icons/react` outline; fill when active; Bangla `aria-label`s): হোম, বিক্রি, প্যাকেট, খরচ, হিসাব, আরও. "আরও" opens a sheet with: রিপোর্ট, চালান, ব্যক্তিগত ব্যবহার, নষ্ট/ফ্রি, ওয়ালেট, পরিবর্তনের ইতিহাস, ব্যবহারকারী (su_admin only), সেটিংস (su_admin only), Patabin Agent (su_admin only), প্রোফাইল, লগআউট.
 - Every list is searchable/filterable by date; empty, loading (skeletons, no layout shift) and error states in Bangla.
 - Never optimistic-update money values; refetch after write.
 - Route-level code splitting; charts lazy-load.
@@ -363,6 +352,8 @@ General:
 13. **পরিবর্তনের ইতিহাস** (audit log viewer).
 14. **ব্যবহারকারী** (su_admin only): create, reset password, activate/deactivate.
 15. **সেটিংস** (su_admin only, `patabin_admin` read-only): default buy rate, default sell price, default packet size; expense categories management (su_admin adds).
+16. **Patabin Agent** (`/agent`, su_admin only): the agent chat page — see `Patabin-AGENT.md` §8.14.
+17. **Agent settings** (`/settings/agent`, su_admin only): agent providers, models, fallback chain, default model — see `Patabin-AGENT.md` §8.14.
 
 Route guards by role and `is_active`. Role is read from `profiles`, never trusted from the client.
 
@@ -398,8 +389,8 @@ Design language (light mode only — no dark mode, no `dark:` classes, `color-sc
 ## 11. Deployment (Vercel, manual)
 
 - `vercel.json` lives ONLY at `apps/web/` (no root config). The human sets the Vercel project Root Directory to `apps/web` and deploys manually; no Vercel CLI commands are run by the agent.
-- `apps/web/vercel.json` defines: `framework: vite`; install/build commands that work with Root Directory `apps/web` in this pnpm workspace (`@patabin/shared` resolves via the workspace lockfile); output `dist`; an explicit rewrite to `/index.html` for EVERY app route, then one catch-all so the in-app 404 renders; cache headers (immutable hashed assets; no-cache for service worker, `registerSW.js`, manifest); security headers: strict CSP (`script-src 'self'`, no unsafe-eval; `connect-src` only the app's Supabase https origin + wss twin; `img-src self data blob`; self-hosted fonts; `frame-ancestors 'none'`; `object-src 'none'`; `base-uri 'self'`; `form-action 'self'`), HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` (deny camera/microphone/geolocation/payment), `Cross-Origin-Opener-Policy`, `X-Robots-Tag: noindex, nofollow`.
-- `docs/DEPLOY.md` documents: exact project settings, env vars (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SITE_URL`), Supabase Auth Site URL step, first-login steps, backup command.
+- `apps/web/vercel.json` defines: `framework: vite`; install/build commands that work with Root Directory `apps/web` in this pnpm workspace (`@patabin/shared` resolves via the workspace lockfile); output `dist`; an explicit rewrite to `/index.html` for EVERY app route (including `/agent` and `/settings/agent`), then one catch-all so the in-app 404 renders; cache headers (immutable hashed assets; no-cache for service worker, `registerSW.js`, manifest); security headers: strict CSP (`script-src 'self'`, no unsafe-eval; `connect-src` only the app's Supabase https origin + wss twin and the agent origin `https://patabin-ai.vabo.top`; `img-src self data blob`; self-hosted fonts; `frame-ancestors 'none'`; `object-src 'none'`; `base-uri 'self'`; `form-action 'self'`), HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` (deny camera/microphone/geolocation/payment), `Cross-Origin-Opener-Policy`, `X-Robots-Tag: noindex, nofollow`.
+- `docs/DEPLOY.md` documents: exact project settings, env vars (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SITE_URL`, `VITE_AGENT_URL`), Supabase Auth Site URL step, first-login steps, backup command.
 - Set the Supabase Auth Site URL to the production URL. Open the production URL and verify login, a sale, a chalan, packet priority and the PWA manifest.
 
 ---
@@ -433,27 +424,10 @@ SQL tests in `supabase/tests/*.sql`, each wrapped in `BEGIN; ... ROLLBACK;`, usi
 
 ## 13. Build order (commit and push after each phase)
 
-1. Monorepo scaffold check/update, `.gitignore` (incl. `SECRETS.md`, `.env*`, `backups/`), `check:secrets`.
-2. Model pivot (§15): backup DB, migrate schema to revision-2 tables, RLS, triggers, functions, views; `db push`; regenerate types.
-3. SQL tests A–C and the other checks; fix until green.
-4. Seed script and auth config (signups off).
-5. Edge function `manage-users` — verify existing deploy still matches the spec; redeploy if needed.
-6. Web app foundation: auth, guards, Bangla i18n, layout, forced password change.
-7. Feature pages in the order of §8: চালান → প্যাকেট + priority → বিক্রি → ব্যক্তিগত/ফ্রি → খরচ → ওয়ালেট → হিসাব → হোম → রিপোর্ট.
-8. PWA, SEO, meta, icons.
-9. `apps/web/vercel.json` check against the router; docs/DEPLOY.md; production verification.
-10. `db:backup` script (JSON export of all business tables via service role into gitignored `backups/`), README (setup, scripts, role matrix, how to reset su_admin password, free-tier pause note), final full test run.
+The current build order for the AI-integrated version of PataBin is maintained in `Patabin-AGENT.md` §12 (Phases 0-7). Follow that order. The historical web-app build order (monorepo scaffold, revision-2 model pivot, SQL tests, seed, edge function, web foundation, feature pages, PWA/SEO, deployment verification, backup script and README) is complete and stays in git history.
 
 ---
 
 ## 14. Out of scope (do not build)
 
 Credit sales / customer dues, offline write queue, multiple products or price lists, automatic discount tiers, email or SMS flows, English UI, a separate customers table (name+phone live on sales), native apps, payment gateways or automatic bKash/Nagad verification, packet repack/merge operations, shared profit-percentage splitting (replaced by own-stock), carrying stock value into a new chalan's cost.
-
----
-
-## 15. Revision-2 pivot and migration notes
-
-- The v1 schema (batches, contributions, FIFO across batches, payout by contribution %) and its views/functions/tests are superseded.
-- Before replacing anything: run `db:backup`, then ask the user to confirm the database holds no data that must be preserved. Only after confirmation apply the migration that drops/renames v1 objects and creates the revision-2 schema as fresh migrations. Never touch `SECRETS.md`.
-- Keep `docs/img/`, PWA assets, deployment config, and security hardening from the previous implementation wherever they are still valid.
