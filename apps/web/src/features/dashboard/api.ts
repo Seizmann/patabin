@@ -128,6 +128,49 @@ export async function fetchWalletBalances(start: string, end: string): Promise<W
   }));
 }
 
+export type DailySeriesRow = { day: string; sales: number; personal: number; adjustments: number; expenses: number };
+
+export async function fetchDailySeries(start: string, end: string, unitPrice: number): Promise<DailySeriesRow[]> {
+  const [sales, uses, adjs, exps] = await Promise.all([
+    supabase.from('v_sales_enriched').select('sold_at, amount_received').gte('sold_at', start).lt('sold_at', end),
+    supabase.from('personal_uses').select('at, qty, unit_value').is('deleted_at', null).gte('at', start).lt('at', end),
+    supabase.from('stock_adjustments').select('at, qty').is('deleted_at', null).gte('at', start).lt('at', end),
+    supabase.from('expenses').select('spent_at, amount').is('deleted_at', null).gte('spent_at', start).lt('spent_at', end),
+  ]);
+  if (sales.error) throw sales.error;
+  if (uses.error) throw uses.error;
+  if (adjs.error) throw adjs.error;
+  if (exps.error) throw exps.error;
+  const days = new Set<string>();
+  const salesBy = new Map<string, number>();
+  const personalBy = new Map<string, number>();
+  const adjBy = new Map<string, number>();
+  const expBy = new Map<string, number>();
+  for (const r of (sales.data ?? []) as { sold_at: string; amount_received: number | string }[]) {
+    const day = r.sold_at.slice(0, 10);
+    days.add(day);
+    salesBy.set(day, (salesBy.get(day) ?? 0) + Number(r.amount_received));
+  }
+  for (const r of (uses.data ?? []) as { at: string; qty: number; unit_value: number }[]) {
+    const day = r.at.slice(0, 10);
+    days.add(day);
+    personalBy.set(day, (personalBy.get(day) ?? 0) + Number(r.qty) * Number(r.unit_value));
+  }
+  for (const r of (adjs.data ?? []) as { at: string; qty: number }[]) {
+    const day = r.at.slice(0, 10);
+    days.add(day);
+    adjBy.set(day, (adjBy.get(day) ?? 0) + Number(r.qty) * unitPrice);
+  }
+  for (const r of (exps.data ?? []) as { spent_at: string; amount: number | string }[]) {
+    const day = r.spent_at.slice(0, 10);
+    days.add(day);
+    expBy.set(day, (expBy.get(day) ?? 0) + Number(r.amount));
+  }
+  return [...days]
+    .sort()
+    .map((day) => ({ day, sales: salesBy.get(day) ?? 0, personal: personalBy.get(day) ?? 0, adjustments: adjBy.get(day) ?? 0, expenses: expBy.get(day) ?? 0 }));
+}
+
 export async function fetchDailyIncome(start: string, end: string): Promise<DayRow[]> {
   const [sales, uses] = await Promise.all([
     supabase.from('v_sales_enriched').select('sold_at, amount_received').gte('sold_at', start).lt('sold_at', end),
@@ -157,8 +200,14 @@ export function dhakaWeekStart(now: Date = new Date()): string {
   return isoAtDhaka(new Date(Date.UTC(y, m - 1, d - back)).toISOString().slice(0, 10));
 }
 
-export async function fetchCustomerLeaderboard(): Promise<LeaderRow[]> {
-  const weekStart = dhakaWeekStart();
+export async function fetchCurrentChalanStart(): Promise<string | null> {
+  const { data, error } = await supabase.from('chalans').select('purchase_date').eq('status', 'open').is('deleted_at', null).order('purchase_date').limit(1).maybeSingle();
+  if (error) throw error;
+  return (data as { purchase_date: string } | null)?.purchase_date ?? null;
+}
+
+export async function fetchCustomerLeaderboard(since: string = dhakaWeekStart()): Promise<LeaderRow[]> {
+  const weekStart = since;
   const [custRes, salesRes, payRes] = await Promise.all([
     supabase.from('customers').select('id, name').is('deleted_at', null),
     supabase.from('sales').select('customer_id, amount_received').is('deleted_at', null).not('customer_id', 'is', null).gte('sold_at', weekStart),

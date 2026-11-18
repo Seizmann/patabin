@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Trash } from '@phosphor-icons/react';
+import { Minus, Plus, Trash } from '@phosphor-icons/react';
 import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Card, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
@@ -16,7 +16,7 @@ import { useViewMode } from 'lib/viewMode';
 import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import offline from 'assets/images/empty/offline.png';
 
-type PacketRow = { packet_id: string; packet_code: string; owner_partner_id: string; owner_name: string; remaining: number };
+type PacketRow = { packet_id: string; packet_code: string; owner_partner_id: string; owner_name: string; remaining: number; position: number | null };
 
 type PersonalUseRow = {
   id: string;
@@ -52,11 +52,11 @@ export default function PersonalUsePage() {
   usePageTitle('ব্যক্তিগত ব্যবহার');
   const qc = useQueryClient();
   const dialog = useDialog();
-  const { suAdmin } = useAuth();
+  const { suAdmin, profile } = useAuth();
   const { guard, denied } = useWriteGuard('personal_use');
   const [ eater, setEater ] = useState('');
   const [packetId, setPacketId] = useState('');
-  const [qty, setQty] = useState('');
+  const [qty, setQty] = useState('1');
   const [unit, setUnit] = useState('');
   const [note, setNote] = useState('');
   const [at, setAt] = useState<string | undefined>();
@@ -66,16 +66,39 @@ export default function PersonalUsePage() {
   const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('chalan');
 
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
+  useEffect(() => {
+    if (settings?.default_sell_price) setUnit(String(settings.default_sell_price));
+  }, [settings?.default_sell_price]);
   const { data: partners = [] } = useQuery({ queryKey: ['partners'], queryFn: fetchPartners });
   const { myPartnerId: myId, isSelf } = useViewMode();
+  useEffect(() => {
+    if (eater || partners.length === 0) return;
+    const selfPartner = myId ?? partners.find((p) => p.name === profile?.display_name)?.id;
+    if (selfPartner) setEater(selfPartner);
+  }, [eater, partners, myId, profile?.display_name]);
   const { data: packets = [] } = useQuery({
     queryKey: ['packets'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('v_packet_stock').select('packet_id, packet_code, owner_partner_id, owner_name, remaining').eq('chalan_status', 'open').gt('remaining', 0);
+      const { data, error } = await supabase.from('v_packet_stock').select('packet_id, packet_code, owner_partner_id, owner_name, remaining, position').eq('chalan_status', 'open').gt('remaining', 0);
       if (error) throw error;
       return (data ?? []) as PacketRow[];
     },
   });
+  const sortedPackets = useMemo(
+    () =>
+      [...packets].sort((a, b) => {
+        if (a.position == null && b.position == null) return a.packet_code.localeCompare(b.packet_code);
+        if (a.position == null) return 1;
+        if (b.position == null) return -1;
+        return a.position - b.position;
+      }),
+    [packets],
+  );
+  const [packetTouched, setPacketTouched] = useState(false);
+  useEffect(() => {
+    if (packetTouched || packetId || sortedPackets.length === 0) return;
+    setPacketId(sortedPackets[0]!.packet_id);
+  }, [packetTouched, packetId, sortedPackets]);
   const { data: uses = [], isPending: usesPending } = useQuery({ queryKey: ['personal-uses', start, end, isSelf ? myId : ''], queryFn: () => fetchPersonalUses(start, end, isSelf ? (myId ?? '') : '') });
 
   const chosen = packets.find((p) => p.packet_id === packetId) ?? null;
@@ -116,6 +139,10 @@ export default function PersonalUsePage() {
     e.preventDefault();
     setError('');
     setOk('');
+    if (packets.length === 0) {
+      void dialog.alert({ title: 'স্টক নেই', message: 'চালু চালানে কোনো স্টক বাকি নেই। নতুন চালান এলে ব্যবহার যোগ করা যাবে।' });
+      return;
+    }
     const eaterId = eater || myId;
     if (!eaterId || !Number(qty)) {
       setError('কে খাচ্ছে ও কত পিস দিন।');
@@ -136,7 +163,7 @@ export default function PersonalUsePage() {
       if (rpcErr) throw rpcErr;
       await invalidateAll();
       setOk('সংরক্ষিত');
-      setQty('');
+      setQty('1');
       setNote('');
     } catch (err) {
       setError(mapError(err));
@@ -175,10 +202,12 @@ export default function PersonalUsePage() {
           title="ব্যক্তিগত ব্যবহার"
           right={<PeriodSelect period={period} setPeriod={setPeriod} customFrom={customFrom} customTo={customTo} setCustomFrom={setCustomFrom} setCustomTo={setCustomTo} />}
         />
-        <form onSubmit={guard(submit)} className="flex flex-col gap-5" noValidate>
+        {packets.length === 0 ? (
+          <Empty img={offline} title="স্টক নেই" caption="চালু চালানে কোনো স্টক বাকি নেই। নতুন চালান এলে ব্যবহার যোগ করা যাবে।" />
+        ) : (
+          <form onSubmit={guard(submit)} className="flex flex-col gap-5" noValidate>
           <Field label="কে খাচ্ছে">
             <select className="field" value={eater} onChange={(e) => setEater(e.target.value)}>
-              <option value="">{myId ? partners.find((p) => p.id === myId)?.name ?? 'নিজে' : 'নিজে'}</option>
               {partners.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -187,9 +216,9 @@ export default function PersonalUsePage() {
             </select>
           </Field>
           <Field label="কোথা থেকে (প্যাকেট না বাছলে মজুদ ধরা হবে)">
-            <select className="field" value={packetId} onChange={(e) => setPacketId(e.target.value)}>
+            <select className="field" value={packetId} onChange={(e) => { setPacketTouched(true); setPacketId(e.target.value); }}>
               <option value="">প্যাকেট নেই (মজুদ)</option>
-              {packets.map((p) => (
+              {sortedPackets.map((p) => (
                 <option key={p.packet_id} value={p.packet_id}>
                   {p.packet_code} · {p.owner_name} · {toBnDigits(p.remaining)} বাকি
                 </option>
@@ -197,10 +226,18 @@ export default function PersonalUsePage() {
             </select>
           </Field>
           <Field label="পরিমাণ (পিস)">
-            <NumberInput value={qty} onChange={setQty} />
+            <div className="flex items-center gap-2">
+              <Btn type="button" variant="ghost" aria-label="কমান" onClick={() => setQty((q) => String(Math.max(1, (Number(q) || 1) - 1)))}>
+                <Minus size={16} aria-hidden />
+              </Btn>
+              <NumberInput value={qty} onChange={setQty} className="grow text-center" />
+              <Btn type="button" variant="ghost" aria-label="বাড়ান" onClick={() => setQty((q) => String((Number(q) || 0) + 1))}>
+                <Plus size={16} aria-hidden />
+              </Btn>
+            </div>
           </Field>
           <Field label="প্রতি পিস মূল্য">
-            <NumberInput value={unit} onChange={setUnit} placeholder={String(settings?.default_sell_price ?? 300)} />
+            <NumberInput value={unit} onChange={setUnit} />
           </Field>
           {ownerIsOther && (
             <div className="p-caption rounded-xl bg-canvas px-4 py-3 text-good">
@@ -219,7 +256,8 @@ export default function PersonalUsePage() {
           <Btn type="submit" busy={busy} disabled={!Number(qty)}>
             সংরক্ষণ করুন
           </Btn>
-        </form>
+          </form>
+        )}
         {denied}
       </Card>
 
