@@ -210,13 +210,9 @@ function SalesTable({ rows, onEdit, onDelete, onDetail }: { rows: SaleRowV[]; on
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-hairline text-left">
-            <th className="p-3 font-semibold">তারিখ</th>
-            <th className="p-3 font-semibold">বিবরণ</th>
+            <th className="p-3 font-semibold">তারিখ ও সময়</th>
+            <th className="p-3 font-semibold">ক্রেতা</th>
             <th className="p-3 font-semibold">পরিমাণ</th>
-            <th className="p-3 font-semibold">টাকা</th>
-            <th className="p-3 font-semibold">ছাড়</th>
-            <th className="p-3 font-semibold">প্যাকেট</th>
-            <th className="p-3 font-semibold">মাধ্যম</th>
             <th className="p-3" />
           </tr>
         </thead>
@@ -231,10 +227,6 @@ function SalesTable({ rows, onEdit, onDelete, onDetail }: { rows: SaleRowV[]; on
                 </button>
               </td>
               <td className="p-3">{toBnDigits(r.qty)}</td>
-              <td className="p-3">{formatMoney(r.amount_received)}</td>
-              <td className="p-3">{Number(r.discount) ? formatMoney(r.discount) : '-'}</td>
-              <td className="p-3 text-xs">{r.packet_codes}</td>
-              <td className="p-3 text-xs">{r.wallet_details || (r.wallet_name ? `${r.wallet_name} ··${r.wallet_label.slice(-2)}` : r.wallet_label)}</td>
               <td className="p-3">
                 <div className="flex justify-end gap-2">
                   <Btn variant="ghost" onClick={() => onEdit(r)}>
