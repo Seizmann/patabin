@@ -66,6 +66,9 @@ export default function PersonalUsePage() {
   const { period, setPeriod, start, end, customFrom, customTo, setCustomFrom, setCustomTo } = usePeriodFilter('chalan');
 
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
+  useEffect(() => {
+    if (settings?.default_sell_price) setUnit(String(settings.default_sell_price));
+  }, [settings?.default_sell_price]);
   const { data: partners = [] } = useQuery({ queryKey: ['partners'], queryFn: fetchPartners });
   const { myPartnerId: myId, isSelf } = useViewMode();
   useEffect(() => {
@@ -204,7 +207,7 @@ export default function PersonalUsePage() {
             <NumberInput value={qty} onChange={setQty} />
           </Field>
           <Field label="প্রতি পিস মূল্য">
-            <NumberInput value={unit} onChange={setUnit} placeholder={String(settings?.default_sell_price ?? 300)} />
+            <NumberInput value={unit} onChange={setUnit} />
           </Field>
           {ownerIsOther && (
             <div className="p-caption rounded-xl bg-canvas px-4 py-3 text-good">
