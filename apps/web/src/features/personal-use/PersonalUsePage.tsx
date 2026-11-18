@@ -202,7 +202,10 @@ export default function PersonalUsePage() {
           title="ব্যক্তিগত ব্যবহার"
           right={<PeriodSelect period={period} setPeriod={setPeriod} customFrom={customFrom} customTo={customTo} setCustomFrom={setCustomFrom} setCustomTo={setCustomTo} />}
         />
-        <form onSubmit={guard(submit)} className="flex flex-col gap-5" noValidate>
+        {packets.length === 0 ? (
+          <Empty img={offline} title="স্টক নেই" caption="চালু চালানে কোনো স্টক বাকি নেই। নতুন চালান এলে ব্যবহার যোগ করা যাবে।" />
+        ) : (
+          <form onSubmit={guard(submit)} className="flex flex-col gap-5" noValidate>
           <Field label="কে খাচ্ছে">
             <select className="field" value={eater} onChange={(e) => setEater(e.target.value)}>
               {partners.map((p) => (
@@ -253,7 +256,8 @@ export default function PersonalUsePage() {
           <Btn type="submit" busy={busy} disabled={!Number(qty)}>
             সংরক্ষণ করুন
           </Btn>
-        </form>
+          </form>
+        )}
         {denied}
       </Card>
 
