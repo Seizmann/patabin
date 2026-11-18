@@ -41,6 +41,13 @@ set local role authenticated;
 
 do $$
 begin
+  assert has_table_privilege('authenticated', 'public.v_sales_enriched', 'select'),
+    'authenticated must retain SELECT on v_sales_enriched';
+  perform 1 from public.v_sales_enriched limit 1;
+end $$;
+
+do $$
+begin
   update public.settings set default_sell_price = 999;
   assert not found, 'patabin_admin settings update must not apply';
   assert (select default_sell_price from public.settings where id = 1) = 300, 'patabin_admin must not change settings';
