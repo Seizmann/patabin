@@ -1,7 +1,7 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Crown, Medal, Trophy } from '@phosphor-icons/react';
-import { fetchBreakdown, fetchCustomerLeaderboard, dhakaWeekStart, fetchDailyIncome, fetchPartnerSellSummary, fetchSelfCapital, fetchSelfDailyIncome, fetchStockCurrent, fetchTotals, fetchWalletBalances, type DayRow, type PartnerSellSummary, type Totals } from './api';
+import { fetchBreakdown, fetchCustomerLeaderboard, dhakaWeekStart, fetchCurrentChalanStart, fetchDailyIncome, fetchPartnerSellSummary, fetchSelfCapital, fetchSelfDailyIncome, fetchStockCurrent, fetchTotals, fetchWalletBalances, type DayRow, type PartnerSellSummary, type Totals } from './api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Card, Notice, Skeleton } from 'components/ui/base';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
@@ -25,7 +25,15 @@ export default function DashboardPage() {
   const daily = useQuery({ queryKey: ['dashboard', 'daily', start, end], queryFn: () => fetchDailyIncome(start, end) });
   const donutData = (breakdown.data ?? []).map((s) => ({ name: s.slice, value: s.amount })).filter((d) => d.value !== 0);
   const partnerBalances = useQuery({ queryKey: ['dashboard', 'partner-sell-summary', start, end], queryFn: () => fetchPartnerSellSummary(start, end) });
-  const leaderboard = useQuery({ queryKey: ['dashboard', 'leaderboard', dhakaWeekStart()], queryFn: fetchCustomerLeaderboard, staleTime: 30_000 });
+  const [leaderMode, setLeaderMode] = useState<'week' | 'chalan'>('week');
+  const chalanStart = useQuery({ queryKey: ['dashboard', 'chalan-start'], queryFn: fetchCurrentChalanStart, staleTime: 30_000 });
+  const leaderboardSince = leaderMode === 'chalan' ? chalanStart.data ?? null : dhakaWeekStart();
+  const leaderboard = useQuery({
+    queryKey: ['dashboard', 'leaderboard', leaderMode, leaderboardSince],
+    queryFn: () => fetchCustomerLeaderboard(leaderboardSince!),
+    enabled: !!leaderboardSince,
+    staleTime: 30_000,
+  });
 
   const selfMode = viewMode === 'self';
   const showAll = !selfMode || !mine;
@@ -85,25 +93,47 @@ export default function DashboardPage() {
 
           {leaderboard.isPending ? (
             <ChartSkeleton />
-          ) : (leaderboard.data ?? []).length > 0 ? (
+          ) : (
             <Card className="p-5">
-              <p className="p-label mb-3 text-center">সেরা কাস্টমার (টপ ৫) — এই সপ্তাহ</p>
-              <div className="flex flex-col divide-y divide-hairline">
-                {leaderboard.data!.map((r, i) => {
-                  const { Icon, color } = RANK_STYLES[Math.min(i, RANK_STYLES.length - 1)]!;
-                  return (
-                    <div key={r.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                      <span className="flex items-center gap-3">
-                        <Icon weight="fill" size={22} style={{ color }} aria-hidden />
-                        <span className="font-semibold">{r.name}</span>
-                      </span>
-                      <span className="font-semibold">{formatMoney(r.paid)}</span>
-                    </div>
-                  );
-                })}
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="p-label">সেরা কাস্টমার (টপ ৫)</p>
+                <div className="flex gap-1 rounded-full border border-hairline bg-surface p-0.5" role="tablist" aria-label="সময়কাল">
+                  {(['week', 'chalan'] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      role="tab"
+                      aria-selected={leaderMode === m}
+                      onClick={() => setLeaderMode(m)}
+                      className={`min-h-[32px] rounded-full px-3 text-sm font-semibold transition-colors ${leaderMode === m ? 'bg-espresso text-white' : 'text-ink-mute hover:text-ink'}`}
+                    >
+                      {m === 'week' ? 'এই সপ্তাহ' : 'চালু চালান'}
+                    </button>
+                  ))}
+                </div>
               </div>
+              {leaderMode === 'chalan' && !leaderboardSince ? (
+                <p className="p-caption py-4 text-center text-ink-mute">চালু চালান নেই।</p>
+              ) : (leaderboard.data ?? []).length === 0 ? (
+                <p className="p-caption py-4 text-center text-ink-mute">এই সময়ে কোনো কাস্টমার নেই।</p>
+              ) : (
+                <div className="flex flex-col divide-y divide-hairline">
+                  {leaderboard.data!.map((r, i) => {
+                    const { Icon, color } = RANK_STYLES[Math.min(i, RANK_STYLES.length - 1)]!;
+                    return (
+                      <div key={r.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                        <span className="flex items-center gap-3">
+                          <Icon weight="fill" size={22} style={{ color }} aria-hidden />
+                          <span className="font-semibold">{r.name}</span>
+                        </span>
+                        <span className="font-semibold">{formatMoney(r.paid)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </Card>
-          ) : null}
+          )}
         </>
       ) : (
         <SelfView row={selfRow} capital={selfCapital.data} capitalPending={selfCapital.isPending} daily={selfDaily.data} dailyPending={selfDaily.isPending} summaryPending={partnerBalances.isPending} />

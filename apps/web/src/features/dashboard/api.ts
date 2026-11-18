@@ -157,8 +157,14 @@ export function dhakaWeekStart(now: Date = new Date()): string {
   return isoAtDhaka(new Date(Date.UTC(y, m - 1, d - back)).toISOString().slice(0, 10));
 }
 
-export async function fetchCustomerLeaderboard(): Promise<LeaderRow[]> {
-  const weekStart = dhakaWeekStart();
+export async function fetchCurrentChalanStart(): Promise<string | null> {
+  const { data, error } = await supabase.from('chalans').select('purchase_date').eq('status', 'open').is('deleted_at', null).order('purchase_date').limit(1).maybeSingle();
+  if (error) throw error;
+  return (data as { purchase_date: string } | null)?.purchase_date ?? null;
+}
+
+export async function fetchCustomerLeaderboard(since: string = dhakaWeekStart()): Promise<LeaderRow[]> {
+  const weekStart = since;
   const [custRes, salesRes, payRes] = await Promise.all([
     supabase.from('customers').select('id, name').is('deleted_at', null),
     supabase.from('sales').select('customer_id, amount_received').is('deleted_at', null).not('customer_id', 'is', null).gte('sold_at', weekStart),
