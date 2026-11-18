@@ -139,6 +139,10 @@ export default function PersonalUsePage() {
     e.preventDefault();
     setError('');
     setOk('');
+    if (packets.length === 0) {
+      void dialog.alert({ title: 'স্টক নেই', message: 'চালু চালানে কোনো স্টক বাকি নেই। নতুন চালান এলে ব্যবহার যোগ করা যাবে।' });
+      return;
+    }
     const eaterId = eater || myId;
     if (!eaterId || !Number(qty)) {
       setError('কে খাচ্ছে ও কত পিস দিন।');
