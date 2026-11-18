@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Trash } from '@phosphor-icons/react';
+import { Minus, Plus, Trash } from '@phosphor-icons/react';
 import { supabase } from 'lib/supabase';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Btn, Card, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
@@ -56,7 +56,7 @@ export default function PersonalUsePage() {
   const { guard, denied } = useWriteGuard('personal_use');
   const [ eater, setEater ] = useState('');
   const [packetId, setPacketId] = useState('');
-  const [qty, setQty] = useState('');
+  const [qty, setQty] = useState('1');
   const [unit, setUnit] = useState('');
   const [note, setNote] = useState('');
   const [at, setAt] = useState<string | undefined>();
@@ -144,7 +144,7 @@ export default function PersonalUsePage() {
       if (rpcErr) throw rpcErr;
       await invalidateAll();
       setOk('সংরক্ষিত');
-      setQty('');
+      setQty('1');
       setNote('');
     } catch (err) {
       setError(mapError(err));
@@ -204,7 +204,15 @@ export default function PersonalUsePage() {
             </select>
           </Field>
           <Field label="পরিমাণ (পিস)">
-            <NumberInput value={qty} onChange={setQty} />
+            <div className="flex items-center gap-2">
+              <Btn type="button" variant="ghost" aria-label="কমান" onClick={() => setQty((q) => String(Math.max(1, (Number(q) || 1) - 1)))}>
+                <Minus size={16} aria-hidden />
+              </Btn>
+              <NumberInput value={qty} onChange={setQty} className="grow text-center" />
+              <Btn type="button" variant="ghost" aria-label="বাড়ান" onClick={() => setQty((q) => String((Number(q) || 0) + 1))}>
+                <Plus size={16} aria-hidden />
+              </Btn>
+            </div>
           </Field>
           <Field label="প্রতি পিস মূল্য">
             <NumberInput value={unit} onChange={setUnit} />
