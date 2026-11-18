@@ -19,5 +19,6 @@ export const ROUTES = [
   '/users',
   '/settings',
   '/settings/agent',
+  '/agent',
   '/profile',
 ] as const;

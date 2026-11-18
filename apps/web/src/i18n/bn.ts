@@ -102,6 +102,22 @@ const bn = {
   agentEmptyModels: 'এই প্রোভাইডারে কোনো মডেল নেই।',
   agentEdit: 'সম্পাদনা',
   agentEditDone: 'ঠিক আছে',
+  agentChat: 'Patabin Agent',
+  agentChats: 'কথোপকথন',
+  agentNewChat: 'নতুন কথোপকথন',
+  agentDeleteConfirm: 'কথোপকথনটি মুছে ফেলবেন?',
+  agentRename: 'নাম বদলান',
+  agentRenamePrompt: 'নতুন নাম',
+  agentEmptyChat: 'প্রশ্ন করুন — স্টক, ব্যালেন্স, বিক্রি, খরচ সব জানা যাবে।',
+  agentInputPlaceholder: 'বাংলা বা বাংলিশে লিখুন…',
+  agentSend: 'পাঠান',
+  agentStop: 'থামান',
+  agentModel: 'মডেল',
+  agentToolActivity: 'টুল চলছিল',
+  agentQuestionSent: 'প্রশ্ন পাঠানো হয়েছে; উত্তর দিন।',
+  agentAnswerSend: 'উত্তর পাঠান',
+  agentFallbackNote: 'উত্তর দেয়নি, দিয়ে উত্তর এসেছে —',
+  agentErrorGeneric: 'সমস্যা হয়েছে; আবার চেষ্টা করুন।',
 } as const;
 
 export default bn;

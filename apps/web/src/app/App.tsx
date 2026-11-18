@@ -30,6 +30,7 @@ const AuditTrailPage = lazy(() => import('features/audit/AuditTrailPage'));
 const UsersPage = lazy(() => import('features/users/UsersPage'));
 const SettingsPage = lazy(() => import('features/settings/SettingsPage'));
 const AgentSettingsPage = lazy(() => import('features/agent/AgentSettingsPage'));
+const AgentChatPage = lazy(() => import('features/agent/ChatPage'));
 const ProfilePage = lazy(() => import('features/profile/ProfilePage'));
 
 const queryClient = new QueryClient({
@@ -99,6 +100,7 @@ export default function App() {
                   <Route path="/users" element={<Page><UsersPage /></Page>} />
                   <Route path="/settings" element={<Page><SettingsPage /></Page>} />
                   <Route path="/settings/agent" element={<Page><AgentSettingsPage /></Page>} />
+                  <Route path="/agent" element={<Page><AgentChatPage /></Page>} />
                 </Route>
               </Route>
             </Route>

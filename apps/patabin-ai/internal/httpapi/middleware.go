@@ -14,8 +14,11 @@ import (
 
 	"golang.org/x/time/rate"
 
+	"github.com/Seizmann/patabin/apps/patabin-ai/internal/agent"
 	"github.com/Seizmann/patabin/apps/patabin-ai/internal/auth"
 	"github.com/Seizmann/patabin/apps/patabin-ai/internal/config"
+	"github.com/Seizmann/patabin/apps/patabin-ai/internal/llm"
+	"github.com/Seizmann/patabin/apps/patabin-ai/internal/secrets"
 	"github.com/Seizmann/patabin/apps/patabin-ai/internal/supa"
 )
 
@@ -44,6 +47,11 @@ type server struct {
 	preAuth       *limiterMap
 	authFail      *limiterMap
 	providerTest  *limiterMap
+	chatRate      *limiterMap
+	chatSem       *semaphoreMap
+	llmClient     *llm.Client
+	keyCache      *secrets.Cache
+	history       *agent.History
 }
 
 type statusWriter struct {

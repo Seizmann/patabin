@@ -6,8 +6,11 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/Seizmann/patabin/apps/patabin-ai/internal/agent"
 	"github.com/Seizmann/patabin/apps/patabin-ai/internal/auth"
 	"github.com/Seizmann/patabin/apps/patabin-ai/internal/config"
+	"github.com/Seizmann/patabin/apps/patabin-ai/internal/llm"
+	"github.com/Seizmann/patabin/apps/patabin-ai/internal/secrets"
 	"github.com/Seizmann/patabin/apps/patabin-ai/internal/supa"
 )
 
@@ -18,6 +21,10 @@ type authenticator interface {
 
 func New(cfg config.Config, log *slog.Logger) *server {
 	client := supa.New(cfg.SupabaseURL, cfg.SupabaseAnonKey)
+	keyCache := secrets.NewCache(func(ctx context.Context, providerID string) (string, error) {
+		token, _ := ctx.Value(tokenKey).(string)
+		return client.RPCString(ctx, "agent_get_provider_key", token, map[string]string{"p_provider_id": providerID})
+	}, cfg.ProviderKeyCacheTTL)
 	s := &server{
 		cfg:           cfg,
 		log:           log,
@@ -26,6 +33,11 @@ func New(cfg config.Config, log *slog.Logger) *server {
 		preAuth:       newLimiterMap(),
 		authFail:      newLimiterMap(),
 		providerTest:  newLimiterMap(),
+		chatRate:      newLimiterMap(),
+		chatSem:       newSemaphoreMap(),
+		llmClient:     llm.NewClient(0),
+		keyCache:      keyCache,
+		history:       &agent.History{Supa: client},
 	}
 	return s
 }
@@ -35,6 +47,7 @@ func (s *server) Handler() http.Handler {
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
 	mux.Handle("GET /v1/me", s.requireAuth(http.HandlerFunc(s.handleMe)))
 	mux.Handle("POST /v1/providers/{id}/test", s.requireAuth(http.HandlerFunc(s.handleProviderTest)))
+	mux.Handle("POST /v1/chat", s.requireAuth(http.HandlerFunc(s.handleChat)))
 
 	h := s.recoverMiddleware(mux)
 	h = s.loggingMiddleware(h)

@@ -29,6 +29,40 @@ func (c *Client) Get(ctx context.Context, path, token string) ([]byte, error) {
 	return c.do(ctx, http.MethodGet, path, token, nil)
 }
 
+func (c *Client) Post(ctx context.Context, path, token string, body []byte) ([]byte, error) {
+	return c.do(ctx, http.MethodPost, path, token, bytes.NewReader(body))
+}
+
+func (c *Client) Patch(ctx context.Context, path, token string, body any) ([]byte, error) {
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, c.BaseURL+path, bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("apikey", c.AnonKey)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Prefer", "return=minimal")
+	res, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("postgrest call failed: %w", err)
+	}
+	defer res.Body.Close()
+	data, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+	if err != nil {
+		return nil, fmt.Errorf("postgrest response read failed: %w", err)
+	}
+	if res.StatusCode >= 400 {
+		return nil, fmt.Errorf("postgrest returned %d", res.StatusCode)
+	}
+	return data, nil
+}
+
 func (c *Client) RPCBool(ctx context.Context, name, token string) (bool, error) {
 	body, err := c.do(ctx, http.MethodPost, "/rest/v1/rpc/"+name, token, bytes.NewReader([]byte("{}")))
 	if err != nil {
