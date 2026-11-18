@@ -1,7 +1,9 @@
-import { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Crown, Medal, Trophy } from '@phosphor-icons/react';
-import { fetchBreakdown, fetchCustomerLeaderboard, dhakaWeekStart, fetchCurrentChalanStart, fetchDailyIncome, fetchPartnerSellSummary, fetchSelfCapital, fetchSelfDailyIncome, fetchStockCurrent, fetchTotals, fetchWalletBalances, type DayRow, type PartnerSellSummary, type Totals } from './api';
+import { fetchBreakdown, fetchCustomerLeaderboard, dhakaWeekStart, fetchCurrentChalanStart, fetchDailyIncome, fetchDailySeries, fetchPartnerSellSummary, fetchSelfCapital, fetchSelfDailyIncome, fetchStockCurrent, fetchTotals, fetchWalletBalances, type DayRow, type PartnerSellSummary, type Totals } from './api';
+import type { ChartSeries } from 'components/ui/IncomeBar';
+import { fetchSettings } from 'lib/api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { Card, Notice, Skeleton } from 'components/ui/base';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
@@ -22,20 +24,35 @@ export default function DashboardPage() {
   const stock = useQuery({ queryKey: ['stock'], queryFn: fetchStockCurrent, staleTime: 30_000 });
   const walletBalances = useQuery({ queryKey: ['dashboard', 'wallet-flows', start, end], queryFn: () => fetchWalletBalances(start, end) });
   const breakdown = useQuery({ queryKey: ['dashboard', 'breakdown', start, end], queryFn: () => fetchBreakdown(start, end) });
-  const daily = useQuery({ queryKey: ['dashboard', 'daily', start, end], queryFn: () => fetchDailyIncome(start, end) });
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
+  const dailySeries = useQuery({
+    queryKey: ['dashboard', 'daily-series', start, end, settings?.default_sell_price],
+    queryFn: () => fetchDailySeries(start, end, settings?.default_sell_price ?? 300),
+  });
   const dailyPrev = useQuery({
-    queryKey: ['dashboard', 'daily-prev', daily.data?.[0]?.day, daily.data?.length],
+    queryKey: ['dashboard', 'daily-prev', dailySeries.data?.[0]?.day, dailySeries.data?.length],
     queryFn: () => {
-      const days = daily.data!;
+      const days = dailySeries.data!;
       const first = days[0]!.day;
       const [yy, mm, dd] = first.split('-').map(Number) as [number, number, number];
       const fmt = (t: number) => new Date(t).toISOString().slice(0, 10);
       return fetchDailyIncome(fmt(Date.UTC(yy, mm - 1, dd - days.length)), fmt(Date.UTC(yy, mm - 1, dd)));
     },
-    enabled: (daily.data?.length ?? 0) > 0,
+    enabled: (dailySeries.data?.length ?? 0) > 0,
     staleTime: 30_000,
   });
-  const prevDailyPoints = (dailyPrev.data ?? []).map((d) => ({ day: d.day, income: Number(d.income) }));
+  const chartDays = (dailySeries.data ?? []).map((d) => ({ day: d.day }));
+  const prevVals = useMemo(() => {
+    const arr = (dailyPrev.data ?? []).map((d) => Number(d.income));
+    return Array.from({ length: chartDays.length }, (_, i) => arr[i] ?? 0);
+  }, [dailyPrev.data, chartDays.length]);
+  const chartSeries: ChartSeries[] = [
+    { key: 'sales', label: 'আয়', color: 'var(--color-good)', values: (dailySeries.data ?? []).map((d) => d.sales) },
+    { key: 'personal', label: 'ব্যক্তিগত ব্যবহার', color: 'var(--color-caramel)', values: (dailySeries.data ?? []).map((d) => d.personal) },
+    { key: 'adjust', label: 'নষ্ট/ফ্রি', color: 'var(--color-bad)', values: (dailySeries.data ?? []).map((d) => d.adjustments) },
+    { key: 'expense', label: 'খরচ', color: 'var(--color-ink)', values: (dailySeries.data ?? []).map((d) => d.expenses) },
+    { key: 'prev', label: 'আগের সময়', color: 'var(--color-ink-mute)', values: prevVals, dashed: true },
+  ];
   const donutData = (breakdown.data ?? []).map((s) => ({ name: s.slice, value: s.amount })).filter((d) => d.value !== 0);
   const partnerBalances = useQuery({ queryKey: ['dashboard', 'partner-sell-summary', start, end], queryFn: () => fetchPartnerSellSummary(start, end) });
   const [leaderMode, setLeaderMode] = useState<'week' | 'chalan'>('week');
@@ -99,7 +116,7 @@ export default function DashboardPage() {
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {breakdown.isPending ? <ChartSkeleton /> : <Suspense fallback={<ChartSkeleton />}><Donut title="পেমেন্ট মাধ্যম অনুসারে আয়" data={donutData} centerLabel="আয়" centerValue={formatMoney(totals.data?.income ?? 0)} /></Suspense>}
-            {daily.isPending ? <ChartSkeleton /> : <Suspense fallback={<ChartSkeleton />}><IncomeBar data={(daily.data ?? []).map((d) => ({ day: d.day, income: Number(d.income) }))} prevData={prevDailyPoints} /></Suspense>}
+            {dailySeries.isPending ? <ChartSkeleton /> : <Suspense fallback={<ChartSkeleton />}><IncomeBar data={chartDays} series={chartSeries} /></Suspense>}
           </div>
 
           {partnerBalances.isPending ? <ChartSkeleton /> : <PartnerSummaryCard rows={partnerBalances.data ?? []} />}
@@ -149,7 +166,7 @@ export default function DashboardPage() {
           )}
         </>
       ) : (
-        <SelfView row={selfRow} capital={selfCapital.data} capitalPending={selfCapital.isPending} daily={selfDaily.data} dailyPending={selfDaily.isPending} dailyPrev={prevDailyPoints} summaryPending={partnerBalances.isPending} />
+        <SelfView row={selfRow} capital={selfCapital.data} capitalPending={selfCapital.isPending} daily={selfDaily.data} dailyPending={selfDaily.isPending} prevVals={prevVals} summaryPending={partnerBalances.isPending} />
       )}
 
       {totals.isError && <Notice tone="error">ডেটা আনতে সমস্যা হয়েছে।</Notice>}
@@ -176,13 +193,13 @@ function ViewModeToggle({ mode, setMode }: { mode: ViewMode; setMode: (m: ViewMo
   );
 }
 
-function SelfView({ row, capital, capitalPending, daily, dailyPending, dailyPrev, summaryPending }: {
+function SelfView({ row, capital, capitalPending, daily, dailyPending, prevVals, summaryPending }: {
   row?: PartnerSellSummary;
   capital?: number;
   capitalPending: boolean;
   daily?: DayRow[];
   dailyPending: boolean;
-  dailyPrev?: { day: string; income: number }[];
+  prevVals?: number[];
   summaryPending: boolean;
 }) {
   const sell = row?.sell_revenue ?? 0;
@@ -213,7 +230,13 @@ function SelfView({ row, capital, capitalPending, daily, dailyPending, dailyPrev
         <ChartSkeleton />
       ) : (
         <Suspense fallback={<ChartSkeleton />}>
-          <IncomeBar data={(daily ?? []).map((d) => ({ day: d.day, income: Number(d.income) }))} prevData={dailyPrev} />
+          <IncomeBar
+            data={(daily ?? []).map((d) => ({ day: d.day }))}
+            series={[
+              { key: 'income', label: 'আয়', color: 'var(--color-good)', values: (daily ?? []).map((d) => Number(d.income)) },
+              { key: 'prev', label: 'আগের সময়', color: 'var(--color-ink-mute)', values: (daily ?? []).map((_, i) => prevVals?.[i] ?? 0), dashed: true },
+            ]}
+          />
         </Suspense>
       )}
     </>

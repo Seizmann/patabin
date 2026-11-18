@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { formatDhakaDate, formatMoney, toBnDigits } from '@patabin/shared';
 
-type DayPoint = { day: string; income: number };
+export type ChartSeries = { key: string; label: string; color: string; values: number[]; dashed?: boolean };
+
+type DayPoint = { day: string };
 
 function niceStep(max: number): number {
   if (max <= 0) return 1000;
@@ -41,27 +43,34 @@ const PAD_B = 12;
 const PLOT_W = W - PAD_L - PAD_R;
 const PLOT_H = H - PAD_T - PAD_B;
 
-function buildPath(rows: DayPoint[], count: number, top: number, y: (v: number) => number): string {
-  const x = (i: number) => PAD_L + (count <= 1 ? PLOT_W / 2 : (i / (count - 1)) * PLOT_W);
-  return rows
-    .slice(0, count)
-    .map((d, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(Math.min(d.income, top)).toFixed(1)}`)
+function xAt(i: number, n: number): number {
+  return PAD_L + (n <= 1 ? PLOT_W / 2 : (i / (n - 1)) * PLOT_W);
+}
+
+function buildPath(values: number[], n: number, y: (v: number) => number): string {
+  const x = (i: number) => xAt(i, n);
+  return values
+    .slice(0, n)
+    .map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`)
     .join(' ');
 }
 
-export default function IncomeBar({ data, prevData = [] }: { data: DayPoint[]; prevData?: DayPoint[] }) {
+export default function IncomeBar({ data, series }: { data: DayPoint[]; series: ChartSeries[] }) {
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [hover, setHover] = useState<number | null>(null);
-  const total = data.reduce((s, d) => s + d.income, 0);
-  const prevTotal = prevData.reduce((s, d) => s + d.income, 0);
-  const shownTotal = useCountUp(total, 250);
-  const pct = prevTotal > 0 ? Math.round(((total - prevTotal) / prevTotal) * 100) : null;
+  const visible = series.filter((s) => !hidden.has(s.key));
+  const main = series[0];
+  const prev = series.find((s) => s.dashed);
+  const mainTotal = main?.values.reduce((s, v) => s + v, 0) ?? 0;
+  const prevTotal = prev?.values.reduce((s, v) => s + v, 0) ?? 0;
+  const shownTotal = useCountUp(mainTotal, 250);
+  const pct = prevTotal > 0 ? Math.round(((mainTotal - prevTotal) / prevTotal) * 100) : null;
   const up = (pct ?? 0) >= 0;
 
-  const max = Math.max(...data.map((d) => d.income), ...prevData.map((d) => d.income), 1);
+  const n = data.length;
+  const max = Math.max(1, ...visible.flatMap((s) => s.values));
   const step = niceStep(max);
   const top = step * 3;
-  const n = data.length;
-  const x = (i: number) => PAD_L + (n <= 1 ? PLOT_W / 2 : (i / (n - 1)) * PLOT_W);
   const y = (v: number) => PAD_T + PLOT_H - (Math.min(v, top) / top) * PLOT_H;
 
   const ticks = useMemo(() => {
@@ -71,9 +80,16 @@ export default function IncomeBar({ data, prevData = [] }: { data: DayPoint[]; p
     return Array.from({ length: count }, (_, i) => Math.round((i * (n - 1)) / (count - 1)));
   }, [n]);
 
-  const hoverPrev = hover != null ? prevData[hover] : undefined;
+  const toggle = (key: string) => {
+    setHidden((h) => {
+      const next = new Set(h);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
-  if (data.length === 0) {
+  if (n === 0) {
     return (
       <div className="card p-5">
         <p className="p-label mb-4 text-center">দৈনিক আয়</p>
@@ -88,15 +104,26 @@ export default function IncomeBar({ data, prevData = [] }: { data: DayPoint[]; p
     <div className="card p-5">
       <div className="mb-1 flex items-start justify-between gap-3">
         <p className="p-label">দৈনিক আয়</p>
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-mute">
-            <span aria-hidden className="h-2 w-2 rounded-sm bg-good" /> এই সময়
-          </span>
-          {prevData.length > 0 && (
-            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-mute">
-              <span aria-hidden className="h-2 w-2 rounded-sm bg-ink-mute/35" /> আগের সময়
-            </span>
-          )}
+        <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
+          {series.map((s) => {
+            const off = hidden.has(s.key);
+            return (
+              <button
+                key={s.key}
+                type="button"
+                aria-pressed={!off}
+                onClick={() => toggle(s.key)}
+                className={`flex items-center gap-1.5 text-[11px] font-semibold transition-opacity ${off ? 'opacity-40' : ''}`}
+              >
+                <span
+                  aria-hidden
+                  className={`h-2 w-2 rounded-sm ${s.key === 'prev' ? '' : 'rounded-full'}`}
+                  style={{ backgroundColor: s.color, opacity: s.dashed ? 0.35 : 1 }}
+                />
+                {s.label}
+              </button>
+            );
+          })}
         </div>
       </div>
       <p className="p-num text-3xl font-extrabold">{formatMoney(Math.round(shownTotal))}</p>
@@ -136,31 +163,24 @@ export default function IncomeBar({ data, prevData = [] }: { data: DayPoint[]; p
                 />
               );
             })}
-            {prevData.length > 0 && (
+            {visible.map((s) => (
               <path
-                d={buildPath(prevData, Math.min(prevData.length, n), top, y)}
+                key={s.key}
+                d={buildPath(s.values, n, y)}
                 fill="none"
-                stroke="var(--color-ink-mute)"
-                strokeOpacity={0.35}
-                strokeWidth={1.5}
+                stroke={s.color}
+                strokeOpacity={s.dashed ? 0.35 : 1}
+                strokeWidth={s.dashed ? 1.5 : 2}
+                strokeDasharray={s.dashed ? '5 5' : undefined}
                 strokeLinejoin="round"
                 strokeLinecap="round"
                 vectorEffect="non-scaling-stroke"
               />
-            )}
-            <path
-              d={buildPath(data, n, top, y)}
-              fill="none"
-              stroke="var(--color-good)"
-              strokeWidth={2}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              vectorEffect="non-scaling-stroke"
-            />
+            ))}
             {hover != null && (
               <line
-                x1={x(hover)}
-                x2={x(hover)}
+                x1={xAt(hover, n)}
+                x2={xAt(hover, n)}
                 y1={PAD_T}
                 y2={PAD_T + PLOT_H}
                 stroke="var(--color-hairline)"
@@ -168,12 +188,19 @@ export default function IncomeBar({ data, prevData = [] }: { data: DayPoint[]; p
                 vectorEffect="non-scaling-stroke"
               />
             )}
-            {hover != null && hover < n && (
-              <>
-                <circle cx={x(hover)} cy={y(data[hover]!.income)} r={4} fill="var(--color-good)" stroke="var(--color-surface)" strokeWidth={2} vectorEffect="non-scaling-stroke" />
-                {hoverPrev && <circle cx={x(hover)} cy={y(hoverPrev.income)} r={3.5} fill="var(--color-ink-mute)" stroke="var(--color-surface)" strokeWidth={2} vectorEffect="non-scaling-stroke" />}
-              </>
-            )}
+            {hover != null &&
+              visible.map((s) => (
+                <circle
+                  key={s.key}
+                  cx={xAt(hover, n)}
+                  cy={y(s.values[hover] ?? 0)}
+                  r={s.dashed ? 3.5 : 4}
+                  fill={s.color}
+                  stroke="var(--color-surface)"
+                  strokeWidth={2}
+                  vectorEffect="non-scaling-stroke"
+                />
+              ))}
           </svg>
           <div className="absolute inset-y-0 left-14 right-0 grid" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }} aria-hidden>
             {data.map((d, i) => (
@@ -182,7 +209,7 @@ export default function IncomeBar({ data, prevData = [] }: { data: DayPoint[]; p
                 type="button"
                 tabIndex={-1}
                 className="h-full"
-                aria-label={`${toBnDigits(d.day.slice(8))} তারিখ — ${formatMoney(d.income)}`}
+                aria-label={`${toBnDigits(d.day.slice(8))} তারিখ`}
                 onMouseEnter={() => setHover(i)}
                 onMouseLeave={() => setHover(null)}
                 onFocus={() => setHover(i)}
@@ -192,12 +219,16 @@ export default function IncomeBar({ data, prevData = [] }: { data: DayPoint[]; p
           </div>
           {hover != null && (
             <div
-              className="pointer-events-none absolute z-10 -translate-x-1/2 rounded-xl border border-hairline bg-surface px-3 py-1.5 text-center shadow-md"
-              style={{ left: `${(Math.min(Math.max(x(hover), 60), W - 60) / W) * 100}%`, bottom: 'calc(100% + 2px)' }}
+              className="pointer-events-none absolute z-10 -translate-x-1/2 rounded-xl border border-hairline bg-surface px-3 py-1.5 text-left shadow-md"
+              style={{ left: `${(Math.min(Math.max(xAt(hover, n), 80), W - 80) / W) * 100}%`, bottom: 'calc(100% + 2px)' }}
             >
               <p className="p-caption p-num leading-tight">{formatDhakaDate(`${data[hover]!.day}T00:00:00+06:00`)}</p>
-              <p className="p-num text-sm font-bold leading-tight">{formatMoney(data[hover]!.income)}</p>
-              {hoverPrev && <p className="p-caption p-num leading-tight">আগে: {formatMoney(hoverPrev.income)}</p>}
+              {visible.map((s) => (
+                <p key={s.key} className="p-num flex items-center gap-2 whitespace-nowrap text-sm font-semibold leading-tight">
+                  <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: s.color }} />
+                  {formatMoney(s.values[hover] ?? 0)}
+                </p>
+              ))}
             </div>
           )}
         </div>
@@ -206,7 +237,7 @@ export default function IncomeBar({ data, prevData = [] }: { data: DayPoint[]; p
             <span
               key={i}
               className="chart-day p-num absolute -translate-x-1/2 text-[11px] text-ink-mute"
-              style={{ left: `${(x(i) / W) * 100}%` }}
+              style={{ left: `${(xAt(i, n) / W) * 100}%` }}
             >
               {toBnDigits(data[i]!.day.slice(8))}
             </span>
