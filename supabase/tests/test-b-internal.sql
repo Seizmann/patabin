@@ -19,6 +19,13 @@ delete from public.customers;
 set local session_replication_role = DEFAULT;
 update public.profiles set must_change_password = false where id = (select id from public.profiles where role = 'su_admin');
 update public.profiles set must_change_password = false where id = (select id from public.profiles where role = 'patabin_admin');
+update public.profiles set role = 'patabin_admin'
+where not exists (select 1 from public.profiles where role = 'patabin_admin')
+  and id = coalesce(
+    (select user_id from public.partners where name = 'Bappy' and user_id is not null limit 1),
+    (select user_id from public.partners where user_id is not null limit 1));
+delete from public.profile_permissions
+where profile_id in (select id from public.profiles where role = 'patabin_admin');
 select set_config('request.jwt.claims', '{"sub":"' || (select id::text from public.profiles where role = 'su_admin') || '","role":"authenticated"}', true);
 set local role authenticated;
 
@@ -63,22 +70,20 @@ begin
     )
   ));
 
-  perform public.set_sell_priority(array[
-    (select packet_id from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_b and packet_code = 'P-001'),
-    (select packet_id from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_su and packet_code = 'P-011'),
-    (select packet_id from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_b and packet_code = 'P-002'),
-    (select packet_id from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_su and packet_code = 'P-012'),
-    (select packet_id from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_b and packet_code = 'P-003'),
-    (select packet_id from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_su and packet_code = 'P-013'),
-    (select packet_id from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_b and packet_code = 'P-004'),
-    (select packet_id from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_su and packet_code = 'P-014'),
-    (select packet_id from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_b and packet_code = 'P-005'),
-    (select packet_id from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_b and packet_code = 'P-006'),
-    (select packet_id from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_b and packet_code = 'P-007'),
-    (select packet_id from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_b and packet_code = 'P-008'),
-    (select packet_id from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_b and packet_code = 'P-009'),
-    (select packet_id from public.v_packet_stock where chalan_id = v_chalan and owner_partner_id = p_b and packet_code = 'P-010')
-  ]);
+  perform public.set_sell_priority(array(
+    select packet_id from (
+      select packet_id,
+             row_number() over (partition by owner_partner_id order by packet_code) as rn,
+             (owner_partner_id = p_su) as is_su
+      from public.v_packet_stock
+      where chalan_id = v_chalan
+    ) t
+    order by
+      case when is_su then 2 * rn
+           when rn <= 4 then 2 * rn - 1
+           else 4 + rn
+      end
+  ));
 
   perform public.create_sale(jsonb_build_object('qty', 260, 'list_unit_price', 300, 'amount_received', 78000, 'wallet_account_id', v_wallet));
 

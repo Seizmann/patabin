@@ -9,6 +9,7 @@ import NumberInput from 'components/forms/NumberInput';
 import { mapError } from 'lib/errors';
 import { useWriteGuard } from 'hooks/useWriteGuard';
 import { useViewMode } from 'lib/viewMode';
+import { AgentChip } from 'components/ui/AgentChip';
 import { formatDhakaDateTime, formatMoney, toBnDigits } from '@patabin/shared';
 import offline from 'assets/images/empty/offline.png';
 
@@ -22,6 +23,7 @@ type AdjustmentRow = {
   reason: string;
   person: string | null;
   note: string | null;
+  agent_model?: string | null;
   packets: { code: string; partners: { name: string } | null; chalans: { code: string; buy_rate: number } | null } | null;
 };
 
@@ -54,7 +56,7 @@ export default function AdjustmentsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('stock_adjustments')
-        .select('id, packet_id, at, qty, reason, person, note, packets(code, partners(name), chalans(code, buy_rate))')
+        .select('id, packet_id, at, qty, reason, person, note, agent_model, packets(code, partners(name), chalans(code, buy_rate))')
         .is('deleted_at', null).gte('at', start).lt('at', end).order('at', { ascending: false });
       if (error) throw error;
       let result = (data ?? []) as unknown as (AdjustmentRow & { packet_id: string })[];
@@ -225,7 +227,9 @@ export default function AdjustmentsPage() {
                     x.packets
                       ? `${x.packets.code} · ${x.packets.partners?.name ?? '-'}`
                       : '-'
-                  }</td>
+                  }
+                    <AgentChip model={x.agent_model} />
+                  </td>
                   <td className="p-3">{toBnDigits(x.qty)}</td>
                   <td className="p-3">{bnReason(x.reason)}</td>
                   <td className="p-3">{x.person ?? '-'}</td>

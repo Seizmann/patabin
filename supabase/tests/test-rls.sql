@@ -19,6 +19,13 @@ delete from public.customers;
 set local session_replication_role = DEFAULT;
 update public.profiles set must_change_password = false where id = (select id from public.profiles where role = 'su_admin');
 update public.profiles set must_change_password = false where id = (select id from public.profiles where role = 'patabin_admin');
+update public.profiles set role = 'patabin_admin'
+where not exists (select 1 from public.profiles where role = 'patabin_admin')
+  and id = coalesce(
+    (select user_id from public.partners where name = 'Bappy' and user_id is not null limit 1),
+    (select user_id from public.partners where user_id is not null limit 1));
+delete from public.profile_permissions
+where profile_id in (select id from public.profiles where role = 'patabin_admin');
 
 set local role anon;
 do $$
@@ -59,18 +66,26 @@ when others then
 end $$;
 
 do $$
-declare
-  v_0 int;
 begin
   perform set_config(
     'request.jwt.claims',
     '{"sub":"' || (select id::text from public.profiles where role = 'patabin_admin') || '","role":"authenticated"}',
     true
   );
+  begin
+    update public.profiles set is_active = false where id = (select id from public.profiles where role = 'patabin_admin');
+    raise 'patabin_admin must not deactivate via direct table write';
+  exception
+    when insufficient_privilege then perform 1;
+  end;
+  execute 'reset role';
   update public.profiles set is_active = false where id = (select id from public.profiles where role = 'patabin_admin');
-  if not found then
-    raise 'self deactivate failed';
-  end if;
+  perform set_config(
+    'request.jwt.claims',
+    '{"sub":"' || (select id::text from public.profiles where role = 'patabin_admin') || '","role":"authenticated"}',
+    true
+  );
+  execute 'set local role authenticated';
   if exists (select 1 from public.chalans) then
     raise 'deactivated user reads chalans';
   end if;

@@ -14,6 +14,262 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          last_activity_at: string
+          owner_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_activity_at?: string
+          owner_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_activity_at?: string
+          owner_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      agent_messages: {
+        Row: {
+          content: string | null
+          conversation_id: string
+          created_at: string
+          event: Json | null
+          id: string
+          model_id: string | null
+          provider_id: string | null
+          role: string
+          seq: number
+          tool_call_id: string | null
+          tool_calls: Json | null
+          tool_name: string | null
+          usage: Json | null
+        }
+        Insert: {
+          content?: string | null
+          conversation_id: string
+          created_at?: string
+          event?: Json | null
+          id?: string
+          model_id?: string | null
+          provider_id?: string | null
+          role: string
+          seq: number
+          tool_call_id?: string | null
+          tool_calls?: Json | null
+          tool_name?: string | null
+          usage?: Json | null
+        }
+        Update: {
+          content?: string | null
+          conversation_id?: string
+          created_at?: string
+          event?: Json | null
+          id?: string
+          model_id?: string | null
+          provider_id?: string | null
+          role?: string
+          seq?: number
+          tool_call_id?: string | null
+          tool_calls?: Json | null
+          tool_name?: string | null
+          usage?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "agent_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_models: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          display_name: string
+          fallback_position: number | null
+          id: string
+          is_active: boolean
+          is_default: boolean
+          max_output_tokens: number | null
+          model_id: string
+          provider_id: string
+          supports_streaming: boolean
+          supports_tools: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          display_name: string
+          fallback_position?: number | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          max_output_tokens?: number | null
+          model_id: string
+          provider_id: string
+          supports_streaming?: boolean
+          supports_tools?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          display_name?: string
+          fallback_position?: number | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          max_output_tokens?: number | null
+          model_id?: string
+          provider_id?: string
+          supports_streaming?: boolean
+          supports_tools?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_models_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "agent_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_pending_actions: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          defaults_used: string[]
+          error: string | null
+          expires_at: string
+          id: string
+          message_id: string | null
+          model_id: string
+          payload: Json
+          payload_hash: string
+          preview: Json | null
+          preview_hash: string
+          result_id: string | null
+          result_table: string | null
+          status: string
+          tool: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          defaults_used?: string[]
+          error?: string | null
+          expires_at?: string
+          id?: string
+          message_id?: string | null
+          model_id: string
+          payload: Json
+          payload_hash: string
+          preview?: Json | null
+          preview_hash: string
+          result_id?: string | null
+          result_table?: string | null
+          status?: string
+          tool: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          defaults_used?: string[]
+          error?: string | null
+          expires_at?: string
+          id?: string
+          message_id?: string | null
+          model_id?: string
+          payload?: Json
+          payload_hash?: string
+          preview?: Json | null
+          preview_hash?: string
+          result_id?: string | null
+          result_table?: string | null
+          status?: string
+          tool?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_pending_actions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "agent_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_pending_actions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "agent_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_providers: {
+        Row: {
+          base_url: string
+          created_at: string
+          created_by: string | null
+          extra_headers: Json
+          id: string
+          is_active: boolean
+          key_last4: string | null
+          name: string
+          updated_at: string
+          vault_secret_id: string | null
+        }
+        Insert: {
+          base_url: string
+          created_at?: string
+          created_by?: string | null
+          extra_headers?: Json
+          id?: string
+          is_active?: boolean
+          key_last4?: string | null
+          name: string
+          updated_at?: string
+          vault_secret_id?: string | null
+        }
+        Update: {
+          base_url?: string
+          created_at?: string
+          created_by?: string | null
+          extra_headers?: Json
+          id?: string
+          is_active?: boolean
+          key_last4?: string | null
+          name?: string
+          updated_at?: string
+          vault_secret_id?: string | null
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -254,6 +510,13 @@ export type Database = {
             foreignKeyName: "customer_payment_allocations_sale_id_fkey"
             columns: ["sale_id"]
             isOneToOne: false
+            referencedRelation: "v_sales_agent"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_payment_allocations_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
             referencedRelation: "v_sales_enriched"
             referencedColumns: ["id"]
           },
@@ -380,6 +643,7 @@ export type Database = {
       }
       expenses: {
         Row: {
+          agent_model: string | null
           amount: number
           attributed_to_partner_id: string
           category_id: string
@@ -390,11 +654,14 @@ export type Database = {
           id: string
           note: string | null
           paid_by_partner_id: string
+          pending_action_id: string | null
+          source: string
           spent_at: string
           updated_at: string
           wallet_account_id: string | null
         }
         Insert: {
+          agent_model?: string | null
           amount: number
           attributed_to_partner_id: string
           category_id: string
@@ -405,11 +672,14 @@ export type Database = {
           id?: string
           note?: string | null
           paid_by_partner_id: string
+          pending_action_id?: string | null
+          source?: string
           spent_at?: string
           updated_at?: string
           wallet_account_id?: string | null
         }
         Update: {
+          agent_model?: string | null
           amount?: number
           attributed_to_partner_id?: string
           category_id?: string
@@ -420,6 +690,8 @@ export type Database = {
           id?: string
           note?: string | null
           paid_by_partner_id?: string
+          pending_action_id?: string | null
+          source?: string
           spent_at?: string
           updated_at?: string
           wallet_account_id?: string | null
@@ -473,6 +745,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_partner_balance"
             referencedColumns: ["partner_id"]
+          },
+          {
+            foreignKeyName: "expenses_pending_action_fkey"
+            columns: ["pending_action_id"]
+            isOneToOne: false
+            referencedRelation: "agent_pending_actions"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "expenses_wallet_account_id_fkey"
@@ -613,6 +892,7 @@ export type Database = {
       }
       personal_uses: {
         Row: {
+          agent_model: string | null
           at: string
           chalan_id: string | null
           created_at: string
@@ -622,11 +902,14 @@ export type Database = {
           id: string
           note: string | null
           packet_id: string | null
+          pending_action_id: string | null
           qty: number
+          source: string
           unit_value: number
           updated_at: string
         }
         Insert: {
+          agent_model?: string | null
           at?: string
           chalan_id?: string | null
           created_at?: string
@@ -636,11 +919,14 @@ export type Database = {
           id?: string
           note?: string | null
           packet_id?: string | null
+          pending_action_id?: string | null
           qty: number
+          source?: string
           unit_value: number
           updated_at?: string
         }
         Update: {
+          agent_model?: string | null
           at?: string
           chalan_id?: string | null
           created_at?: string
@@ -650,7 +936,9 @@ export type Database = {
           id?: string
           note?: string | null
           packet_id?: string | null
+          pending_action_id?: string | null
           qty?: number
+          source?: string
           unit_value?: number
           updated_at?: string
         }
@@ -696,6 +984,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_packet_stock"
             referencedColumns: ["packet_id"]
+          },
+          {
+            foreignKeyName: "personal_uses_pending_action_fkey"
+            columns: ["pending_action_id"]
+            isOneToOne: false
+            referencedRelation: "agent_pending_actions"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -833,6 +1128,13 @@ export type Database = {
             foreignKeyName: "sale_allocations_sale_id_fkey"
             columns: ["sale_id"]
             isOneToOne: false
+            referencedRelation: "v_sales_agent"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_allocations_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
             referencedRelation: "v_sales_enriched"
             referencedColumns: ["id"]
           },
@@ -875,6 +1177,13 @@ export type Database = {
             foreignKeyName: "sale_receives_sale_id_fkey"
             columns: ["sale_id"]
             isOneToOne: false
+            referencedRelation: "v_sales_agent"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_receives_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
             referencedRelation: "v_sales_enriched"
             referencedColumns: ["id"]
           },
@@ -896,6 +1205,7 @@ export type Database = {
       }
       sales: {
         Row: {
+          agent_model: string | null
           amount_received: number
           created_at: string
           created_by: string | null
@@ -908,12 +1218,15 @@ export type Database = {
           id: string
           list_unit_price: number
           note: string | null
+          pending_action_id: string | null
           qty: number
           sold_at: string
+          source: string
           updated_at: string
           wallet_account_id: string
         }
         Insert: {
+          agent_model?: string | null
           amount_received: number
           created_at?: string
           created_by?: string | null
@@ -926,12 +1239,15 @@ export type Database = {
           id?: string
           list_unit_price: number
           note?: string | null
+          pending_action_id?: string | null
           qty: number
           sold_at?: string
+          source?: string
           updated_at?: string
           wallet_account_id: string
         }
         Update: {
+          agent_model?: string | null
           amount_received?: number
           created_at?: string
           created_by?: string | null
@@ -944,8 +1260,10 @@ export type Database = {
           id?: string
           list_unit_price?: number
           note?: string | null
+          pending_action_id?: string | null
           qty?: number
           sold_at?: string
+          source?: string
           updated_at?: string
           wallet_account_id?: string
         }
@@ -963,6 +1281,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_customer_balance"
             referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "sales_pending_action_fkey"
+            columns: ["pending_action_id"]
+            isOneToOne: false
+            referencedRelation: "agent_pending_actions"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "sales_wallet_account_id_fkey"
@@ -1039,6 +1364,7 @@ export type Database = {
       }
       stock_adjustments: {
         Row: {
+          agent_model: string | null
           at: string
           created_at: string
           created_by: string | null
@@ -1046,12 +1372,15 @@ export type Database = {
           id: string
           note: string | null
           packet_id: string
+          pending_action_id: string | null
           person: string | null
           qty: number
           reason: string
+          source: string
           updated_at: string
         }
         Insert: {
+          agent_model?: string | null
           at?: string
           created_at?: string
           created_by?: string | null
@@ -1059,12 +1388,15 @@ export type Database = {
           id?: string
           note?: string | null
           packet_id: string
+          pending_action_id?: string | null
           person?: string | null
           qty: number
           reason: string
+          source?: string
           updated_at?: string
         }
         Update: {
+          agent_model?: string | null
           at?: string
           created_at?: string
           created_by?: string | null
@@ -1072,9 +1404,11 @@ export type Database = {
           id?: string
           note?: string | null
           packet_id?: string
+          pending_action_id?: string | null
           person?: string | null
           qty?: number
           reason?: string
+          source?: string
           updated_at?: string
         }
         Relationships: [
@@ -1091,6 +1425,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_packet_stock"
             referencedColumns: ["packet_id"]
+          },
+          {
+            foreignKeyName: "stock_adjustments_pending_action_fkey"
+            columns: ["pending_action_id"]
+            isOneToOne: false
+            referencedRelation: "agent_pending_actions"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1285,6 +1626,41 @@ export type Database = {
       }
     }
     Views: {
+      v_adjustments_enriched: {
+        Row: {
+          agent_model: string | null
+          at: string | null
+          cost_borne: number | null
+          created_at: string | null
+          created_by: string | null
+          deleted_at: string | null
+          id: string | null
+          note: string | null
+          owner_name: string | null
+          packet_code: string | null
+          packet_id: string | null
+          person: string | null
+          qty: number | null
+          reason: string | null
+          source: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_adjustments_packet_id_fkey"
+            columns: ["packet_id"]
+            isOneToOne: false
+            referencedRelation: "packets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_adjustments_packet_id_fkey"
+            columns: ["packet_id"]
+            isOneToOne: false
+            referencedRelation: "v_packet_stock"
+            referencedColumns: ["packet_id"]
+          },
+        ]
+      }
       v_chalan_summary: {
         Row: {
           adjusted_pcs: number | null
@@ -1344,6 +1720,41 @@ export type Database = {
           phone?: string | null
         }
         Relationships: []
+      }
+      v_expenses_enriched: {
+        Row: {
+          agent_model: string | null
+          amount: number | null
+          attributed_to_name: string | null
+          category_name: string | null
+          chalan_code: string | null
+          chalan_id: string | null
+          created_at: string | null
+          created_by: string | null
+          deleted_at: string | null
+          id: string | null
+          note: string | null
+          paid_by_name: string | null
+          source: string | null
+          spent_at: string | null
+          wallet_label: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_chalan_id_fkey"
+            columns: ["chalan_id"]
+            isOneToOne: false
+            referencedRelation: "chalans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_chalan_id_fkey"
+            columns: ["chalan_id"]
+            isOneToOne: false
+            referencedRelation: "v_chalan_summary"
+            referencedColumns: ["chalan_id"]
+          },
+        ]
       }
       v_packet_stock: {
         Row: {
@@ -1416,6 +1827,115 @@ export type Database = {
           profit: number | null
         }
         Relationships: []
+      }
+      v_personal_uses_enriched: {
+        Row: {
+          agent_model: string | null
+          at: string | null
+          chalan_id: string | null
+          created_at: string | null
+          created_by: string | null
+          deleted_at: string | null
+          eater_name: string | null
+          id: string | null
+          note: string | null
+          owner_name: string | null
+          packet_code: string | null
+          packet_id: string | null
+          qty: number | null
+          source: string | null
+          unit_value: number | null
+          value_owed: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personal_uses_chalan_id_fkey"
+            columns: ["chalan_id"]
+            isOneToOne: false
+            referencedRelation: "chalans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personal_uses_chalan_id_fkey"
+            columns: ["chalan_id"]
+            isOneToOne: false
+            referencedRelation: "v_chalan_summary"
+            referencedColumns: ["chalan_id"]
+          },
+          {
+            foreignKeyName: "personal_uses_packet_id_fkey"
+            columns: ["packet_id"]
+            isOneToOne: false
+            referencedRelation: "packets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personal_uses_packet_id_fkey"
+            columns: ["packet_id"]
+            isOneToOne: false
+            referencedRelation: "v_packet_stock"
+            referencedColumns: ["packet_id"]
+          },
+        ]
+      }
+      v_sales_agent: {
+        Row: {
+          agent_model: string | null
+          amount_received: number | null
+          created_at: string | null
+          created_by: string | null
+          customer_id: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          discount: number | null
+          discount_pct: number | null
+          due_amount: number | null
+          entered_by: string | null
+          id: string | null
+          list_unit_price: number | null
+          note: string | null
+          owner_names: string | null
+          owner_partner_ids: string[] | null
+          packet_codes: string | null
+          qty: number | null
+          sold_at: string | null
+          source: string | null
+          wallet_account_id: string | null
+          wallet_details: string | null
+          wallet_label: string | null
+          wallet_name: string | null
+          wallet_type: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_balance"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "sales_wallet_account_id_fkey"
+            columns: ["wallet_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_wallet_balance"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "sales_wallet_account_id_fkey"
+            columns: ["wallet_account_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_sales_enriched: {
         Row: {
@@ -1512,13 +2032,53 @@ export type Database = {
         }
         Returns: undefined
       }
+      agent_approve_action: {
+        Args: { p_action_id: string; p_expected_preview_hash: string }
+        Returns: Json
+      }
+      agent_assert_allowed: { Args: never; Returns: undefined }
+      agent_clear_provider_key: {
+        Args: { p_provider_id: string }
+        Returns: undefined
+      }
+      agent_create_action: {
+        Args: {
+          p_conversation_id: string
+          p_defaults_used: string[]
+          p_message_id: string
+          p_model_id: string
+          p_payload: Json
+          p_tool: string
+        }
+        Returns: Json
+      }
+      agent_deltas: { Args: { p_after: Json; p_before: Json }; Returns: Json }
+      agent_fix_payload: {
+        Args: { p_payload: Json; p_tool: string }
+        Returns: Json
+      }
+      agent_get_provider_key: {
+        Args: { p_provider_id: string }
+        Returns: string
+      }
+      agent_hash: { Args: { p_data: Json }; Returns: string }
+      agent_preview_action: {
+        Args: { p_payload: Json; p_tool: string }
+        Returns: Json
+      }
+      agent_purge_history: { Args: never; Returns: number }
+      agent_purge_history_impl: { Args: never; Returns: number }
+      agent_reject_action: { Args: { p_action_id: string }; Returns: Json }
+      agent_set_provider_key: {
+        Args: { p_key: string; p_provider_id: string }
+        Returns: undefined
+      }
+      agent_snapshot: { Args: never; Returns: Json }
       allocate_by_priority: {
         Args: { p_qty: number; p_sale_id: string }
         Returns: undefined
       }
-      assert_writeable:
-        | { Args: never; Returns: undefined }
-        | { Args: { p_perm?: string }; Returns: undefined }
+      assert_writeable: { Args: { p_perm?: string }; Returns: undefined }
       can_write: { Args: never; Returns: boolean }
       close_chalan: { Args: { p_chalan_id: string }; Returns: undefined }
       complete_password_change: { Args: never; Returns: undefined }
@@ -1544,7 +2104,9 @@ export type Database = {
           stock_current: number
         }[]
       }
+      delete_chalan: { Args: { p_id: string }; Returns: undefined }
       delete_expense: { Args: { p_id: string }; Returns: undefined }
+      delete_personal_use: { Args: { p_id: string }; Returns: undefined }
       delete_sale: { Args: { p_id: string }; Returns: undefined }
       has_permission: { Args: { p_key: string }; Returns: boolean }
       income_by_period_breakdown: {

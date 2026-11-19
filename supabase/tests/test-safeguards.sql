@@ -19,6 +19,13 @@ delete from public.customers;
 set local session_replication_role = DEFAULT;
 update public.profiles set must_change_password = false where id = (select id from public.profiles where role = 'su_admin');
 update public.profiles set must_change_password = false where id = (select id from public.profiles where role = 'patabin_admin');
+update public.profiles set role = 'patabin_admin'
+where not exists (select 1 from public.profiles where role = 'patabin_admin')
+  and id = coalesce(
+    (select user_id from public.partners where name = 'Bappy' and user_id is not null limit 1),
+    (select user_id from public.partners where user_id is not null limit 1));
+delete from public.profile_permissions
+where profile_id in (select id from public.profiles where role = 'patabin_admin');
 
 select set_config(
   'request.jwt.claims',
@@ -45,15 +52,19 @@ exception when insufficient_privilege then perform 1; end $$;
 do $$ begin
   update public.profiles set role = 'su_admin' where id = (select id from public.profiles where role = 'patabin_admin');
   raise 'self role change must fail';
-exception when others then
-  assert sqlerrm like '%SELF_ROLE_CHANGE%', 'unexpected: ' || sqlerrm;
+exception
+  when insufficient_privilege then perform 1;
+  when others then
+    assert sqlerrm like '%SELF_ROLE_CHANGE%', 'unexpected: ' || sqlerrm;
 end $$;
 
 do $$ begin
   update public.profiles set is_active = false where id = (select id from public.profiles where role = 'su_admin');
   raise 'su modification by patabin must fail';
-exception when others then
-  assert sqlerrm like '%SU_ADMIN_PROTECTED%', 'unexpected: ' || sqlerrm;
+exception
+  when insufficient_privilege then perform 1;
+  when others then
+    assert sqlerrm like '%SU_ADMIN_PROTECTED%', 'unexpected: ' || sqlerrm;
 end $$;
 
 reset role;
@@ -71,8 +82,10 @@ do $$ begin
   );
   update public.profiles set is_active = false where id = (select id from auth.users where email = 'sa2-test@patabin.invalid');
   raise 'patabin deactivating su must fail';
-exception when others then
-  assert sqlerrm like '%SU_ADMIN_PROTECTED%', 'unexpected: ' || sqlerrm;
+exception
+  when insufficient_privilege then perform 1;
+  when others then
+    assert sqlerrm like '%SU_ADMIN_PROTECTED%', 'unexpected: ' || sqlerrm;
 end $$;
 
 set local role postgres;

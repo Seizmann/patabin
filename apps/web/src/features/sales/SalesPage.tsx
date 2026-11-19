@@ -13,6 +13,7 @@ import { walletDisplay } from 'lib/wallet';
 import { mapError } from 'lib/errors';
 import { useWriteGuard } from 'hooks/useWriteGuard';
 import { useViewMode } from 'lib/viewMode';
+import { AgentChip } from 'components/ui/AgentChip';
 import emptySales from 'assets/images/empty/empty-sales.png';
 
 const PAGE_SIZE = 20;
@@ -225,6 +226,7 @@ function SalesTable({ rows, onEdit, onDelete, onDetail }: { rows: SaleRowV[]; on
                   {r.customer_name || 'ক্রেতা'}
                   {r.customer_phone ? ` · ${r.customer_phone}` : ''}
                 </button>
+                <AgentChip model={r.agent_model} />
               </td>
               <td className="p-3">{toBnDigits(r.qty)}</td>
               <td className="p-3">
@@ -369,7 +371,10 @@ function SaleDetailSheet({ sale, onClose }: { sale: SaleRowV; onClose: () => voi
               {data?.enteredBy && (
                 <div className="flex justify-between py-1.5">
                   <span>এন্ট্রি করেছে</span>
-                  <span className="font-semibold">{data.enteredBy}</span>
+                  <span className="flex items-center gap-1 font-semibold">
+                    {data.enteredBy}
+                    <AgentChip model={data.agentModel} />
+                  </span>
                 </div>
               )}
               {Number(sale.due_amount) > 0 && (

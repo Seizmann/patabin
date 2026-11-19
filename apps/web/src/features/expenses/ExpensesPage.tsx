@@ -5,6 +5,7 @@ import { fetchChalans } from 'features/chalans/api';
 import { usePageTitle } from 'hooks/usePageTitle';
 import { supabase } from 'lib/supabase';
 import { Btn, Empty, Field, Notice, PageTitle, Skeleton } from 'components/ui/base';
+import { AgentChip } from 'components/ui/AgentChip';
 import { useDialog } from 'components/ui/Dialog';
 import { PeriodSelect, usePeriodFilter } from 'components/PeriodFilter';
 import TimeInput from 'components/forms/TimeInput';
@@ -262,11 +263,12 @@ export default function ExpensesPage() {
                 <tr key={x.id} className="border-b border-hairline last:border-0">
                   <td className="whitespace-nowrap p-3">{formatDhakaDateTime(x.spent_at)}</td>
                   <td className="p-3">{catOf(x.category_id)}</td>
-                  <td className="p-3 text-xs">
+                  <td className="p-3">
                     <button type="button" className="text-left hover:underline" onClick={() => setDetail(x)}>
                       {nameOf(x.paid_by_partner_id)} → {nameOf(x.attributed_to_partner_id)} এর · {x.wallet_account_id ? walletDisplay((wallets ?? []).find((w) => w.id === x.wallet_account_id) ?? { name: '', label: '', type: '' }) : 'নিজের পকেট'}
                       {x.chalan_id ? ` · ${chalans.find((c) => c.id === x.chalan_id)?.code ?? ''}` : ''}
                     </button>
+                    <AgentChip model={x.agent_model} />
                   </td>
                   <td className="p-3">{formatMoney(x.amount)}</td>
                   <td className="p-3 text-right">
