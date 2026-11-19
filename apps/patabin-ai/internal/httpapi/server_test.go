@@ -45,25 +45,21 @@ func (s *stubAuthenticator) SuperAdmin(ctx context.Context, token string) (bool,
 	return s.su, nil
 }
 
-type fakeSupa struct {
-	su bool
-}
-
 func newFakeSupa(t *testing.T, su bool) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /rest/v1/rpc/is_su_admin", func(w http.ResponseWriter, r *http.Request) {
 		if su {
-			w.Write([]byte("true"))
+			_, _ = w.Write([]byte("true"))
 			return
 		}
-		w.Write([]byte("false"))
+		_, _ = w.Write([]byte("false"))
 	})
 	mux.HandleFunc("POST /rest/v1/rpc/password_gate", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("true"))
+		_, _ = w.Write([]byte("true"))
 	})
 	mux.HandleFunc("GET /rest/v1/profiles", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]map[string]string{{"role": "su_admin", "display_name": "Sijan"}})
+		_ = json.NewEncoder(w).Encode([]map[string]string{{"role": "su_admin", "display_name": "Sijan"}})
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)

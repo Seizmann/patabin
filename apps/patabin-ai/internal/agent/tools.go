@@ -224,7 +224,7 @@ func Registry() []Tool {
 			}, nil),
 			Run: func(ctx context.Context, tc *ToolContext, args json.RawMessage) (any, error) {
 				activeOnly := "true"
-				if argBool(args, "active_only") == false && args != nil && len(args) > 0 && strings.Contains(string(args), "active_only") {
+				if !argBool(args, "active_only") && args != nil && len(args) > 0 && strings.Contains(string(args), "active_only") {
 					activeOnly = ""
 				}
 				params := map[string]string{}

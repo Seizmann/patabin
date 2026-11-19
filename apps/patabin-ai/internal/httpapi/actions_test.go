@@ -25,39 +25,39 @@ func (f *actionBackend) handler() http.Handler {
 	mux.HandleFunc("POST /rest/v1/rpc/agent_approve_action", func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)
 		var body map[string]any
-		json.Unmarshal(raw, &body)
+		_ = json.Unmarshal(raw, &body)
 		f.mu.Lock()
 		idx := len(f.rpcCalls)
 		f.rpcCalls = append(f.rpcCalls, "approve")
 		f.rpcBodies = append(f.rpcBodies, body)
 		resp := f.responses[idx]
 		f.mu.Unlock()
-		w.Write([]byte(resp))
+		_, _ = w.Write([]byte(resp))
 	})
 	mux.HandleFunc("POST /rest/v1/rpc/agent_reject_action", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.rpcCalls = append(f.rpcCalls, "reject")
 		f.mu.Unlock()
-		w.Write([]byte(`{"status":"rejected"}`))
+		_, _ = w.Write([]byte(`{"status":"rejected"}`))
 	})
 	mux.HandleFunc("GET /rest/v1/agent_pending_actions", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
-		w.Write([]byte(`[{"conversation_id":"conv-1"}]`))
+		_, _ = w.Write([]byte(`[{"conversation_id":"conv-1"}]`))
 	})
 	mux.HandleFunc("GET /rest/v1/agent_messages", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
-		w.Write([]byte(`[]`))
+		_, _ = w.Write([]byte(`[]`))
 	})
 	mux.HandleFunc("POST /rest/v1/agent_messages", func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)
 		var body map[string]any
-		json.Unmarshal(raw, &body)
+		_ = json.Unmarshal(raw, &body)
 		f.mu.Lock()
 		f.events = append(f.events, body)
 		f.mu.Unlock()
-		w.Write([]byte(`[{"id":"m-1"}]`))
+		_, _ = w.Write([]byte(`[{"id":"m-1"}]`))
 	})
 	mux.HandleFunc("PATCH /rest/v1/agent_conversations", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)

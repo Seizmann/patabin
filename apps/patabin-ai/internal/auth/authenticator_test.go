@@ -57,7 +57,7 @@ func (f *fakeAuthServer) handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /auth/v1/.well-known/jwks.json", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(jwksDoc{Keys: f.jwks.snapshot()})
+		_ = json.NewEncoder(w).Encode(jwksDoc{Keys: f.jwks.snapshot()})
 	})
 	mux.HandleFunc("GET /auth/v1/user", func(w http.ResponseWriter, r *http.Request) {
 		f.userCalls.Add(1)
@@ -65,7 +65,7 @@ func (f *fakeAuthServer) handler() http.Handler {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		w.Write([]byte(`{"id":"user-1","aud":"authenticated"}`))
+		_, _ = w.Write([]byte(`{"id":"user-1","aud":"authenticated"}`))
 	})
 	return mux
 }
@@ -81,11 +81,11 @@ func (f *fakeSupa) handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /rest/v1/rpc/is_su_admin", func(w http.ResponseWriter, r *http.Request) {
 		f.suCalls.Add(1)
-		w.Write([]byte(boolJSON(f.su)))
+		_, _ = w.Write([]byte(boolJSON(f.su)))
 	})
 	mux.HandleFunc("POST /rest/v1/rpc/password_gate", func(w http.ResponseWriter, r *http.Request) {
 		f.gateCalls.Add(1)
-		w.Write([]byte(boolJSON(f.gate)))
+		_, _ = w.Write([]byte(boolJSON(f.gate)))
 	})
 	return mux
 }

@@ -284,7 +284,7 @@ func (a *Authenticator) verifyViaUserEndpoint(ctx context.Context, token string)
 		return fmt.Errorf("%w: user check failed", ErrUnauthorized)
 	}
 	defer res.Body.Close()
-	io.Copy(io.Discard, io.LimitReader(res.Body, 1<<20))
+	_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 1<<20))
 	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("%w: user check failed", ErrUnauthorized)
 	}

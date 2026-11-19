@@ -115,7 +115,7 @@ func (c *Client) StreamChat(ctx context.Context, provider ProviderConfig, model 
 	}
 	defer res.Body.Close()
 	if res.StatusCode >= 400 {
-		io.Copy(io.Discard, io.LimitReader(res.Body, 64<<10))
+		_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 64<<10))
 		return nil, &ProviderError{Status: res.StatusCode}
 	}
 

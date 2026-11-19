@@ -151,7 +151,7 @@ func (s *server) probeProvider(ctx context.Context, p *testProvider, m *testMode
 		return fmt.Errorf("PROVIDER_UNREACHABLE")
 	}
 	defer res.Body.Close()
-	io.Copy(io.Discard, io.LimitReader(res.Body, 1<<20))
+	_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 1<<20))
 	if res.StatusCode >= 400 {
 		return fmt.Errorf("PROVIDER_HTTP_%d", res.StatusCode)
 	}

@@ -18,7 +18,6 @@ type providerBackend struct {
 	modelsBody     string
 	keyBody        string
 	providerCalled bool
-	openaiURL      string
 }
 
 func (f *providerBackend) handler() http.Handler {
@@ -30,14 +29,14 @@ func (f *providerBackend) handler() http.Handler {
 			status = http.StatusOK
 		}
 		w.WriteHeader(status)
-		w.Write([]byte(f.providerBody))
+		_, _ = w.Write([]byte(f.providerBody))
 	})
 	mux.HandleFunc("GET /rest/v1/agent_models", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(f.modelsBody))
+		_, _ = w.Write([]byte(f.modelsBody))
 	})
 	mux.HandleFunc("POST /rest/v1/rpc/agent_get_provider_key", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(f.keyBody))
+		_, _ = w.Write([]byte(f.keyBody))
 	})
 	return mux
 }
@@ -60,7 +59,7 @@ func TestProviderTestSuccess(t *testing.T) {
 		if r.Header.Get("Authorization") != "Bearer test-key" {
 			t.Errorf("missing bearer header")
 		}
-		json.NewEncoder(w).Encode(map[string]any{"id": "chatcmpl-1", "choices": []any{}})
+		_ = json.NewEncoder(w).Encode(map[string]any{"id": "chatcmpl-1", "choices": []any{}})
 	}))
 	t.Cleanup(openai.Close)
 
@@ -98,7 +97,7 @@ func TestProviderTestNotFound(t *testing.T) {
 	res := httptest.NewRecorder()
 	s.Handler().ServeHTTP(res, req)
 	var body testResult
-	json.Unmarshal(res.Body.Bytes(), &body)
+	_ = json.Unmarshal(res.Body.Bytes(), &body)
 	if body.OK || body.Error != "PROVIDER_NOT_FOUND" {
 		t.Fatalf("body = %v", body)
 	}
@@ -116,7 +115,7 @@ func TestProviderTestKeyNotSet(t *testing.T) {
 	res := httptest.NewRecorder()
 	s.Handler().ServeHTTP(res, req)
 	var body testResult
-	json.Unmarshal(res.Body.Bytes(), &body)
+	_ = json.Unmarshal(res.Body.Bytes(), &body)
 	if body.OK || body.Error != "KEY_NOT_SET" {
 		t.Fatalf("body = %v", body)
 	}
@@ -135,7 +134,7 @@ func TestProviderTestUnreachable(t *testing.T) {
 	res := httptest.NewRecorder()
 	s.Handler().ServeHTTP(res, req)
 	var body testResult
-	json.Unmarshal(res.Body.Bytes(), &body)
+	_ = json.Unmarshal(res.Body.Bytes(), &body)
 	if body.OK || !strings.HasPrefix(body.Error, "PROVIDER_") || body.Error == "PROVIDER_HTTP_" {
 		t.Fatalf("body = %v", body)
 	}
@@ -158,7 +157,7 @@ func TestProviderTestProviderHTTPError(t *testing.T) {
 	res := httptest.NewRecorder()
 	s.Handler().ServeHTTP(res, req)
 	var body testResult
-	json.Unmarshal(res.Body.Bytes(), &body)
+	_ = json.Unmarshal(res.Body.Bytes(), &body)
 	if body.OK || body.Error != "PROVIDER_HTTP_401" {
 		t.Fatalf("body = %v", body)
 	}

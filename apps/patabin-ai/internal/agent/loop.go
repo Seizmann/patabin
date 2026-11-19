@@ -3,7 +3,6 @@ package agent
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -45,8 +44,6 @@ type modelCandidate struct {
 	ModelID       string
 	SupportsTools bool
 }
-
-var errAskUser = errors.New("ask_user")
 
 type question struct {
 	ID      string   `json:"id"`
@@ -109,11 +106,11 @@ func (l *Loop) Run(ctx context.Context, token, uid string, in ChatInput, emit Em
 		return err
 	}
 	if len(candidates) == 0 {
-		emit("error", map[string]any{"code": "NO_MODEL", "message_bn": "কোনো চালু মডেল নেই; এজেন্ট সেটিংসে মডেল যোগ করুন।", "retryable": false})
+		_ = emit("error", map[string]any{"code": "NO_MODEL", "message_bn": "কোনো চালু মডেল নেই; এজেন্ট সেটিংসে মডেল যোগ করুন।", "retryable": false})
 		return nil
 	}
 
-	emit("meta", map[string]any{"conversation_id": conversationID, "model": candidates[0].ModelID})
+	_ = emit("meta", map[string]any{"conversation_id": conversationID, "model": candidates[0].ModelID})
 	modelID := candidates[0].ModelID
 	modelRef := func() string { return modelID }
 
@@ -170,7 +167,7 @@ func (l *Loop) Run(ctx context.Context, token, uid string, in ChatInput, emit Em
 		var attemptErr error
 		for idx, cand := range candidates {
 			if idx > 0 {
-				emit("model_fallback", map[string]any{"from": provider.ModelID, "to": cand.ModelID, "reason": attemptErr.Error()})
+				_ = emit("model_fallback", map[string]any{"from": provider.ModelID, "to": cand.ModelID, "reason": attemptErr.Error()})
 			}
 			provider = cand
 			assistant.Reset()
@@ -243,7 +240,7 @@ func (l *Loop) Run(ctx context.Context, token, uid string, in ChatInput, emit Em
 				questions, qErr := parseQuestions(call.Args)
 				if qErr != nil {
 					_ = l.appendToolResult(ctx, token, conversationID, call, `{"error":"BAD_QUESTIONS"}`)
-					emit("tool_result", map[string]any{"name": call.Name, "summary": "bad questions"})
+					_ = emit("tool_result", map[string]any{"name": call.Name, "summary": "bad questions"})
 					continue
 				}
 				eventJSON, _ := json.Marshal(map[string]any{"type": "question", "questions": questions})
@@ -252,7 +249,7 @@ func (l *Loop) Run(ctx context.Context, token, uid string, in ChatInput, emit Em
 				}); err != nil {
 					return err
 				}
-				emit("question", map[string]any{"questions": questions})
+				_ = emit("question", map[string]any{"questions": questions})
 				return nil
 			}
 
@@ -264,13 +261,13 @@ func (l *Loop) Run(ctx context.Context, token, uid string, in ChatInput, emit Em
 					if err := l.appendToolResult(ctx, token, conversationID, call, string(payload)); err != nil {
 						return err
 					}
-					emit("tool_result", map[string]any{"name": call.Name, "summary": summarize(payload)})
+					_ = emit("tool_result", map[string]any{"name": call.Name, "summary": summarize(payload)})
 					messages = append(messages, llm.Message{Role: "tool", Content: string(payload), ToolCallID: call.ID, ToolName: call.Name})
 					continue
 				}
 				proposals++
 			}
-			emit("tool_call", map[string]any{"name": call.Name, "args": shortArgs(call.Args)})
+			_ = emit("tool_call", map[string]any{"name": call.Name, "args": shortArgs(call.Args)})
 			var result any
 			if !known {
 				result = map[string]any{"error": "UNKNOWN_TOOL"}
@@ -282,7 +279,7 @@ func (l *Loop) Run(ctx context.Context, token, uid string, in ChatInput, emit Em
 					result = res
 				}
 				if resMap, ok := res.(map[string]any); ok && resMap["status"] == "awaiting_approval" {
-					emit("proposal", map[string]any{"action_id": resMap["action_id"], "tool": call.Name})
+					_ = emit("proposal", map[string]any{"action_id": resMap["action_id"], "tool": call.Name})
 				}
 			}
 			payload, _ := json.Marshal(map[string]any{"source": "database", "note": "untrusted data", "data": result})
@@ -292,7 +289,7 @@ func (l *Loop) Run(ctx context.Context, token, uid string, in ChatInput, emit Em
 			if err := l.appendToolResult(ctx, token, conversationID, call, string(payload)); err != nil {
 				return err
 			}
-			emit("tool_result", map[string]any{"name": call.Name, "summary": summarize(payload)})
+			_ = emit("tool_result", map[string]any{"name": call.Name, "summary": summarize(payload)})
 			messages = append(messages, llm.Message{Role: "tool", Content: string(payload), ToolCallID: call.ID, ToolName: call.Name})
 		}
 		messages = trimHistory(messages, 120*1024)

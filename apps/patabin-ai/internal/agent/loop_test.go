@@ -55,12 +55,12 @@ func (f *fakeLLM) handler() http.Handler {
 		resp := f.resps[idx]
 		f.requests++
 		var req chatRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		_ = json.NewDecoder(r.Body).Decode(&req)
 		f.bodies = append(f.bodies, req)
 		f.mu.Unlock()
 		if strings.HasPrefix(resp, "HTTP ") {
 			var code int
-			fmt.Sscanf(resp, "HTTP %d", &code)
+			_, _ = fmt.Sscanf(resp, "HTTP %d", &code)
 			w.WriteHeader(code)
 			return
 		}
@@ -88,12 +88,6 @@ func textChunk(s string) string {
 	return "data: " + mustJSON(map[string]any{"choices": []any{map[string]any{"delta": map[string]any{"content": s}}}}) + "\n"
 }
 
-func toolChunk(id, name, args string) string {
-	return "data: " + mustJSON(map[string]any{"choices": []any{map[string]any{"delta": map[string]any{
-		"tool_calls": []any{map[string]any{"index": 0, "id": id, "function": map[string]any{"name": name, "arguments": args}}},
-	}}}}) + "\n"
-}
-
 func mustJSON(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
@@ -114,16 +108,16 @@ func newLoopFixture(t *testing.T, llmResps []string, modelsBody string) (*Loop, 
 		state.mu.Lock()
 		defer state.mu.Unlock()
 		state.convs = append(state.convs, "conv-1")
-		w.Write([]byte(`[{"id":"conv-1"}]`))
+		_, _ = w.Write([]byte(`[{"id":"conv-1"}]`))
 	})
 	supaMux.HandleFunc("GET /rest/v1/agent_conversations", func(w http.ResponseWriter, r *http.Request) {
 		state.mu.Lock()
 		defer state.mu.Unlock()
 		if len(state.convs) > 0 {
-			w.Write([]byte(`[{"id":"conv-1"}]`))
+			_, _ = w.Write([]byte(`[{"id":"conv-1"}]`))
 			return
 		}
-		w.Write([]byte(`[]`))
+		_, _ = w.Write([]byte(`[]`))
 	})
 	supaMux.HandleFunc("POST /rest/v1/agent_messages", func(w http.ResponseWriter, r *http.Request) {
 		state.mu.Lock()
@@ -139,7 +133,7 @@ func newLoopFixture(t *testing.T, llmResps []string, modelsBody string) (*Loop, 
 		body["seq"] = state.msgSeq
 		body["id"] = fmt.Sprintf("msg-%d", len(state.msgs)+1)
 		state.msgs = append(state.msgs, body)
-		w.Write([]byte("[" + mustJSON(map[string]any{"id": body["id"]}) + "]"))
+		_, _ = w.Write([]byte("[" + mustJSON(map[string]any{"id": body["id"]}) + "]"))
 	})
 	supaMux.HandleFunc("PATCH /rest/v1/agent_conversations", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
@@ -150,22 +144,22 @@ func newLoopFixture(t *testing.T, llmResps []string, modelsBody string) (*Loop, 
 		if strings.Contains(r.URL.RawQuery, "order=seq.desc") {
 			last := state.msgSeq
 			if last == 0 {
-				w.Write([]byte(`[]`))
+				_, _ = w.Write([]byte(`[]`))
 				return
 			}
-			w.Write([]byte("[" + mustJSON(map[string]any{"seq": last}) + "]"))
+			_, _ = w.Write([]byte("[" + mustJSON(map[string]any{"seq": last}) + "]"))
 			return
 		}
-		w.Write([]byte(mustJSON(state.msgs)))
+		_, _ = w.Write([]byte(mustJSON(state.msgs)))
 	})
 	supaMux.HandleFunc("GET /rest/v1/partners", func(w http.ResponseWriter, r *http.Request) {
 		state.mu.Lock()
 		defer state.mu.Unlock()
 		if strings.Contains(r.URL.RawQuery, "user_id=eq.") {
-			w.Write([]byte(`[{"id":"aaaaaaaa-1111-1111-1111-111111111111","name":"Sijan","user_id":"user-1"}]`))
+			_, _ = w.Write([]byte(`[{"id":"aaaaaaaa-1111-1111-1111-111111111111","name":"Sijan","user_id":"user-1"}]`))
 			return
 		}
-		w.Write([]byte(state.partnerBody))
+		_, _ = w.Write([]byte(state.partnerBody))
 	})
 	supaMux.HandleFunc("POST /rest/v1/rpc/agent_create_action", func(w http.ResponseWriter, r *http.Request) {
 		state.mu.Lock()
@@ -184,35 +178,35 @@ func newLoopFixture(t *testing.T, llmResps []string, modelsBody string) (*Loop, 
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			w.Write([]byte(resp))
+			_, _ = w.Write([]byte(resp))
 			return
 		}
-		w.Write([]byte(`{"ok":true,"action_id":"act-1","status":"pending","preview_hash":"h","preview":{"detail":{}},"expires_at":"2030-01-01T00:00:00Z"}`))
+		_, _ = w.Write([]byte(`{"ok":true,"action_id":"act-1","status":"pending","preview_hash":"h","preview":{"detail":{}},"expires_at":"2030-01-01T00:00:00Z"}`))
 	})
 	supaMux.HandleFunc("GET /rest/v1/v_packet_stock", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`[]`))
+		_, _ = w.Write([]byte(`[]`))
 	})
 	supaMux.HandleFunc("GET /rest/v1/settings", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`[{"default_buy_rate":190,"default_sell_price":300,"default_packet_size":20}]`))
+		_, _ = w.Write([]byte(`[{"default_buy_rate":190,"default_sell_price":300,"default_packet_size":20}]`))
 	})
 	supaMux.HandleFunc("GET /rest/v1/v_chalan_summary", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`[{"chalan_id":"ch-1","code":"C-001"}]`))
+		_, _ = w.Write([]byte(`[{"chalan_id":"ch-1","code":"C-001"}]`))
 	})
 	supaMux.HandleFunc("GET /rest/v1/profiles", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`[{"display_name":"Sijan"}]`))
+		_, _ = w.Write([]byte(`[{"display_name":"Sijan"}]`))
 	})
 	supaMux.HandleFunc("POST /rest/v1/rpc/agent_get_provider_key", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`"sk-fake-provider-key"`))
+		_, _ = w.Write([]byte(`"sk-fake-provider-key"`))
 	})
 	models := modelsBody
 	if models == "" {
 		models = `[{"id":"m1","provider_id":"p1","model_id":"model-a","supports_tools":true,"is_default":true,"fallback_position":1},{"id":"m2","provider_id":"p1","model_id":"model-b","supports_tools":true,"is_default":false,"fallback_position":2}]`
 	}
 	supaMux.HandleFunc("GET /rest/v1/agent_models", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(models))
+		_, _ = w.Write([]byte(models))
 	})
 	supaMux.HandleFunc("GET /rest/v1/agent_providers", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`[{"id":"p1","name":"Fake","base_url":"` + llmTS.URL + `","extra_headers":{}}]`))
+		_, _ = w.Write([]byte(`[{"id":"p1","name":"Fake","base_url":"` + llmTS.URL + `","extra_headers":{}}]`))
 	})
 	supaTS := httptest.NewServer(supaMux)
 	t.Cleanup(supaTS.Close)
