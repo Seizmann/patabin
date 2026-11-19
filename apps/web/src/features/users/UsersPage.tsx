@@ -20,13 +20,23 @@ const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`;
 async function callFn(action: string, body: Record<string, unknown>): Promise<string> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
-  const res = await fetch(fnUrl, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, ...body }),
-  });
-  const json = (await res.json()) as { error?: string };
-  if (!res.ok) return json.error ?? 'সমস্যা হয়েছে';
+  let res: Response;
+  try {
+    res = await fetch(fnUrl, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...body }),
+    });
+  } catch {
+    return 'network';
+  }
+  let json: { error?: string } = {};
+  try {
+    json = (await res.json()) as { error?: string };
+  } catch {
+    // non-JSON response (e.g. gateway error) — fall through
+  }
+  if (!res.ok) return json.error ?? 'internal';
   return '';
 }
 
@@ -59,7 +69,8 @@ export default function UsersPage() {
     setError('');
     setOk('');
     const err = await callFn(action, body);
-    if (err) setError('কাজটি হয়নি।');
+    if (err === 'network') setError('সংযোগ করা যায়নি — ইন্টারনেট দেখে আবার চেষ্টা করুন।');
+    else if (err) setError('কাজটি হয়নি।');
     else {
       setOk('সম্পন্ন হয়েছে।');
       await qc.invalidateQueries({ queryKey: ['users'] });
@@ -78,7 +89,8 @@ export default function UsersPage() {
     setBusyId('create');
     const err = await callFn('create_user', { email, temp_password: tempPassword, display_name: displayName, role, partner_name: displayName });
     setBusyId('');
-    if (err) setError(err === 'email_taken' ? 'এই ইমেইল আগে থেকে আছে।' : 'কাজটি হয়নি।');
+    if (err === 'network') setError('সংযোগ করা যায়নি — ইন্টারনেট দেখে আবার চেষ্টা করুন।');
+    else if (err) setError(err === 'email_taken' ? 'এই ইমেইল আগে থেকে আছে।' : 'কাজটি হয়নি।');
     else {
       setOk('ব্যবহারকারী তৈরি হয়েছে; প্রথম প্রবেশে পাসওয়ার্ড বদলাতে হবে।');
       setCreating(false);
