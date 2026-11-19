@@ -24,15 +24,10 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Read Go version
-        id: go-version
-        shell: bash
-        run: printf 'version=%s\n' "$(awk '$1 == \"go\" { print $2; exit }' go.mod)" >> "$GITHUB_OUTPUT"
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ steps.go-version.outputs.version }}
+          go-version-file: apps/patabin-ai/go.mod
           cache-dependency-path: apps/patabin-ai/go.sum
 
       - name: Check formatting
