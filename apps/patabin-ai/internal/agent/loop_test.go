@@ -66,7 +66,7 @@ func (f *fakeLLM) handler() http.Handler {
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		for _, line := range strings.Split(resp, "\n") {
-			fmt.Fprintln(w, line)
+			_, _ = fmt.Fprintln(w, line)
 			if fl, ok := w.(http.Flusher); ok {
 				fl.Flush()
 			}

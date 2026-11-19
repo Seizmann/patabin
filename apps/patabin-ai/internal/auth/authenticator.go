@@ -90,7 +90,7 @@ func (j *jwksCache) fetch(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("jwks fetch failed: %w", err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("jwks fetch returned %d", res.StatusCode)
 	}
@@ -148,11 +148,7 @@ func parseEC(xB64, yB64 string) (*ecdsa.PublicKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ecdsa.PublicKey{
-		Curve: elliptic.P256(),
-		X:     new(big.Int).SetBytes(x),
-		Y:     new(big.Int).SetBytes(y),
-	}, nil
+	return ecdsa.ParseUncompressedPublicKey(elliptic.P256(), append(append([]byte{4}, x...), y...))
 }
 
 func parseRSA(nB64, eB64 string) (*rsa.PublicKey, error) {
@@ -283,7 +279,7 @@ func (a *Authenticator) verifyViaUserEndpoint(ctx context.Context, token string)
 	if err != nil {
 		return fmt.Errorf("%w: user check failed", ErrUnauthorized)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 1<<20))
 	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("%w: user check failed", ErrUnauthorized)

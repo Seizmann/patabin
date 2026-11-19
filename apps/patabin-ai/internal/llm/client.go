@@ -113,7 +113,7 @@ func (c *Client) StreamChat(ctx context.Context, provider ProviderConfig, model 
 	if err != nil {
 		return nil, fmt.Errorf("llm call failed: %w", err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode >= 400 {
 		_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 64<<10))
 		return nil, &ProviderError{Status: res.StatusCode}

@@ -65,7 +65,7 @@ func runHealthcheck() {
 	if err != nil {
 		os.Exit(1)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusOK {
 		os.Exit(1)
 	}

@@ -52,7 +52,7 @@ func (c *Client) Patch(ctx context.Context, path, token string, body any) ([]byt
 	if err != nil {
 		return nil, fmt.Errorf("postgrest call failed: %w", err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	data, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 	if err != nil {
 		return nil, fmt.Errorf("postgrest response read failed: %w", err)
@@ -101,7 +101,7 @@ func (c *Client) do(ctx context.Context, method, path, token string, body io.Rea
 	if err != nil {
 		return nil, fmt.Errorf("postgrest call failed: %w", err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	data, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 	if err != nil {
 		return nil, fmt.Errorf("postgrest response read failed: %w", err)
